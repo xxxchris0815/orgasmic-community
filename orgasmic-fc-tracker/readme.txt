@@ -3,10 +3,10 @@ Contributors: orgasmic
 Requires at least: 6.4
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.0.0
+Stable tag: 1.1.1
 License: GPLv2 or later
 
-Tracks FluentCommunity lesson progress and community engagement. Local admin dashboard plus optional outbound webhook.
+Tracks FluentCommunity lesson progress and community engagement. Local admin dashboard, optional outbound webhook, and inline Bunny Stream embeds.
 
 == Description ==
 
@@ -29,6 +29,12 @@ Does not track private chat/DM contents (FluentCommunity does not expose stable 
 4. Optional: set webhook URL under Einstellungen
 
 == Changelog ==
+
+= 1.1.1 =
+* Bunny Stream (player.mediadelivery.net) play links render as an inline player in the feed instead of an Open Graph preview card.
+
+= 1.1.0 =
+* Portal notices stay scoped to the FluentCommunity portal.
 
 = 1.0.0 =
 * Initial release
