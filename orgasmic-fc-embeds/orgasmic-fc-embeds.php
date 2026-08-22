@@ -3,7 +3,7 @@
  * Plugin Name: ORGAMSIC Bunny Embeds
  * Plugin URI: https://community.orgasmic.live
  * Description: Embeds Bunny Stream play links as an inline player in FluentCommunity feeds.
- * Version: 1.0.0
+ * Version: 1.0.1
  * Requires at least: 6.4
  * Requires PHP: 8.1
  * Author: ORGAMSIC
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('ORGAMSIC_FC_EMBEDS_VERSION', '1.0.0');
+define('ORGAMSIC_FC_EMBEDS_VERSION', '1.0.1');
 define('ORGAMSIC_FC_EMBEDS_FILE', __FILE__);
 define('ORGAMSIC_FC_EMBEDS_PATH', plugin_dir_path(__FILE__));
 define('ORGAMSIC_FC_EMBEDS_URL', plugin_dir_url(__FILE__));

@@ -17,3 +17,7 @@
   border: 0;
   display: block;
 }
+
+.orgasmic-bunny-embed + .orgasmic-bunny-embed {
+  display: none !important;
+}
