@@ -19,7 +19,7 @@ Eventkalender **im FluentCommunity-Portal**:
 
 Im Portal: Menüpunkt **Kalender** bzw. `#orgasmic-calendar`.
 
-WP-Admin: **ORGAMSIC Tracker → Kalender / Zoom** (Account ID, Client ID, Secret).
+WP-Admin: **ORGAMSIC Kalender → Einstellungen** (Zoom Account ID, Client ID, Secret).
 
 ## ORGAMSIC FluentCommunity Tracker
 

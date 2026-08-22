@@ -23,26 +23,24 @@ class Orgasmic_Fc_Events_Admin
 
     public function menu(): void
     {
+        add_menu_page(
+            'ORGAMSIC Kalender',
+            'ORGAMSIC Kalender',
+            'manage_options',
+            'orgasmic-fc-calendar',
+            [$this, 'render'],
+            'dashicons-calendar-alt',
+            59
+        );
+
         add_submenu_page(
-            'orgasmic-fc-tracker',
-            'Kalender / Zoom',
-            'Kalender / Zoom',
+            'orgasmic-fc-calendar',
+            'Einstellungen',
+            'Einstellungen',
             'manage_options',
             'orgasmic-fc-calendar',
             [$this, 'render']
         );
-
-        if (!class_exists('Orgasmic_Fc_Tracker')) {
-            add_menu_page(
-                'ORGAMSIC Kalender',
-                'ORGAMSIC Kalender',
-                'manage_options',
-                'orgasmic-fc-calendar',
-                [$this, 'render'],
-                'dashicons-calendar-alt',
-                59
-            );
-        }
     }
 
     public function settings(): void

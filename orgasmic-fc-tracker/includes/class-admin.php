@@ -118,7 +118,15 @@ class Orgasmic_Fc_Admin
 
     public function notices(): void
     {
-        if (!isset($_GET['page']) || strpos((string) $_GET['page'], 'orgasmic-fc') !== 0) {
+        $page = (string) ($_GET['page'] ?? '');
+        $tracker_pages = [
+            'orgasmic-fc-tracker',
+            'orgasmic-fc-members',
+            'orgasmic-fc-courses',
+            'orgasmic-fc-events',
+            'orgasmic-fc-settings',
+        ];
+        if (!in_array($page, $tracker_pages, true)) {
             return;
         }
 
