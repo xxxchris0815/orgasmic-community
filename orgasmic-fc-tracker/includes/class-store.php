@@ -31,6 +31,7 @@ class Orgasmic_Fc_Store
             'reactions' => 'Reaktionen',
             'spaces' => 'Spaces',
             'members' => 'Mitglieder & Punkte',
+            'events' => 'Kalender / RSVP',
         ];
     }
 
@@ -71,6 +72,20 @@ class Orgasmic_Fc_Store
 
         if (get_option(self::OPTION_INCLUDE_PII, null) === null) {
             update_option(self::OPTION_INCLUDE_PII, 1);
+        }
+    }
+
+    public function upgrade(): void
+    {
+        $this->install();
+        $schema = (string) get_option('orgasmic_fc_tracker_schema', '1.0.0');
+        if (version_compare($schema, '1.1.0', '<')) {
+            $enabled = get_option(self::OPTION_ENABLED_GROUPS, null);
+            if (is_array($enabled) && !in_array('events', $enabled, true)) {
+                $enabled[] = 'events';
+                update_option(self::OPTION_ENABLED_GROUPS, $enabled);
+            }
+            update_option('orgasmic_fc_tracker_schema', '1.1.0');
         }
     }
 
@@ -261,6 +276,7 @@ class Orgasmic_Fc_Store
                     SUM(event = 'comment.added') AS comments,
                     SUM(event IN ('feed.react_added','comment.react_added')) AS reactions,
                     SUM(event = 'space.joined') AS spaces_joined,
+                    SUM(event = 'event.rsvp') AS event_rsvps,
                     COUNT(*) AS events
                  FROM {$table}
                  WHERE user_id IS NOT NULL
@@ -376,6 +392,7 @@ class Orgasmic_Fc_Store
             + (int) $row['posts'] * 4
             + (int) $row['comments'] * 3
             + (int) $row['reactions']
-            + (int) $row['spaces_joined'] * 2;
+            + (int) $row['spaces_joined'] * 2
+            + (int) ($row['event_rsvps'] ?? 0) * 3;
     }
 }

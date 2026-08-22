@@ -367,11 +367,11 @@ class Orgasmic_Fc_Admin
     private function members_table(array $members): void
     {
         echo '<table class="widefat striped"><thead><tr>';
-        echo '<th>Mitglied</th><th>Score</th><th>Lektionen</th><th>Kurse</th><th>Posts</th><th>Kommentare</th><th>Reaktionen</th><th>Spaces</th><th>Zuletzt</th>';
+        echo '<th>Mitglied</th><th>Score</th><th>Lektionen</th><th>Kurse</th><th>Posts</th><th>Kommentare</th><th>Reaktionen</th><th>Spaces</th><th>RSVP</th><th>Zuletzt</th>';
         echo '</tr></thead><tbody>';
 
         if ($members === []) {
-            echo '<tr><td colspan="9">Noch keine Mitglieder-Events.</td></tr>';
+            echo '<tr><td colspan="10">Noch keine Mitglieder-Events.</td></tr>';
         }
 
         foreach ($members as $row) {
@@ -385,6 +385,7 @@ class Orgasmic_Fc_Admin
             echo '<td>' . (int) $row['comments'] . '</td>';
             echo '<td>' . (int) $row['reactions'] . '</td>';
             echo '<td>' . (int) $row['spaces_joined'] . '</td>';
+            echo '<td>' . (int) ($row['event_rsvps'] ?? 0) . '</td>';
             echo '<td>' . esc_html((string) $row['last_seen']) . '</td>';
             echo '</tr>';
         }

@@ -59,6 +59,14 @@ class Orgasmic_Fc_Hooks
         add_action('fluent_community/user_points_updated', [$this, 'on_points_updated'], 20, 2);
         add_action('fluent_community/user_level_upgraded', [$this, 'on_level_upgraded'], 20, 3);
         add_action('fluent_community/followed_user', [$this, 'on_followed_user'], 20, 2);
+
+        // Community calendar (ORGAMSIC Events plugin)
+        add_action('orgasmic_fc/event/created', [$this, 'on_cal_created'], 20, 2);
+        add_action('orgasmic_fc/event/updated', [$this, 'on_cal_updated'], 20, 2);
+        add_action('orgasmic_fc/event/deleted', [$this, 'on_cal_deleted'], 20, 2);
+        add_action('orgasmic_fc/event/viewed', [$this, 'on_cal_viewed'], 20, 2);
+        add_action('orgasmic_fc/event/rsvp', [$this, 'on_cal_rsvp'], 20, 4);
+        add_action('orgasmic_fc/event/reminder', [$this, 'on_cal_reminder'], 20, 3);
     }
 
     public function on_course_enrolled($course, $user_id, $by = 'self', $created = null): void
@@ -404,6 +412,57 @@ class Orgasmic_Fc_Hooks
                 'follow' => $this->model($follow, ['id', 'follower_id', 'following_id', 'status']),
             ],
         ]);
+    }
+
+    public function on_cal_created($event, $user_id): void
+    {
+        $this->record('events', 'event.created', (int) $user_id, $this->calendar_context($event));
+    }
+
+    public function on_cal_updated($event, $user_id): void
+    {
+        $this->record('events', 'event.updated', (int) $user_id, $this->calendar_context($event));
+    }
+
+    public function on_cal_deleted($event, $user_id): void
+    {
+        $this->record('events', 'event.deleted', (int) $user_id, $this->calendar_context($event));
+    }
+
+    public function on_cal_viewed($event, $user_id): void
+    {
+        $this->record('events', 'event.viewed', (int) $user_id, $this->calendar_context($event));
+    }
+
+    public function on_cal_rsvp($event, $user_id, $status = '', $previous = null): void
+    {
+        $ctx = $this->calendar_context($event);
+        $ctx['data']['rsvp'] = (string) $status;
+        $ctx['data']['previous'] = $previous;
+        $this->record('events', 'event.rsvp', (int) $user_id, $ctx);
+    }
+
+    public function on_cal_reminder($event, $minutes = 0, $user_ids = []): void
+    {
+        $ctx = $this->calendar_context($event);
+        $ctx['data']['minutes_before'] = (int) $minutes;
+        $ctx['data']['going_user_ids'] = array_values(array_map('intval', (array) $user_ids));
+        $this->record('events', 'event.reminder', null, $ctx);
+    }
+
+    private function calendar_context($event): array
+    {
+        $row = is_array($event) ? $event : [];
+        return [
+            'object_type' => 'calendar_event',
+            'object_id' => (int) ($row['id'] ?? 0),
+            'data' => [
+                'title' => $row['title'] ?? '',
+                'starts_at' => $row['starts_at'] ?? null,
+                'visibility' => $row['visibility'] ?? null,
+                'space_ids' => $row['space_ids'] ?? null,
+            ],
+        ];
     }
 
     private function record(string $group, string $event, ?int $user_id, array $context = []): void
