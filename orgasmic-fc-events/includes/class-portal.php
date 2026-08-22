@@ -39,10 +39,15 @@ class Orgasmic_Fc_Events_Portal
             return;
         }
         $booted = true;
+        $settings = Orgasmic_Fc_Events_Install::portal_settings();
         $data = [
             'root' => esc_url_raw(rest_url('orgasmic-events/v1/')),
             'nonce' => wp_create_nonce('wp_rest'),
             'canManage' => $this->access->can_manage(),
+            'subtitle' => $settings['subtitle'],
+            'appearance' => $settings['appearance'],
+            'accent' => $settings['accent'],
+            'hasToday' => $this->today_has_events(),
         ];
         echo '<script>window.OrgasmicFcEvents = ' . wp_json_encode($data) . ';</script>';
         echo '<script src="' . esc_url(ORGAMSIC_FC_EVENTS_URL . 'assets/portal.js?ver=' . rawurlencode(ORGAMSIC_FC_EVENTS_VERSION)) . '" defer></script>';
@@ -54,9 +59,13 @@ class Orgasmic_Fc_Events_Portal
         if (!$auth && !is_user_logged_in()) {
             return;
         }
-        echo '<li class="top_menu_item fcom_icon_link orgasmic-cal-nav">';
-        echo '<a href="#orgasmic-calendar" data-orgasmic-calendar="1"><span>Kalender</span></a>';
-        echo '</li>';
+        $today = $this->today_has_events();
+        echo '<li class="top_menu_item fcom_icon_link orgasmic-cal-nav' . ($today ? ' has-today' : '') . '">';
+        echo '<a href="#orgasmic-calendar" data-orgasmic-calendar="1"><span>Kalender</span>';
+        if ($today) {
+            echo '<span class="oc-nav-dot" title="Heute findet ein Event statt"></span>';
+        }
+        echo '</a></li>';
     }
 
     public function menu_items($items, $scope = null)
@@ -65,7 +74,7 @@ class Orgasmic_Fc_Events_Portal
             return $items;
         }
         $items[] = [
-            'title' => 'Kalender',
+            'title' => $this->today_has_events() ? 'Kalender · heute' : 'Kalender',
             'permalink' => '#orgasmic-calendar',
             'slug' => 'orgasmic-calendar',
             'icon' => 'el-icon-date',
@@ -77,5 +86,61 @@ class Orgasmic_Fc_Events_Portal
     public function mobile_menu($items)
     {
         return $this->menu_items($items);
+    }
+
+    private function today_has_events(): bool
+    {
+        static $cached = null;
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $user_id = get_current_user_id();
+        if (!$user_id) {
+            $cached = false;
+            return false;
+        }
+
+        $tz_name = (string) get_option(Orgasmic_Fc_Events_Install::OPTION_DEFAULT_TZ, 'Europe/Berlin');
+        try {
+            $tz = new DateTimeZone($tz_name);
+        } catch (Exception $e) {
+            $tz = new DateTimeZone('Europe/Berlin');
+        }
+
+        $from = (new DateTimeImmutable('today', $tz))->modify('-1 day')->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+        $to = (new DateTimeImmutable('tomorrow', $tz))->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+        $repo = new Orgasmic_Fc_Events_Repository();
+        $rows = $repo->query_visible(
+            $this->access->user_space_ids($user_id),
+            $this->access->can_manage($user_id),
+            ['from' => $from, 'to' => $to, 'limit' => 80]
+        );
+
+        $today = (new DateTimeImmutable('now', $tz))->format('Y-m-d');
+        foreach ($rows as $row) {
+            try {
+                $event_tz = new DateTimeZone((string) ($row['timezone'] ?: $tz_name));
+            } catch (Exception $e) {
+                $event_tz = $tz;
+            }
+            $start = (new DateTimeImmutable((string) $row['starts_at'] . ' UTC'))->setTimezone($event_tz);
+            if ($start->format('Y-m-d') === $today) {
+                $cached = true;
+                return true;
+            }
+            if (!empty($row['ends_at'])) {
+                $end = (new DateTimeImmutable((string) $row['ends_at'] . ' UTC'))->setTimezone($event_tz);
+                $day_start = new DateTimeImmutable($today . ' 00:00:00', $event_tz);
+                $day_end = $day_start->modify('+1 day');
+                if ($start < $day_end && $end >= $day_start) {
+                    $cached = true;
+                    return true;
+                }
+            }
+        }
+
+        $cached = false;
+        return false;
     }
 }

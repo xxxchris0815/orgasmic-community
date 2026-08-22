@@ -2,17 +2,37 @@
   position: fixed;
   inset: 0;
   z-index: 99990;
-  background: color-mix(in srgb, var(--fcom-bg, #140e12) 92%, black);
-  color: var(--fcom-text, #f6efe8);
   overflow: auto;
   font-family: inherit;
+  background: var(--oc-bg, var(--el-bg-color-page, var(--el-bg-color, #fff)));
+  color: var(--oc-text, var(--el-text-color-primary, inherit));
+}
+
+.orgamsic-cal-overlay.oc-theme-auto {
+  --oc-bg: var(--oc-portal-bg, var(--el-bg-color-page, var(--el-bg-color, #fff)));
+  --oc-text: var(--oc-portal-text, var(--el-text-color-primary, inherit));
+  --oc-card: var(--oc-portal-card, var(--el-bg-color, #fff));
+  --oc-line: var(--oc-portal-line, var(--el-border-color, rgba(15, 23, 42, 0.12)));
+  --oc-accent: var(--oc-accent-set, var(--el-color-primary, #409eff));
+}
+
+.orgamsic-cal-overlay.oc-theme-light {
+  --oc-bg: #f7f8fa;
+  --oc-text: #1d2327;
+  --oc-card: #ffffff;
+  --oc-line: rgba(15, 23, 42, 0.1);
+  --oc-accent: var(--oc-accent-set, #409eff);
+}
+
+.orgamsic-cal-overlay.oc-theme-dark {
+  --oc-bg: #1a1c1e;
+  --oc-text: #f3f4f6;
+  --oc-card: #242628;
+  --oc-line: rgba(255, 255, 255, 0.12);
+  --oc-accent: var(--oc-accent-set, #79bbff);
 }
 
 .orgamsic-cal {
-  --oc-accent: #e39aa8;
-  --oc-accent-2: #c46b7a;
-  --oc-card: color-mix(in srgb, var(--fcom-card, #23181d) 88%, white 2%);
-  --oc-line: color-mix(in srgb, currentColor 12%, transparent);
   max-width: 1120px;
   margin: 0 auto;
   padding: 28px 20px 80px;
@@ -34,7 +54,7 @@
 }
 
 .orgamsic-cal .oc-sub {
-  opacity: 0.7;
+  opacity: 0.72;
   margin: 0;
 }
 
@@ -47,12 +67,12 @@
 .orgamsic-cal button,
 .orgamsic-cal .oc-btn {
   border: 0;
-  border-radius: 999px;
+  border-radius: 8px;
   padding: 10px 16px;
   cursor: pointer;
   font: inherit;
-  background: var(--oc-accent);
-  color: #2a1016;
+  background: var(--oc-accent, #409eff);
+  color: #fff;
   font-weight: 600;
   text-decoration: none;
   display: inline-flex;
@@ -87,7 +107,7 @@
 }
 
 .orgamsic-cal-grid .oc-dow {
-  opacity: 0.5;
+  opacity: 0.55;
   font-size: 12px;
   text-align: center;
   padding: 4px 0 8px;
@@ -101,17 +121,26 @@
   padding: 8px;
 }
 
+.orgamsic-cal-grid .oc-day.oc-clickable {
+  cursor: pointer;
+}
+
 .orgamsic-cal-grid .oc-day.oc-mute {
-  opacity: 0.35;
+  opacity: 0.4;
 }
 
 .orgamsic-cal-grid .oc-day.oc-today {
-  outline: 1px solid var(--oc-accent);
+  outline: 2px solid var(--oc-accent, #409eff);
+  outline-offset: -1px;
+}
+
+.orgamsic-cal-grid .oc-day.oc-has-live {
+  box-shadow: inset 0 0 0 1px var(--oc-accent, #409eff);
 }
 
 .orgamsic-cal-grid .oc-num {
   font-size: 12px;
-  opacity: 0.65;
+  opacity: 0.7;
 }
 
 .orgamsic-cal-grid .oc-pill {
@@ -120,12 +149,17 @@
   font-size: 11px;
   padding: 4px 6px;
   border-radius: 8px;
-  background: color-mix(in srgb, var(--oc-accent) 22%, transparent);
+  background: color-mix(in srgb, var(--oc-accent, #409eff) 18%, transparent);
   color: inherit;
   text-decoration: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.orgamsic-cal-grid .oc-pill.oc-live {
+  background: var(--oc-accent, #409eff);
+  color: #fff;
 }
 
 .orgamsic-cal-list {
@@ -139,10 +173,14 @@
   grid-template-columns: 168px 1fr;
   background: var(--oc-card);
   border: 1px solid var(--oc-line);
-  border-radius: 18px;
+  border-radius: 16px;
   overflow: hidden;
   text-decoration: none;
   color: inherit;
+}
+
+.orgamsic-cal-card.oc-today-card {
+  border-color: var(--oc-accent, #409eff);
 }
 
 .orgamsic-cal-card img,
@@ -151,7 +189,7 @@
   height: 100%;
   min-height: 140px;
   object-fit: cover;
-  background: linear-gradient(145deg, #3a242c, #1a1014);
+  background: color-mix(in srgb, var(--oc-accent, #409eff) 18%, var(--oc-card));
 }
 
 .orgamsic-cal-card .oc-body {
@@ -169,7 +207,7 @@
   flex-wrap: wrap;
   gap: 8px;
   font-size: 13px;
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
 .orgamsic-cal-spaces span {
@@ -178,12 +216,48 @@
   padding: 2px 8px;
 }
 
+.oc-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--oc-accent, #409eff) 16%, transparent);
+  color: inherit;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.oc-badge.oc-now {
+  background: var(--oc-accent, #409eff);
+  color: #fff;
+}
+
+.orgasmic-cal-nav.has-today a,
+a[data-orgasmic-calendar].has-today,
+a[href="#orgasmic-calendar"].has-today {
+  position: relative;
+}
+
+.oc-nav-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--el-color-primary, #409eff);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--el-color-primary, #409eff) 25%, transparent);
+  vertical-align: middle;
+}
+
 .orgamsic-cal-detail .oc-hero {
-  border-radius: 20px;
+  border-radius: 16px;
   overflow: hidden;
   margin-bottom: 20px;
-  min-height: 220px;
-  background: linear-gradient(145deg, #3a242c, #1a1014);
+  min-height: 180px;
+  background: color-mix(in srgb, var(--oc-accent, #409eff) 14%, var(--oc-card));
 }
 
 .orgamsic-cal-detail .oc-hero img {
@@ -201,7 +275,7 @@
 }
 
 .orgamsic-cal-rsvp button.is-on {
-  box-shadow: 0 0 0 2px #fff3;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--oc-accent, #409eff) 45%, transparent);
 }
 
 .orgamsic-cal-people {
@@ -235,11 +309,16 @@
 .orgamsic-cal-form .oc-editor {
   width: 100%;
   padding: 10px 12px;
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid var(--oc-line);
-  background: color-mix(in srgb, black 20%, transparent);
+  background: var(--oc-card);
   color: inherit;
   font: inherit;
+}
+
+.orgamsic-cal-form input[type="date"],
+.orgamsic-cal-form input[type="time"] {
+  min-height: 42px;
 }
 
 .orgamsic-cal-form .oc-editor {
@@ -258,6 +337,12 @@
   gap: 12px;
 }
 
+.orgamsic-cal-form .oc-row-4 {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr 1.2fr 0.8fr;
+  gap: 12px;
+}
+
 .orgamsic-cal-desc {
   line-height: 1.55;
 }
@@ -268,12 +353,20 @@
   opacity: 0.7;
 }
 
+@media (max-width: 900px) {
+  .orgamsic-cal-form .oc-row-4 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 @media (max-width: 720px) {
   .orgamsic-cal-card,
-  .orgamsic-cal-form .oc-row {
+  .orgamsic-cal-form .oc-row,
+  .orgamsic-cal-form .oc-row-4 {
     grid-template-columns: 1fr;
   }
-  .orgamsic-cal-grid {
-    display: none;
+  .orgamsic-cal-grid .oc-day {
+    min-height: 64px;
+    padding: 6px 4px;
   }
 }

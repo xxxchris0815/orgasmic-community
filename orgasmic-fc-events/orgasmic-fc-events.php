@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ORGAMSIC Community Kalender
  * Description: Event calendar inside FluentCommunity with space-based visibility, RSVP, Zoom Server-to-Server meetings, activity-stream sharing, reminders, and REST API.
- * Version: 1.0.1
+ * Version: 1.0.2
  * Requires at least: 6.4
  * Requires PHP: 8.1
  * Author: ORGAMSIC
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('ORGAMSIC_FC_EVENTS_VERSION', '1.0.1');
+define('ORGAMSIC_FC_EVENTS_VERSION', '1.0.2');
 define('ORGAMSIC_FC_EVENTS_FILE', __FILE__);
 define('ORGAMSIC_FC_EVENTS_PATH', plugin_dir_path(__FILE__));
 define('ORGAMSIC_FC_EVENTS_URL', plugin_dir_url(__FILE__));

@@ -16,6 +16,28 @@ class Orgasmic_Fc_Events_Install
     public const OPTION_API_KEY = 'orgasmic_fc_events_api_key';
     public const OPTION_DEFAULT_REMINDERS = 'orgasmic_fc_events_default_reminders';
     public const OPTION_DEFAULT_TZ = 'orgasmic_fc_events_timezone';
+    public const OPTION_SUBTITLE = 'orgasmic_fc_events_subtitle';
+    public const OPTION_APPEARANCE = 'orgasmic_fc_events_appearance';
+    public const OPTION_ACCENT = 'orgasmic_fc_events_accent';
+    public const DEFAULT_SUBTITLE = 'Termine für deine Kreise — RSVP, Zoom, wer dabei ist.';
+
+    public static function portal_settings(): array
+    {
+        $subtitle = (string) get_option(self::OPTION_SUBTITLE, self::DEFAULT_SUBTITLE);
+        if (trim($subtitle) === '') {
+            $subtitle = self::DEFAULT_SUBTITLE;
+        }
+        $appearance = (string) get_option(self::OPTION_APPEARANCE, 'auto');
+        if (!in_array($appearance, ['auto', 'light', 'dark'], true)) {
+            $appearance = 'auto';
+        }
+
+        return [
+            'subtitle' => $subtitle,
+            'appearance' => $appearance,
+            'accent' => sanitize_hex_color((string) get_option(self::OPTION_ACCENT, '')) ?: '',
+        ];
+    }
 
     public static function events_table(): string
     {
@@ -46,6 +68,14 @@ class Orgasmic_Fc_Events_Install
 
         if (get_option(self::OPTION_DEFAULT_TZ, null) === null) {
             update_option(self::OPTION_DEFAULT_TZ, wp_timezone_string() ?: 'Europe/Berlin');
+        }
+
+        if (get_option(self::OPTION_SUBTITLE, null) === null) {
+            update_option(self::OPTION_SUBTITLE, self::DEFAULT_SUBTITLE);
+        }
+
+        if (get_option(self::OPTION_APPEARANCE, null) === null) {
+            update_option(self::OPTION_APPEARANCE, 'auto');
         }
 
         if (!wp_next_scheduled('orgasmic_fc_events_reminders')) {

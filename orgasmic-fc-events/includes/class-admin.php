@@ -51,6 +51,14 @@ class Orgasmic_Fc_Events_Admin
             Orgasmic_Fc_Events_Install::OPTION_ZOOM_SECRET => 'sanitize_text_field',
             Orgasmic_Fc_Events_Install::OPTION_API_KEY => 'sanitize_text_field',
             Orgasmic_Fc_Events_Install::OPTION_DEFAULT_TZ => 'sanitize_text_field',
+            Orgasmic_Fc_Events_Install::OPTION_SUBTITLE => 'sanitize_textarea_field',
+            Orgasmic_Fc_Events_Install::OPTION_APPEARANCE => static function ($value) {
+                $value = sanitize_text_field((string) $value);
+                return in_array($value, ['auto', 'light', 'dark'], true) ? $value : 'auto';
+            },
+            Orgasmic_Fc_Events_Install::OPTION_ACCENT => static function ($value) {
+                return sanitize_hex_color((string) $value) ?: '';
+            },
         ] as $option => $cb) {
             register_setting('orgasmic_fc_events', $option, ['sanitize_callback' => $cb]);
         }
@@ -110,6 +118,25 @@ class Orgasmic_Fc_Events_Admin
 
         echo '<h2>Allgemein</h2><table class="form-table">';
         $this->field('Standard-Zeitzone', Orgasmic_Fc_Events_Install::OPTION_DEFAULT_TZ, 'text', 'Europe/Berlin');
+        echo '<tr><th>Kalender-Untertitel</th><td>';
+        echo '<textarea class="large-text" rows="2" name="' . esc_attr(Orgasmic_Fc_Events_Install::OPTION_SUBTITLE) . '">';
+        echo esc_textarea((string) get_option(Orgasmic_Fc_Events_Install::OPTION_SUBTITLE, Orgasmic_Fc_Events_Install::DEFAULT_SUBTITLE));
+        echo '</textarea>';
+        echo '<p class="description">Text unter der Überschrift „Kalender“ im Portal.</p></td></tr>';
+        $appearance = (string) get_option(Orgasmic_Fc_Events_Install::OPTION_APPEARANCE, 'auto');
+        echo '<tr><th>Erscheinungsbild</th><td><select name="' . esc_attr(Orgasmic_Fc_Events_Install::OPTION_APPEARANCE) . '">';
+        foreach ([
+            'auto' => 'Wie FluentCommunity (empfohlen)',
+            'light' => 'Hell',
+            'dark' => 'Dunkel',
+        ] as $value => $label) {
+            echo '<option value="' . esc_attr($value) . '"' . selected($appearance, $value, false) . '>' . esc_html($label) . '</option>';
+        }
+        echo '</select><p class="description">„Wie FluentCommunity“ übernimmt Hintergrund und Textfarbe aus dem Portal (Hell- oder Dunkelmodus).</p></td></tr>';
+        $accent = (string) get_option(Orgasmic_Fc_Events_Install::OPTION_ACCENT, '');
+        echo '<tr><th>Akzentfarbe</th><td>';
+        echo '<input type="color" name="' . esc_attr(Orgasmic_Fc_Events_Install::OPTION_ACCENT) . '" value="' . esc_attr($accent !== '' ? $accent : '#409eff') . '" />';
+        echo '<p class="description">Buttons, „Heute“-Indikator und Hervorhebungen. Leer lassen geht nicht beim Color-Picker — Standard ist die FluentCommunity-Primärfarbe.</p></td></tr>';
         echo '<tr><th>Standard-Reminder</th><td><input class="regular-text" name="' . esc_attr(Orgasmic_Fc_Events_Install::OPTION_DEFAULT_REMINDERS) . '" value="' . esc_attr(implode(', ', $reminders)) . '" />';
         echo '<p class="description">Minuten vor Start, kommagetrennt. Beispiel: <code>10080, 1440, 60</code> (1 Woche, 1 Tag, 1 Stunde). Werden als Webhook <code>event.reminder</code> über den Tracker gefeuert.</p></td></tr>';
         $this->field('REST API Key', Orgasmic_Fc_Events_Install::OPTION_API_KEY, 'text', '', 'Header <code>X-Orgasmic-Key</code> für Create/Update/Delete ohne WP-Session (n8n).');

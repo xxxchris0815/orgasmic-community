@@ -103,6 +103,7 @@ class Orgasmic_Fc_Events_Rest
             'my_space_ids' => $this->access->user_space_ids($user_id),
             'zoom_configured' => $this->zoom->configured(),
             'default_reminders' => get_option(Orgasmic_Fc_Events_Install::OPTION_DEFAULT_REMINDERS, [1440, 60]),
+            'portal' => Orgasmic_Fc_Events_Install::portal_settings(),
             'user' => [
                 'id' => $user_id,
                 'display_name' => wp_get_current_user()->display_name,
@@ -172,11 +173,15 @@ class Orgasmic_Fc_Events_Rest
         }
 
         if (!empty($payload['share_to_feed'])) {
-            $feed_ids = $this->feed->share($event, $this->access);
-            if ($feed_ids !== []) {
-                $this->repo->update($id, ['feed_ids' => $feed_ids, 'share_to_feed' => 1]);
+            $shared = $this->feed->share($event, $this->access);
+            if ($shared['ids'] !== []) {
+                $this->repo->update($id, ['feed_ids' => $shared['ids'], 'share_to_feed' => 1]);
                 $event = $this->repo->find($id) ?: $event;
             }
+            $presented = $this->present($event, get_current_user_id(), true, true);
+            $presented['feed_share_error'] = $shared['error'];
+            do_action('orgasmic_fc/event/created', $event, get_current_user_id());
+            return rest_ensure_response($presented);
         }
 
         do_action('orgasmic_fc/event/created', $event, get_current_user_id());
@@ -198,8 +203,24 @@ class Orgasmic_Fc_Events_Rest
 
         $this->repo->update((int) $existing['id'], $payload);
         $event = $this->repo->find((int) $existing['id']);
+
+        $feed_error = '';
+        if (!empty($payload['share_to_feed'])) {
+            $existing_feeds = $this->access->decode_ids($event['feed_ids'] ?? '[]');
+            if ($existing_feeds === []) {
+                $shared = $this->feed->share($event, $this->access);
+                $feed_error = $shared['error'];
+                if ($shared['ids'] !== []) {
+                    $this->repo->update((int) $event['id'], ['feed_ids' => $shared['ids'], 'share_to_feed' => 1]);
+                    $event = $this->repo->find((int) $event['id']) ?: $event;
+                }
+            }
+        }
+
         do_action('orgasmic_fc/event/updated', $event, get_current_user_id());
-        return rest_ensure_response($this->present($event, get_current_user_id(), true, true));
+        $presented = $this->present($event, get_current_user_id(), true, true);
+        $presented['feed_share_error'] = $feed_error;
+        return rest_ensure_response($presented);
     }
 
     public function delete_event(WP_REST_Request $request)
@@ -386,6 +407,7 @@ class Orgasmic_Fc_Events_Rest
                 $item['external_url'] = $event['external_url'];
                 $item['space_ids'] = $space_ids;
                 $item['share_to_feed'] = (bool) $event['share_to_feed'];
+                $item['feed_ids'] = $this->access->decode_ids($event['feed_ids'] ?? '[]');
             }
         }
 
