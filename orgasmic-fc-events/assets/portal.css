@@ -1,0 +1,279 @@
+.orgamsic-cal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99990;
+  background: color-mix(in srgb, var(--fcom-bg, #140e12) 92%, black);
+  color: var(--fcom-text, #f6efe8);
+  overflow: auto;
+  font-family: inherit;
+}
+
+.orgamsic-cal {
+  --oc-accent: #e39aa8;
+  --oc-accent-2: #c46b7a;
+  --oc-card: color-mix(in srgb, var(--fcom-card, #23181d) 88%, white 2%);
+  --oc-line: color-mix(in srgb, currentColor 12%, transparent);
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 28px 20px 80px;
+}
+
+.orgamsic-cal header.orgamsic-cal-top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.orgamsic-cal h1 {
+  font-size: 32px;
+  letter-spacing: -0.03em;
+  margin: 0 0 6px;
+  font-weight: 650;
+}
+
+.orgamsic-cal .oc-sub {
+  opacity: 0.7;
+  margin: 0;
+}
+
+.orgamsic-cal-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.orgamsic-cal button,
+.orgamsic-cal .oc-btn {
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font: inherit;
+  background: var(--oc-accent);
+  color: #2a1016;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.orgamsic-cal button.oc-ghost,
+.orgamsic-cal .oc-btn.oc-ghost {
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--oc-line);
+}
+
+.orgamsic-cal button.oc-close {
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--oc-line);
+}
+
+.orgamsic-cal-month {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.orgamsic-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.orgamsic-cal-grid .oc-dow {
+  opacity: 0.5;
+  font-size: 12px;
+  text-align: center;
+  padding: 4px 0 8px;
+}
+
+.orgamsic-cal-grid .oc-day {
+  min-height: 92px;
+  background: var(--oc-card);
+  border: 1px solid var(--oc-line);
+  border-radius: 12px;
+  padding: 8px;
+}
+
+.orgamsic-cal-grid .oc-day.oc-mute {
+  opacity: 0.35;
+}
+
+.orgamsic-cal-grid .oc-day.oc-today {
+  outline: 1px solid var(--oc-accent);
+}
+
+.orgamsic-cal-grid .oc-num {
+  font-size: 12px;
+  opacity: 0.65;
+}
+
+.orgamsic-cal-grid .oc-pill {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--oc-accent) 22%, transparent);
+  color: inherit;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orgamsic-cal-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 28px;
+}
+
+.orgamsic-cal-card {
+  display: grid;
+  grid-template-columns: 168px 1fr;
+  background: var(--oc-card);
+  border: 1px solid var(--oc-line);
+  border-radius: 18px;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+}
+
+.orgamsic-cal-card img,
+.orgamsic-cal-cover {
+  width: 100%;
+  height: 100%;
+  min-height: 140px;
+  object-fit: cover;
+  background: linear-gradient(145deg, #3a242c, #1a1014);
+}
+
+.orgamsic-cal-card .oc-body {
+  padding: 16px 18px;
+}
+
+.orgamsic-cal-card h3 {
+  margin: 0 0 6px;
+  font-size: 20px;
+}
+
+.orgamsic-cal-meta,
+.orgamsic-cal-spaces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.orgamsic-cal-spaces span {
+  border: 1px solid var(--oc-line);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.orgamsic-cal-detail .oc-hero {
+  border-radius: 20px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  min-height: 220px;
+  background: linear-gradient(145deg, #3a242c, #1a1014);
+}
+
+.orgamsic-cal-detail .oc-hero img {
+  width: 100%;
+  max-height: 360px;
+  object-fit: cover;
+  display: block;
+}
+
+.orgamsic-cal-rsvp {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 18px 0;
+}
+
+.orgamsic-cal-rsvp button.is-on {
+  box-shadow: 0 0 0 2px #fff3;
+}
+
+.orgamsic-cal-people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.orgamsic-cal-people figure {
+  margin: 0;
+  width: 72px;
+  text-align: center;
+  font-size: 12px;
+}
+
+.orgamsic-cal-people img {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.orgamsic-cal-form {
+  display: grid;
+  gap: 12px;
+}
+
+.orgamsic-cal-form input,
+.orgamsic-cal-form select,
+.orgamsic-cal-form textarea,
+.orgamsic-cal-form .oc-editor {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--oc-line);
+  background: color-mix(in srgb, black 20%, transparent);
+  color: inherit;
+  font: inherit;
+}
+
+.orgamsic-cal-form .oc-editor {
+  min-height: 140px;
+}
+
+.orgamsic-cal-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.orgamsic-cal-form .oc-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.orgamsic-cal-desc {
+  line-height: 1.55;
+}
+
+.orgamsic-cal-empty {
+  padding: 40px 10px;
+  text-align: center;
+  opacity: 0.7;
+}
+
+@media (max-width: 720px) {
+  .orgamsic-cal-card,
+  .orgamsic-cal-form .oc-row {
+    grid-template-columns: 1fr;
+  }
+  .orgamsic-cal-grid {
+    display: none;
+  }
+}
