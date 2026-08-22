@@ -4,6 +4,14 @@ WordPress-Begleitplugins für [community.orgasmic.live](https://community.orgasm
 
 Moved from `evolution-api` (`Extras/orgasmic-community`).
 
+## Plugins
+
+| Plugin | Version | Aufgabe |
+| --- | --- | --- |
+| `orgasmic-fc-tracker/` | **1.2.0** | Engagement-Tracker, Dashboard, Evolution-Webhook |
+| `orgasmic-fc-events/` | **1.0.3** | Kalender im Portal (RSVP, Zoom, Activity Stream) |
+| `orgasmic-fc-embeds/` | **1.0.0** | Bunny Stream Links als inline Player im Feed |
+
 ## ORGAMSIC Community Kalender
 
 Plugin-Ordner: `orgasmic-fc-events/`
@@ -21,15 +29,28 @@ Im Portal: Menüpunkt **Kalender** bzw. `#orgasmic-calendar`.
 
 WP-Admin: **ORGAMSIC Kalender → Einstellungen** (Zoom, Untertitel, Erscheinungsbild, Akzentfarbe).
 
+ZIP: [`orgasmic-fc-events-1.0.3.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-events-1.0.3.zip)
+
 ## ORGAMSIC FluentCommunity Tracker
 
 Plugin-Ordner: `orgasmic-fc-tracker/`
 
 - FluentCommunity-Core-Hooks + Kalender-Interaktionen (`event.created`, `event.rsvp`, `event.viewed`, `event.reminder`, …)
 - Dashboard und optionaler JSON-Webhook
-- Bunny Stream (`player.mediadelivery.net/play/...`) wird im Feed als eingebetteter Player angezeigt und startet automatisch
 
-Aktuelles ZIP: [`orgasmic-fc-tracker-1.1.3.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-tracker-1.1.3.zip)
+ZIP: [`orgasmic-fc-tracker-1.2.0.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-tracker-1.2.0.zip)
+
+## ORGAMSIC Bunny Embeds
+
+Plugin-Ordner: `orgasmic-fc-embeds/`
+
+- `player.mediadelivery.net/play/...` wird im Feed als eingebetteter Player angezeigt
+- Autoplay, ein Player pro Post
+- Unabhängig vom Tracker
+
+ZIP: [`orgasmic-fc-embeds-1.0.0.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-embeds-1.0.0.zip)
+
+Falls der iframe leer bleibt: in Bunny Stream → Allowed Domains `community.orgasmic.live` eintragen.
 
 ### Installation
 
@@ -38,10 +59,13 @@ cp -a orgasmic-fc-tracker \
   /opt/community/data/wordpress/wp-content/plugins/
 cp -a orgasmic-fc-events \
   /opt/community/data/wordpress/wp-content/plugins/
+cp -a orgasmic-fc-embeds \
+  /opt/community/data/wordpress/wp-content/plugins/
 
 cd /opt/community
 docker compose --profile tools run --rm wpcli plugin activate orgasmic-fc-tracker
 docker compose --profile tools run --rm wpcli plugin activate orgasmic-fc-events
+docker compose --profile tools run --rm wpcli plugin activate orgasmic-fc-embeds
 ```
 
 TEC / FluentCommunity-Events-Beta nicht parallel zum ORGAMSIC-Kalender betreiben.

@@ -6,7 +6,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-class Orgasmic_Fc_Embeds
+class Orgasmic_Fc_Bunny_Embeds
 {
     public const PATTERN = '#https?://(?:iframe|player)\.mediadelivery\.net/(?:embed|play)/([0-9]+)/([0-9a-fA-F-]{8,})#i';
 
@@ -79,7 +79,7 @@ class Orgasmic_Fc_Embeds
 
     public function assets(): void
     {
-        $css = ORGAMSIC_FC_TRACKER_URL . 'assets/embeds.css?ver=' . rawurlencode(ORGAMSIC_FC_TRACKER_VERSION);
+        $css = ORGAMSIC_FC_EMBEDS_URL . 'assets/embeds.css?ver=' . rawurlencode(ORGAMSIC_FC_EMBEDS_VERSION);
         echo '<link rel="stylesheet" href="' . esc_url($css) . '" />';
     }
 
@@ -90,7 +90,7 @@ class Orgasmic_Fc_Embeds
             return;
         }
         $booted = true;
-        echo '<script src="' . esc_url(ORGAMSIC_FC_TRACKER_URL . 'assets/embeds.js?ver=' . rawurlencode(ORGAMSIC_FC_TRACKER_VERSION)) . '" defer></script>';
+        echo '<script src="' . esc_url(ORGAMSIC_FC_EMBEDS_URL . 'assets/embeds.js?ver=' . rawurlencode(ORGAMSIC_FC_EMBEDS_VERSION)) . '" defer></script>';
     }
 
     /**
