@@ -235,6 +235,34 @@
   color: #fff;
 }
 
+.orgasmic-cal-nav a {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 36px;
+  color: inherit;
+}
+
+.orgasmic-cal-nav .oc-nav-icon {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+
+.orgasmic-cal-nav .oc-nav-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .orgasmic-cal-nav.has-today a,
 a[data-orgasmic-calendar].has-today,
 a[href="#orgasmic-calendar"].has-today {
@@ -242,14 +270,15 @@ a[href="#orgasmic-calendar"].has-today {
 }
 
 .oc-nav-dot {
-  display: inline-block;
+  position: absolute;
+  top: 4px;
+  right: 3px;
   width: 8px;
   height: 8px;
-  margin-left: 6px;
+  margin: 0;
   border-radius: 50%;
   background: var(--el-color-primary, #409eff);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--el-color-primary, #409eff) 25%, transparent);
-  vertical-align: middle;
+  box-shadow: 0 0 0 2px var(--oc-bg, var(--el-bg-color, #fff));
 }
 
 .orgamsic-cal-detail .oc-hero {
@@ -360,13 +389,108 @@ a[href="#orgasmic-calendar"].has-today {
 }
 
 @media (max-width: 720px) {
+  .orgamsic-cal-overlay {
+    -webkit-overflow-scrolling: touch;
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .orgamsic-cal {
+    padding: 12px 12px calc(28px + env(safe-area-inset-bottom));
+  }
+
+  .orgamsic-cal header.orgamsic-cal-top {
+    flex-direction: column;
+    align-items: stretch;
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    gap: 12px;
+    margin: 0 0 16px;
+    padding-bottom: 12px;
+    background: var(--oc-bg, inherit);
+  }
+
+  .orgamsic-cal h1 {
+    font-size: 24px;
+  }
+
+  .orgamsic-cal-actions {
+    width: 100%;
+  }
+
+  .orgamsic-cal-actions .oc-btn,
+  .orgamsic-cal-actions button {
+    flex: 1;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .orgamsic-cal-month {
+    justify-content: space-between;
+  }
+
+  .orgamsic-cal-month button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .orgamsic-cal-grid {
+    gap: 3px;
+  }
+
+  .orgamsic-cal-grid .oc-dow {
+    font-size: 11px;
+    padding: 0 0 6px;
+  }
+
+  .orgamsic-cal-grid .oc-day {
+    min-height: 48px;
+    border-radius: 8px;
+    padding: 4px 2px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .orgamsic-cal-grid .oc-num {
+    font-size: 13px;
+  }
+
+  .orgamsic-cal-grid .oc-pill {
+    width: 6px;
+    height: 6px;
+    padding: 0;
+    margin: 3px auto 0;
+    border-radius: 50%;
+    font-size: 0;
+    line-height: 0;
+    color: transparent;
+    overflow: hidden;
+  }
+
   .orgamsic-cal-card,
   .orgamsic-cal-form .oc-row,
   .orgamsic-cal-form .oc-row-4 {
     grid-template-columns: 1fr;
   }
-  .orgamsic-cal-grid .oc-day {
-    min-height: 64px;
-    padding: 6px 4px;
+
+  .orgamsic-cal-card img,
+  .orgamsic-cal-cover {
+    min-height: 120px;
+  }
+
+  .orgamsic-cal-form input,
+  .orgamsic-cal-form select,
+  .orgamsic-cal-form textarea,
+  .orgamsic-cal-form .oc-editor {
+    font-size: 16px;
+    min-height: 44px;
+  }
+
+  .orgamsic-cal-rsvp button,
+  .orgamsic-cal-form button[type="submit"] {
+    min-height: 44px;
+    width: 100%;
+    justify-content: center;
   }
 }

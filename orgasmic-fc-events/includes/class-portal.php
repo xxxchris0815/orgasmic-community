@@ -61,7 +61,13 @@ class Orgasmic_Fc_Events_Portal
         }
         $today = $this->today_has_events();
         echo '<li class="top_menu_item fcom_icon_link orgasmic-cal-nav' . ($today ? ' has-today' : '') . '">';
-        echo '<a href="#orgasmic-calendar" data-orgasmic-calendar="1"><span>Kalender</span>';
+        echo '<a href="#orgasmic-calendar" data-orgasmic-calendar="1" aria-label="Kalender" title="Kalender">';
+        echo '<svg class="oc-nav-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+        echo '<rect x="3.25" y="4.5" width="17.5" height="16.25" rx="2.25"></rect>';
+        echo '<path d="M8 3.25v3M16 3.25v3M3.25 9.5h17.5"></path>';
+        echo '<path d="M8 13h.01M12 13h.01M16 13h.01M8 16.5h.01M12 16.5h.01M16 16.5h.01"></path>';
+        echo '</svg>';
+        echo '<span class="oc-nav-label">Kalender</span>';
         if ($today) {
             echo '<span class="oc-nav-dot" title="Heute findet ein Event statt"></span>';
         }
