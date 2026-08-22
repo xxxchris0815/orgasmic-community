@@ -29,7 +29,7 @@ Plugin-Ordner: `orgasmic-fc-tracker/`
 - Dashboard und optionaler JSON-Webhook
 - Bunny Stream (`player.mediadelivery.net/play/...`) wird im Feed als eingebetteter Player angezeigt und startet automatisch
 
-Aktuelles ZIP: [`orgasmic-fc-tracker-1.1.2.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-tracker-1.1.2.zip)
+Aktuelles ZIP: [`orgasmic-fc-tracker-1.1.3.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-tracker-1.1.3.zip)
 
 ### Installation
 

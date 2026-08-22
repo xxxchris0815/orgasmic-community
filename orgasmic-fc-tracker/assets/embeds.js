@@ -1,13 +1,17 @@
 (function () {
   const RE = /https?:\/\/(?:iframe|player)\.mediadelivery\.net\/(?:embed|play)\/(\d+)\/([0-9a-f-]{8,})/i;
-  const FEED_SEL = [
+  const POST_SEL = [
     '[data-feed_id]',
     '[data-feed-id]',
-    '.fcom_feed',
+    '.fcom_single_feed',
+    '.fcom-single-feed',
+    '.fcom_feed_item',
     '.fcom-feed-item',
     '.feed_item',
     '[class*="feed_item"]',
+    '[class*="FeedItem"]',
     '[class*="FeedCard"]',
+    '[class*="single_feed"]',
   ].join(',');
   const CARD_SEL = [
     '.fcom_url_preview',
@@ -54,88 +58,149 @@
 
   function hideNode(node) {
     if (!node || node.nodeType !== 1 || node.dataset.orgasmicBunnyHidden === '1') return;
+    if (node.querySelector && node.querySelector('iframe[src*="mediadelivery.net"]')) {
+      return;
+    }
     node.dataset.orgasmicBunnyHidden = '1';
     node.hidden = true;
     node.style.setProperty('display', 'none', 'important');
   }
 
-  function feedRoot(node) {
-    return (node && node.closest && node.closest(FEED_SEL)) || (node && node.parentElement) || document.body;
+  function hideWrap(node) {
+    if (!node || node.nodeType !== 1) return;
+    node.dataset.orgasmicBunnyHidden = '1';
+    node.hidden = true;
+    node.style.setProperty('display', 'none', 'important');
   }
 
-  function feedKey(node) {
-    const feed = node && node.closest && node.closest('[data-feed_id], [data-feed-id]');
-    if (feed) {
-      return feed.getAttribute('data-feed_id') || feed.getAttribute('data-feed-id') || '';
+  function postRoot(node) {
+    if (!node || !node.closest) return document.body;
+    const known = node.closest(POST_SEL);
+    if (known && known !== document.body) return known;
+
+    let el = node.parentElement;
+    let fallback = el || document.body;
+    for (let i = 0; i < 8 && el && el !== document.body; i++) {
+      const cls = String(el.className || '');
+      if (/(^|\s)(fcom_|feed_|post_|activity_)/i.test(cls) && el.querySelector) {
+        const hasMedia = el.querySelector('iframe[src*="mediadelivery.net"], a[href*="mediadelivery.net"], ' + CARD_SEL);
+        const hasText = (el.textContent || '').length > 30;
+        if (hasMedia && hasText) return el;
+        fallback = el;
+      }
+      el = el.parentElement;
     }
-    const root = feedRoot(node);
-    if (root && root.dataset && root.dataset.orgasmicBunnyFeed) {
-      return root.dataset.orgasmicBunnyFeed;
-    }
-    if (root && root.dataset) {
-      root.dataset.orgasmicBunnyFeed = 'f' + Math.random().toString(36).slice(2, 9);
-      return root.dataset.orgasmicBunnyFeed;
-    }
-    return 'page';
+    return fallback;
   }
 
   function parsedFrom(node) {
     if (!node) return null;
-    return parseHref(node.getAttribute && node.getAttribute('href'))
+    const own = parseHref(node.getAttribute && node.getAttribute('href'))
       || parseHref((node.querySelector && node.querySelector('a[href*="mediadelivery.net"]') || {}).href)
+      || parseHref(node.getAttribute && node.getAttribute('src'))
       || parseText(node.getAttribute && (node.getAttribute('href') || node.getAttribute('src')))
-      || parseText(node.textContent)
-      || parseText(feedRoot(node).textContent);
+      || parseText(node.textContent);
+    if (own) return own;
+    if (/mediadelivery\.net/i.test(node.textContent || '')) {
+      return parseText(postRoot(node).textContent);
+    }
+    return null;
   }
 
-  function existingEmbed(root, video) {
-    return root && root.querySelector
-      ? root.querySelector('.orgasmic-bunny-embed[data-orgasmic-bunny$="/' + video + '"]')
-      : null;
+  function playerWrap(iframe) {
+    const ours = iframe.closest && iframe.closest('.orgasmic-bunny-embed');
+    if (ours) return ours;
+    const parent = iframe.parentElement;
+    if (parent && parent.querySelectorAll('iframe[src*="mediadelivery.net"]').length === 1) {
+      return parent;
+    }
+    return iframe;
   }
 
-  function startExisting(embed, parsed) {
-    if (!embed) return false;
-    const iframe = embed.querySelector('iframe');
-    if (!iframe || !parsed) return false;
+  function findPlayer(root, video) {
+    if (!root || !root.querySelectorAll) return null;
+    const iframes = root.querySelectorAll('iframe[src*="mediadelivery.net"]');
+    for (const iframe of iframes) {
+      const parsed = parseHref(iframe.src);
+      if (parsed && parsed.video === video && playerWrap(iframe).dataset.orgasmicBunnyHidden !== '1') {
+        return playerWrap(iframe);
+      }
+    }
+    return null;
+  }
+
+  function startExisting(wrap, parsed) {
+    if (!wrap || !parsed) return false;
+    const iframe = wrap.tagName === 'IFRAME' ? wrap : wrap.querySelector('iframe');
+    if (!iframe) return false;
     iframe.src = embedSrc(parsed.library, parsed.video, true);
     return true;
   }
 
+  function collapse(root) {
+    const scope = root && root.querySelectorAll ? root : document;
+    const iframes = [...scope.querySelectorAll('iframe[src*="mediadelivery.net"]')];
+    const seen = new Set();
+
+    iframes.forEach((iframe) => {
+      const parsed = parseHref(iframe.src);
+      if (!parsed) return;
+      const wrap = playerWrap(iframe);
+      if (wrap.dataset.orgasmicBunnyHidden === '1') return;
+
+      const post = postRoot(iframe);
+      if (post && post.dataset && !post.dataset.orgasmicBunnyPost) {
+        post.dataset.orgasmicBunnyPost = 'p' + Math.random().toString(36).slice(2, 8);
+      }
+      const dedupe = (post && post.dataset ? post.dataset.orgasmicBunnyPost : 'page') + '|' + parsed.video;
+
+      if (wrap.classList) wrap.classList.add('orgasmic-bunny-embed');
+      if (wrap.setAttribute) wrap.setAttribute('data-orgasmic-bunny', parsed.library + '/' + parsed.video);
+
+      if (seen.has(dedupe)) {
+        hideWrap(wrap);
+        return;
+      }
+      seen.add(dedupe);
+    });
+  }
+
+  function hideOgBits(root, parsed) {
+    if (!root || !root.querySelectorAll) return;
+    root.querySelectorAll('a[href*="mediadelivery.net"]').forEach((a) => {
+      const found = parseHref(a.getAttribute('href'));
+      if (!found || found.video !== parsed.video) return;
+      if (a.closest('iframe') || a.closest('.orgasmic-bunny-embed')) return;
+      hideNode(a.closest(CARD_SEL) || a);
+    });
+    root.querySelectorAll(CARD_SEL).forEach((card) => {
+      if (card.querySelector('iframe[src*="mediadelivery.net"]')) return;
+      const found = parsedFrom(card);
+      if (found && found.video === parsed.video) hideNode(card);
+    });
+  }
+
   function placeEmbed(anchorPoint, parsed, autoplay) {
-    const root = feedRoot(anchorPoint);
-    const current = existingEmbed(root, parsed.video);
+    const root = postRoot(anchorPoint);
+    const current = findPlayer(root, parsed.video);
     if (current) {
       if (autoplay) startExisting(current, parsed);
+      hideOgBits(root, parsed);
       return current;
     }
 
     const embed = iframeEl(parsed.library, parsed.video, autoplay);
     const card = anchorPoint.closest ? anchorPoint.closest(CARD_SEL) : null;
-    const target = card || anchorPoint;
+    const target = (card && !card.querySelector('iframe[src*="mediadelivery.net"]')) ? card : anchorPoint;
 
     if (target && target.insertAdjacentElement) {
       target.insertAdjacentElement('afterend', embed);
     } else if (target && target.parentNode) {
       target.parentNode.insertBefore(embed, target.nextSibling);
     }
-    hideNode(target);
+    hideOgBits(root, parsed);
+    collapse(root);
     return embed;
-  }
-
-  function hideDuplicates(root, parsed) {
-    if (!root || !root.querySelectorAll) return;
-    root.querySelectorAll('a[href*="mediadelivery.net"]').forEach((a) => {
-      const found = parseHref(a.getAttribute('href'));
-      if (!found || found.video !== parsed.video) return;
-      if (a.closest('.orgasmic-bunny-embed')) return;
-      hideNode(a.closest(CARD_SEL) || a);
-    });
-    root.querySelectorAll(CARD_SEL).forEach((card) => {
-      if (card.dataset.orgasmicBunnyHidden === '1') return;
-      const found = parsedFrom(card);
-      if (found && found.video === parsed.video) hideNode(card);
-    });
   }
 
   function matchesSelf(node, selector) {
@@ -143,11 +208,13 @@
   }
 
   function enhance(root, autoplay) {
+    collapse(root);
     const scope = root && root.querySelectorAll ? root : document;
     const seen = new Set();
     const candidates = [];
 
     const push = (node) => {
+      if (!node || node.closest && node.closest('.orgasmic-bunny-embed')) return;
       const parsed = parsedFrom(node);
       if (parsed) candidates.push({ node: node, parsed: parsed });
     };
@@ -159,24 +226,30 @@
       scope.querySelectorAll('a[href*="mediadelivery.net"]').forEach(push);
       scope.querySelectorAll(CARD_SEL).forEach((card) => {
         if (card.dataset.orgasmicBunnyHidden === '1') return;
+        if (card.querySelector('iframe[src*="mediadelivery.net"]')) return;
         push(card);
       });
     }
 
     candidates.forEach((item) => {
-      const key = feedKey(item.node) + '|' + item.parsed.video;
+      const post = postRoot(item.node);
+      if (post && post.dataset && !post.dataset.orgasmicBunnyPost) {
+        post.dataset.orgasmicBunnyPost = 'p' + Math.random().toString(36).slice(2, 8);
+      }
+      const key = ((post && post.dataset && post.dataset.orgasmicBunnyPost) || 'page') + '|' + item.parsed.video;
       if (seen.has(key)) {
-        hideDuplicates(feedRoot(item.node), item.parsed);
+        hideOgBits(post, item.parsed);
         return;
       }
       seen.add(key);
       placeEmbed(item.node, item.parsed, !!autoplay);
-      hideDuplicates(feedRoot(item.node), item.parsed);
     });
+
+    collapse(document);
   }
 
   document.addEventListener('click', (e) => {
-    if (e.target.closest && e.target.closest('.orgasmic-bunny-embed')) return;
+    if (e.target.closest && e.target.closest('.orgasmic-bunny-embed, iframe[src*="mediadelivery.net"]')) return;
 
     const hit = e.target.closest && (
       e.target.closest('a[href*="mediadelivery.net"]')
@@ -190,7 +263,6 @@
     e.preventDefault();
     e.stopPropagation();
     placeEmbed(hit, parsed, true);
-    hideDuplicates(feedRoot(hit), parsed);
   }, true);
 
   let scheduled = false;
@@ -205,14 +277,6 @@
 
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
-      if (mutation.removedNodes && mutation.removedNodes.length) {
-        for (const node of mutation.removedNodes) {
-          if (node.nodeType === 1 && (node.classList && node.classList.contains('orgasmic-bunny-embed')
-            || (node.querySelector && node.querySelector('.orgasmic-bunny-embed')))) {
-            schedule();
-          }
-        }
-      }
       for (const node of mutation.addedNodes) {
         if (node.nodeType === 1 && !(node.closest && node.closest('.orgasmic-bunny-embed'))) {
           schedule();
@@ -231,8 +295,8 @@
     const timer = setInterval(() => {
       enhance(document, false);
       ticks += 1;
-      if (ticks >= 20) clearInterval(timer);
-    }, 500);
+      if (ticks >= 16) clearInterval(timer);
+    }, 400);
   }
 
   if (document.readyState === 'loading') {

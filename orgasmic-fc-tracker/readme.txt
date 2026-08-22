@@ -3,7 +3,7 @@ Contributors: orgasmic
 Requires at least: 6.4
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.1.2
+Stable tag: 1.1.3
 License: GPLv2 or later
 
 Tracks FluentCommunity lesson progress and community engagement. Local admin dashboard, optional outbound webhook, and inline Bunny Stream embeds.
@@ -29,6 +29,9 @@ Does not track private chat/DM contents (FluentCommunity does not expose stable 
 4. Optional: set webhook URL under Einstellungen
 
 == Changelog ==
+
+= 1.1.3 =
+* Show only one Bunny player per post (the previous update could render the embed twice).
 
 = 1.1.2 =
 * Bunny player mounts immediately in the feed and starts playback (autoplay) instead of requiring a preview click and a second play click.

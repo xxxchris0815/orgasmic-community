@@ -17,11 +17,6 @@ class Orgasmic_Fc_Embeds
         add_filter('oembed_dataparse', [$this, 'oembed_dataparse'], 10, 3);
         add_filter('fluent_community/feed_oembed_api_response', [$this, 'filter_oembed'], 10, 2);
         add_filter('fluent_community/feed_links_api_response', [$this, 'filter_link_preview'], 10, 2);
-        add_filter('fluent_community/feeds_api_response', [$this, 'filter_feeds_response'], 10, 2);
-        add_filter('fluent_community/feed_api_response', [$this, 'filter_feed_response'], 10, 2);
-        add_filter('fluent_community/feed/new_feed_response', [$this, 'filter_single_feed'], 10, 2);
-        add_filter('fluent_community/feed/update_feed_response', [$this, 'filter_single_feed'], 10, 2);
-        add_filter('fluent_community/feed/patch_feed_response', [$this, 'filter_single_feed'], 10, 2);
         add_action('fluent_community/portal_head', [$this, 'assets']);
         add_action('fluent_community/headless/head', [$this, 'assets']);
         add_action('fluent_community/portal_footer', [$this, 'boot']);
@@ -80,21 +75,6 @@ class Orgasmic_Fc_Embeds
     public function filter_link_preview($data, $request)
     {
         return $this->filter_oembed($data, $request);
-    }
-
-    public function filter_feeds_response($data, $request = null)
-    {
-        return $this->hydrate($data);
-    }
-
-    public function filter_feed_response($data, $request = null)
-    {
-        return $this->hydrate($data);
-    }
-
-    public function filter_single_feed($data, $extra = null)
-    {
-        return $this->hydrate($data);
     }
 
     public function assets(): void
@@ -160,102 +140,11 @@ class Orgasmic_Fc_Embeds
             'provider_name' => 'Bunny Stream',
             'provider_url' => 'https://bunny.net',
             'html' => $this->iframe_html($library, $video),
-            'player' => $this->iframe_html($library, $video),
             'width' => 640,
             'height' => 360,
             'url' => $url,
             'title' => $title !== '' ? $title : 'Video',
         ];
-    }
-
-    private function hydrate($data)
-    {
-        if (is_array($data)) {
-            if ($this->looks_like_feed($data)) {
-                $data = $this->inject_feed($data);
-            }
-            foreach ($data as $key => $value) {
-                if (is_array($value) || is_object($value)) {
-                    $data[$key] = $this->hydrate($value);
-                }
-            }
-            return $data;
-        }
-
-        if (is_object($data)) {
-            if (isset($data->meta) || isset($data->media_preview) || isset($data->message) || isset($data->message_rendered)) {
-                $as_array = json_decode(wp_json_encode($data), true);
-                if (is_array($as_array) && $this->looks_like_feed($as_array)) {
-                    $hydrated = $this->inject_feed($as_array);
-                    foreach (['meta', 'media_preview'] as $field) {
-                        if (array_key_exists($field, $hydrated)) {
-                            $data->{$field} = $hydrated[$field];
-                        }
-                    }
-                }
-            }
-            foreach (get_object_vars($data) as $key => $value) {
-                if (is_array($value) || is_object($value)) {
-                    $data->{$key} = $this->hydrate($value);
-                }
-            }
-        }
-
-        return $data;
-    }
-
-    private function looks_like_feed(array $data): bool
-    {
-        return isset($data['meta'])
-            || isset($data['media_preview'])
-            || isset($data['message'])
-            || isset($data['message_rendered']);
-    }
-
-    private function inject_feed(array $feed): array
-    {
-        $preview = [];
-        if (isset($feed['media_preview']) && is_array($feed['media_preview'])) {
-            $preview = $feed['media_preview'];
-        } elseif (isset($feed['meta']) && is_array($feed['meta']) && isset($feed['meta']['media_preview']) && is_array($feed['meta']['media_preview'])) {
-            $preview = $feed['meta']['media_preview'];
-        }
-
-        $url = '';
-        foreach ([$preview['url'] ?? '', $preview['og_url'] ?? '', $feed['message'] ?? '', $feed['message_rendered'] ?? ''] as $candidate) {
-            if (is_string($candidate) && $this->parse($candidate)) {
-                $url = $candidate;
-                break;
-            }
-        }
-
-        $parsed = $this->parse($url);
-        if (!$parsed) {
-            return $feed;
-        }
-
-        $html = $this->iframe_html($parsed['library'], $parsed['video']);
-        $preview['html'] = $html;
-        $preview['player'] = $html;
-        $preview['type'] = 'video';
-        $preview['provider'] = 'Bunny Stream';
-        $preview['provider_name'] = 'Bunny Stream';
-        $preview['width'] = (int) ($preview['width'] ?? 640);
-        $preview['height'] = (int) ($preview['height'] ?? 360);
-        if (empty($preview['url'])) {
-            $preview['url'] = $this->embed_src($parsed['library'], $parsed['video']);
-        }
-
-        if (isset($feed['media_preview'])) {
-            $feed['media_preview'] = $preview;
-        }
-        if (isset($feed['meta']) && is_array($feed['meta'])) {
-            $feed['meta']['media_preview'] = $preview;
-        } elseif (!isset($feed['media_preview'])) {
-            $feed['media_preview'] = $preview;
-        }
-
-        return $feed;
     }
 
     private function url_from_payload($data, $request): string
