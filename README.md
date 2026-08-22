@@ -1,6 +1,8 @@
 # ORGAMSIC Community Plugins
 
-WordPress-Begleitplugins für [community.orgasmic.live](https://community.orgasmic.live). Kein Evolution-API-Code.
+WordPress-Begleitplugins für [community.orgasmic.live](https://community.orgasmic.live).
+
+Moved from `evolution-api` (`Extras/orgasmic-community`).
 
 ## ORGAMSIC Community Kalender
 
@@ -29,9 +31,9 @@ Plugin-Ordner: `orgasmic-fc-tracker/`
 ### Installation
 
 ```bash
-cp -a Extras/orgasmic-community/orgasmic-fc-tracker \
+cp -a orgasmic-fc-tracker \
   /opt/community/data/wordpress/wp-content/plugins/
-cp -a Extras/orgasmic-community/orgasmic-fc-events \
+cp -a orgasmic-fc-events \
   /opt/community/data/wordpress/wp-content/plugins/
 
 cd /opt/community
