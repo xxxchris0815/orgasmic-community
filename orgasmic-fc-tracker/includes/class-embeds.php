@@ -134,9 +134,9 @@ class Orgasmic_Fc_Embeds
 
         return '<div class="orgasmic-bunny-embed" data-orgasmic-bunny="' . esc_attr($library . '/' . $video) . '">'
             . '<iframe src="' . esc_url($src) . '" '
-            . 'loading="lazy" '
             . 'allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen" '
             . 'allowfullscreen="true" '
+            . 'referrerpolicy="strict-origin-when-cross-origin" '
             . 'title="Video"></iframe>'
             . '</div>';
     }
@@ -144,7 +144,7 @@ class Orgasmic_Fc_Embeds
     public function embed_src(string $library, string $video): string
     {
         return 'https://player.mediadelivery.net/embed/' . rawurlencode($library) . '/' . rawurlencode($video)
-            . '?autoplay=false&preload=true&responsive=true';
+            . '?autoplay=true&preload=true&responsive=true';
     }
 
     private function oembed_payload(string $library, string $video, string $url, $data): array

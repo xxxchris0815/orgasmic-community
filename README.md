@@ -27,9 +27,9 @@ Plugin-Ordner: `orgasmic-fc-tracker/`
 
 - FluentCommunity-Core-Hooks + Kalender-Interaktionen (`event.created`, `event.rsvp`, `event.viewed`, `event.reminder`, …)
 - Dashboard und optionaler JSON-Webhook
-- Bunny Stream (`player.mediadelivery.net/play/...`) wird im Feed als eingebetteter Player angezeigt
+- Bunny Stream (`player.mediadelivery.net/play/...`) wird im Feed als eingebetteter Player angezeigt und startet automatisch
 
-Aktuelles ZIP: [`orgasmic-fc-tracker-1.1.1.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-tracker-1.1.1.zip)
+Aktuelles ZIP: [`orgasmic-fc-tracker-1.1.2.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-tracker-1.1.2.zip)
 
 ### Installation
 
