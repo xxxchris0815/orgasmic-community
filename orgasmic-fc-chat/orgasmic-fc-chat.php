@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ORGASMIC Chat
  * Description: Space chat inside FluentCommunity. One room per space, members only, header icon with unread badge, REST API for portal and future PWA.
- * Version: 1.0.0
+ * Version: 1.0.1
  * Requires at least: 6.4
  * Requires PHP: 8.1
  * Author: ORGASMIC
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('ORGASMIC_FC_CHAT_VERSION', '1.0.0');
+define('ORGASMIC_FC_CHAT_VERSION', '1.0.1');
 define('ORGASMIC_FC_CHAT_FILE', __FILE__);
 define('ORGASMIC_FC_CHAT_PATH', plugin_dir_path(__FILE__));
 define('ORGASMIC_FC_CHAT_URL', plugin_dir_url(__FILE__));
@@ -57,7 +57,7 @@ final class Orgasmic_Fc_Chat
             $webhook = new Orgasmic_Fc_Chat_Webhook();
 
             (new Orgasmic_Fc_Chat_Rest($access, $repo, $webhook))->register();
-            (new Orgasmic_Fc_Chat_Admin($repo, $webhook))->register();
+            (new Orgasmic_Fc_Chat_Admin($access, $repo, $webhook))->register();
             (new Orgasmic_Fc_Chat_Portal($access, $repo))->register();
         });
     }

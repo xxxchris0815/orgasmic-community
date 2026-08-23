@@ -19,18 +19,32 @@ class Orgasmic_Fc_Chat_Install
     public const OPTION_SUBTITLE = 'orgasmic_fc_chat_subtitle';
     public const OPTION_APPEARANCE = 'orgasmic_fc_chat_appearance';
     public const OPTION_ACCENT = 'orgasmic_fc_chat_accent';
+    public const OPTION_COLOR_BG = 'orgasmic_fc_chat_color_bg';
+    public const OPTION_COLOR_TEXT = 'orgasmic_fc_chat_color_text';
+    public const OPTION_COLOR_CARD = 'orgasmic_fc_chat_color_card';
+    public const OPTION_COLOR_MINE = 'orgasmic_fc_chat_color_mine';
+    public const OPTION_COLOR_THEIRS = 'orgasmic_fc_chat_color_theirs';
+    public const OPTION_SPACE_MODE = 'orgasmic_fc_chat_space_mode';
+    public const OPTION_SPACE_IDS = 'orgasmic_fc_chat_space_ids';
     public const DEFAULT_SUBTITLE = 'Ein Chat pro Kreis — nur für Mitglieder.';
 
     public static function portal_settings(): array
     {
-        $subtitle = (string) get_option(self::OPTION_SUBTITLE, self::DEFAULT_SUBTITLE);
-        if (trim($subtitle) === '') {
-            $subtitle = self::DEFAULT_SUBTITLE;
-        }
+        $stored_subtitle = get_option(self::OPTION_SUBTITLE, false);
+        $subtitle = $stored_subtitle === false ? self::DEFAULT_SUBTITLE : (string) $stored_subtitle;
         $appearance = (string) get_option(self::OPTION_APPEARANCE, 'auto');
         if (!in_array($appearance, ['auto', 'light', 'dark'], true)) {
             $appearance = 'auto';
         }
+        $space_mode = (string) get_option(self::OPTION_SPACE_MODE, 'all');
+        if (!in_array($space_mode, ['all', 'selected'], true)) {
+            $space_mode = 'all';
+        }
+        $space_ids = get_option(self::OPTION_SPACE_IDS, []);
+        if (!is_array($space_ids)) {
+            $space_ids = [];
+        }
+        $space_ids = array_values(array_unique(array_filter(array_map('intval', $space_ids))));
         $poll = (int) get_option(self::OPTION_POLL_SECONDS, 6);
         if ($poll < 3) {
             $poll = 3;
@@ -49,10 +63,32 @@ class Orgasmic_Fc_Chat_Install
         return [
             'subtitle' => $subtitle,
             'appearance' => $appearance,
-            'accent' => sanitize_hex_color((string) get_option(self::OPTION_ACCENT, '')) ?: '',
+            'accent' => self::color(self::OPTION_ACCENT),
+            'bg' => self::color(self::OPTION_COLOR_BG),
+            'text' => self::color(self::OPTION_COLOR_TEXT),
+            'card' => self::color(self::OPTION_COLOR_CARD),
+            'mine' => self::color(self::OPTION_COLOR_MINE),
+            'theirs' => self::color(self::OPTION_COLOR_THEIRS),
+            'space_mode' => $space_mode,
+            'space_ids' => $space_ids,
             'poll_seconds' => $poll,
             'max_length' => $max,
         ];
+    }
+
+    public static function color(string $option): string
+    {
+        return sanitize_hex_color((string) get_option($option, '')) ?: '';
+    }
+
+    public static function enabled_space_ids(): ?array
+    {
+        $settings = self::portal_settings();
+        if ($settings['space_mode'] !== 'selected') {
+            return null;
+        }
+
+        return $settings['space_ids'];
     }
 
     public static function messages_table(): string

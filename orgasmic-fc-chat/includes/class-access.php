@@ -65,10 +65,31 @@ class Orgasmic_Fc_Chat_Access
         return array_values(array_unique(array_map('intval', $ids ?: [])));
     }
 
+    public function chat_enabled_for_space(int $space_id): bool
+    {
+        $enabled = Orgasmic_Fc_Chat_Install::enabled_space_ids();
+        if ($enabled === null) {
+            return true;
+        }
+
+        return in_array($space_id, $enabled, true);
+    }
+
+    public function filter_enabled_spaces(array $space_ids): array
+    {
+        $enabled = Orgasmic_Fc_Chat_Install::enabled_space_ids();
+        $space_ids = array_values(array_unique(array_filter(array_map('intval', $space_ids))));
+        if ($enabled === null) {
+            return $space_ids;
+        }
+
+        return array_values(array_intersect($space_ids, $enabled));
+    }
+
     public function can_access_space(int $space_id, ?int $user_id = null): bool
     {
         $user_id = $user_id ?: get_current_user_id();
-        if (!$user_id || $space_id < 1) {
+        if (!$user_id || $space_id < 1 || !$this->chat_enabled_for_space($space_id)) {
             return false;
         }
         if ($this->can_manage($user_id)) {
@@ -81,12 +102,12 @@ class Orgasmic_Fc_Chat_Access
     public function visible_space_ids(int $user_id): array
     {
         $owned = $this->user_space_ids($user_id);
-        if (!$this->can_manage($user_id)) {
-            return $owned;
+        if ($this->can_manage($user_id)) {
+            $all = array_map(static fn(array $space): int => $space['id'], $this->list_spaces());
+            $owned = array_values(array_unique(array_merge($all, $owned)));
         }
 
-        $all = array_map(static fn(array $space): int => $space['id'], $this->list_spaces());
-        return array_values(array_unique(array_merge($all, $owned)));
+        return $this->filter_enabled_spaces($owned);
     }
 
     public function list_spaces(): array

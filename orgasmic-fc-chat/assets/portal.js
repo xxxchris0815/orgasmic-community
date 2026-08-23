@@ -13,6 +13,11 @@
       subtitle: cfg.subtitle || '',
       appearance: cfg.appearance || 'auto',
       accent: cfg.accent || '',
+      bg: cfg.bg || '',
+      text: cfg.text || '',
+      card: cfg.card || '',
+      mine: cfg.mine || '',
+      theirs: cfg.theirs || '',
       maxLength: cfg.maxLength || 2000,
     },
     unread: cfg.unread || 0,
@@ -22,7 +27,6 @@
     sending: false,
     emojiOpen: false,
     pendingImage: null,
-    loading: false,
   };
 
   let unreadTimer = null;
@@ -93,13 +97,41 @@
     return '#ffffff';
   }
 
+  function applyPortal(data) {
+    if (!data) return;
+    ['subtitle', 'appearance', 'accent', 'bg', 'text', 'card', 'mine', 'theirs'].forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(data, key)) state.portal[key] = data[key] || '';
+    });
+    if (data.max_length) state.portal.maxLength = data.max_length;
+    const sub = $('[data-och-subtitle]');
+    if (sub) {
+      sub.textContent = state.portal.subtitle || '';
+      sub.hidden = !state.portal.subtitle;
+    }
+    const root = document.getElementById('orgasmic-chat-root');
+    if (root && !root.hidden) applyTheme(root);
+  }
+
   function applyTheme(root) {
     const cs = getComputedStyle(document.body);
     root.style.setProperty('--och-portal-bg', solidBackground());
     root.style.setProperty('--och-portal-text', cs.color || '#1d2327');
-    if (state.portal.accent) root.style.setProperty('--och-accent-set', state.portal.accent);
     const overlay = root.querySelector('.orgasmic-chat-overlay');
-    if (overlay) overlay.classList.add('och-theme-' + (state.portal.appearance || 'auto'));
+    if (!overlay) return;
+    overlay.classList.remove('och-theme-auto', 'och-theme-light', 'och-theme-dark');
+    overlay.classList.add('och-theme-' + (state.portal.appearance || 'auto'));
+    const map = {
+      accent: '--och-accent-set',
+      bg: '--och-bg',
+      text: '--och-text',
+      card: '--och-card',
+      mine: '--och-mine',
+      theirs: '--och-theirs',
+    };
+    Object.keys(map).forEach((key) => {
+      if (state.portal[key]) overlay.style.setProperty(map[key], state.portal[key]);
+      else overlay.style.removeProperty(map[key]);
+    });
   }
 
   async function api(path, options) {
@@ -165,6 +197,7 @@
     if (!root) return;
     root.hidden = false;
     document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
   }
 
   function closeOverlay() {
@@ -173,6 +206,7 @@
     root.hidden = true;
     root.innerHTML = '';
     document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
     state.spaceId = 0;
     state.messages = [];
     lastId = 0;
@@ -211,51 +245,120 @@
     }).join('');
   }
 
+  function messageHtml(msg, prevDay) {
+    const day = fmtDay(msg.created_at);
+    let html = '';
+    if (day && day !== prevDay) {
+      html += '<div class="och-day">' + escapeHtml(day) + '</div>';
+    }
+    const mine = state.me && msg.user_id === state.me.id;
+    const author = msg.author || {};
+    const canDelete = mine || state.canManage;
+    html += '<article class="orgasmic-chat-msg' + (mine ? ' is-mine' : '') + '" data-och-msg="' + msg.id + '">';
+    if (!mine) html += avatarHtml(author.avatar, author.display_name, 'och-avatar');
+    html += '<div class="och-bubble">';
+    if (!mine) html += '<div class="och-author">' + escapeHtml(author.display_name || 'Mitglied') + '</div>';
+    if (msg.body) html += '<div class="och-text">' + linkify(msg.body) + '</div>';
+    if (msg.attachment && msg.attachment.thumb) {
+      html += '<a href="' + escapeHtml(msg.attachment.url || msg.attachment.thumb) + '" target="_blank" rel="noopener">'
+        + '<img class="och-photo" src="' + escapeHtml(msg.attachment.thumb) + '" alt="" />'
+        + '</a>';
+    }
+    html += '<div class="och-foot"><span>' + escapeHtml(fmtTime(msg.created_at)) + '</span>';
+    if (canDelete) html += '<button type="button" class="och-del" data-och-del="' + msg.id + '">Löschen</button>';
+    html += '</div></div></article>';
+    return { html: html, day: day || prevDay };
+  }
+
   function messagesHtml() {
     if (!state.messages.length) {
-      return '<div class="orgasmic-chat-empty">Schreib die erste Nachricht in diesem Kreis.</div>';
+      return '<div class="orgasmic-chat-empty" data-och-empty>Schreib die erste Nachricht in diesem Kreis.</div>';
     }
     let lastDay = '';
     return state.messages.map((msg) => {
-      const day = fmtDay(msg.created_at);
-      let html = '';
-      if (day && day !== lastDay) {
-        lastDay = day;
-        html += '<div class="och-day">' + escapeHtml(day) + '</div>';
-      }
-      const mine = state.me && msg.user_id === state.me.id;
-      const author = msg.author || {};
-      const canDelete = mine || state.canManage;
-      html += '<article class="orgasmic-chat-msg' + (mine ? ' is-mine' : '') + '" data-och-msg="' + msg.id + '">';
-      if (!mine) html += avatarHtml(author.avatar, author.display_name, 'och-avatar');
-      html += '<div class="och-bubble">';
-      if (!mine) html += '<div class="och-author">' + escapeHtml(author.display_name || 'Mitglied') + '</div>';
-      if (msg.body) html += '<div class="och-text">' + linkify(msg.body) + '</div>';
-      if (msg.attachment && msg.attachment.thumb) {
-        html += '<a href="' + escapeHtml(msg.attachment.url || msg.attachment.thumb) + '" target="_blank" rel="noopener">'
-          + '<img class="och-photo" src="' + escapeHtml(msg.attachment.thumb) + '" alt="" />'
-          + '</a>';
-      }
-      html += '<div class="och-foot"><span>' + escapeHtml(fmtTime(msg.created_at)) + '</span>';
-      if (canDelete) html += '<button type="button" class="och-del" data-och-del="' + msg.id + '">Löschen</button>';
-      html += '</div></div></article>';
-      return html;
+      const built = messageHtml(msg, lastDay);
+      lastDay = built.day;
+      return built.html;
     }).join('');
+  }
+
+  function lastRenderedDay() {
+    const days = document.querySelectorAll('#och-scroll .och-day');
+    return days.length ? days[days.length - 1].textContent : '';
+  }
+
+  function appendMessages(items, stick) {
+    const scroller = $('#och-scroll');
+    if (!scroller || !items.length) return;
+    const empty = scroller.querySelector('[data-och-empty]');
+    if (empty) empty.remove();
+    let day = lastRenderedDay();
+    const wrap = document.createElement('div');
+    items.forEach((msg) => {
+      const built = messageHtml(msg, day);
+      day = built.day;
+      wrap.insertAdjacentHTML('beforeend', built.html);
+    });
+    while (wrap.firstChild) scroller.appendChild(wrap.firstChild);
+    if (stick) scroller.scrollTop = scroller.scrollHeight;
+  }
+
+  function refreshRooms() {
+    const aside = $('.orgasmic-chat-rooms');
+    if (!aside) return;
+    const search = aside.querySelector('.orgasmic-chat-search');
+    aside.querySelectorAll('.orgasmic-chat-room, .orgasmic-chat-empty').forEach((n) => n.remove());
+    const wrap = document.createElement('div');
+    wrap.innerHTML = roomsHtml();
+    while (wrap.firstChild) aside.appendChild(wrap.firstChild);
+    if (search && document.activeElement !== search.querySelector('input')) {
+      const input = search.querySelector('input');
+      if (input && input.value !== state.query) input.value = state.query;
+    }
+  }
+
+  function setSending(on) {
+    state.sending = on;
+    const btn = $('[data-och-send-btn]');
+    if (btn) {
+      btn.disabled = on;
+      btn.textContent = on ? 'Senden…' : 'Senden';
+    }
+  }
+
+  function setError(message) {
+    state.error = message || '';
+    const box = $('[data-och-error]');
+    if (!box) return;
+    box.textContent = state.error;
+    box.hidden = !state.error;
+  }
+
+  function composerExtras() {
+    const host = $('[data-och-extras]');
+    if (!host) return;
+    let html = '';
+    if (state.emojiOpen) {
+      html += '<div class="och-emoji-panel">' + EMOJI.map((e) => '<button type="button" data-och-emoji="' + e + '">' + e + '</button>').join('') + '</div>';
+    }
+    if (state.pendingImage) {
+      html += '<div class="och-pending"><img src="' + escapeHtml(state.pendingImage.thumb || state.pendingImage.url) + '" alt="" /><span>Bild angehängt</span><button type="button" class="och-ghost" data-och-clear-image>Entfernen</button></div>';
+    }
+    host.innerHTML = html;
   }
 
   function composerHtml(room) {
     if (!room) return '';
     return '<div class="orgasmic-chat-composer">'
-      + (state.emojiOpen ? '<div class="och-emoji-panel">' + EMOJI.map((e) => '<button type="button" data-och-emoji="' + e + '">' + e + '</button>').join('') + '</div>' : '')
-      + (state.pendingImage ? '<div class="och-pending"><img src="' + escapeHtml(state.pendingImage.thumb || state.pendingImage.url) + '" alt="" /><span>Bild angehängt</span><button type="button" class="och-ghost" data-och-clear-image>Entfernen</button></div>' : '')
-      + (state.error ? '<p class="och-sub">' + escapeHtml(state.error) + '</p>' : '')
+      + '<div data-och-extras></div>'
+      + '<p class="och-sub" data-och-error hidden></p>'
       + '<form data-och-send>'
       + '<div class="orgasmic-chat-tools">'
       + '<button type="button" class="och-ghost" data-och-emoji-toggle title="Emoji">☺</button>'
       + '<button type="button" class="och-ghost" data-och-image title="Bild">🖼</button>'
       + '</div>'
       + '<textarea name="body" maxlength="' + (state.portal.maxLength || 2000) + '" placeholder="Nachricht an ' + escapeHtml(room.title) + '" rows="1"></textarea>'
-      + '<button type="submit"' + (state.sending ? ' disabled' : '') + '>Senden</button>'
+      + '<button type="submit" data-och-send-btn' + (state.sending ? ' disabled' : '') + '>Senden</button>'
       + '</form><input type="file" accept="image/*" hidden data-och-file /></div>';
   }
 
@@ -265,13 +368,11 @@
     const room = roomById(state.spaceId);
     const prev = $('#och-scroll', root);
     const stick = !prev || (prev.scrollHeight - prev.scrollTop - prev.clientHeight < 80);
-    const oldBody = $('textarea[name="body"]', root);
-    const draft = oldBody ? oldBody.value : '';
 
     root.innerHTML = '<div class="orgasmic-chat-overlay"><div class="orgasmic-chat' + (state.spaceId ? ' is-thread' : '') + '">'
       + '<header class="orgasmic-chat-top"><div>'
       + '<p class="och-sub">ORGASMIC</p><h1>Chat</h1>'
-      + '<p class="och-sub">' + escapeHtml(state.portal.subtitle || cfg.subtitle || '') + '</p>'
+      + '<p class="och-sub" data-och-subtitle' + (state.portal.subtitle ? '' : ' hidden') + '>' + escapeHtml(state.portal.subtitle || '') + '</p>'
       + '</div><div class="orgasmic-chat-actions">'
       + '<button type="button" class="och-close" data-och-close>Schließen</button>'
       + '</div></header>'
@@ -292,14 +393,12 @@
       + '</section></div></div></div>';
 
     applyTheme(root);
-    const next = $('textarea[name="body"]', root);
-    if (next && draft) {
-      next.value = draft;
-      next.style.height = 'auto';
-      next.style.height = Math.min(140, next.scrollHeight) + 'px';
-    }
+    composerExtras();
+    if (state.error) setError(state.error);
     const scroller = $('#och-scroll', root);
     if (scroller && stick) scroller.scrollTop = scroller.scrollHeight;
+    const box = $('textarea[name="body"]', root);
+    if (box && state.spaceId) box.focus();
   }
 
   async function loadRooms() {
@@ -307,30 +406,30 @@
     state.rooms = data.rooms || [];
     state.me = data.me || state.me;
     state.canManage = !!data.can_manage;
-    if (data.portal) {
-      state.portal = Object.assign(state.portal, data.portal);
-      if (data.portal.max_length) state.portal.maxLength = data.portal.max_length;
-    }
+    applyPortal(data.portal);
     updateNavBadge(data.unread || 0);
   }
 
   async function loadMessages(reset) {
-    if (!state.spaceId) return;
+    if (!state.spaceId) return [];
     const path = reset
       ? 'rooms/' + state.spaceId + '/messages?limit=50'
       : 'rooms/' + state.spaceId + '/messages?after=' + lastId + '&limit=50';
     const data = await api(path);
     const items = data.items || [];
+    const incoming = [];
     if (reset) {
       state.messages = items;
+      if (state.messages.length) lastId = state.messages[state.messages.length - 1].id;
     } else if (items.length) {
       const seen = new Set(state.messages.map((m) => m.id));
       items.forEach((m) => {
-        if (!seen.has(m.id)) state.messages.push(m);
+        if (!seen.has(m.id)) {
+          state.messages.push(m);
+          incoming.push(m);
+        }
       });
-    }
-    if (state.messages.length) {
-      lastId = state.messages[state.messages.length - 1].id;
+      if (state.messages.length) lastId = state.messages[state.messages.length - 1].id;
     }
     await api('rooms/' + state.spaceId + '/read', {
       method: 'POST',
@@ -340,6 +439,7 @@
       if (room) room.unread = 0;
       if (typeof res.unread === 'number') updateNavBadge(res.unread);
     }).catch(() => {});
+    return incoming;
   }
 
   function stopThreadPoll() {
@@ -355,8 +455,13 @@
     threadTimer = setInterval(async () => {
       if (document.hidden || !state.spaceId) return;
       try {
-        await loadMessages(false);
-        render();
+        const incoming = await loadMessages(false);
+        if (incoming.length) {
+          const scroller = $('#och-scroll');
+          const stick = !scroller || (scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 80);
+          appendMessages(incoming, stick);
+        }
+        refreshRooms();
       } catch (e) {}
     }, ms);
   }
@@ -370,6 +475,8 @@
     openOverlay();
     state.spaceId = route.spaceId || 0;
     state.error = '';
+    state.emojiOpen = false;
+    state.pendingImage = null;
     try {
       await loadRooms();
       if (state.spaceId && !roomById(state.spaceId)) {
@@ -390,11 +497,11 @@
 
   async function sendMessage(body) {
     if (!state.spaceId || state.sending) return;
-    const text = String(body || '').trim();
+    const box = $('textarea[name="body"]');
+    const text = String(body || (box ? box.value : '')).trim();
     if (!text && !state.pendingImage) return;
-    state.sending = true;
-    state.error = '';
-    render();
+    setSending(true);
+    setError('');
     try {
       const payload = { body: text };
       if (state.pendingImage && state.pendingImage.id) payload.attachment_id = state.pendingImage.id;
@@ -402,19 +509,24 @@
         method: 'POST',
         body: JSON.stringify(payload),
       });
+      if (box) {
+        box.value = '';
+        box.style.height = '';
+      }
       state.pendingImage = null;
       state.emojiOpen = false;
-      if (msg && msg.id) {
-        if (!state.messages.some((m) => m.id === msg.id)) state.messages.push(msg);
+      composerExtras();
+      if (msg && msg.id && !state.messages.some((m) => m.id === msg.id)) {
+        state.messages.push(msg);
         lastId = Math.max(lastId, msg.id);
+        appendMessages([msg], true);
       }
       await loadRooms();
+      refreshRooms();
     } catch (e) {
-      state.error = e.message || 'Senden fehlgeschlagen.';
+      setError(e.message || 'Senden fehlgeschlagen.');
     }
-    state.sending = false;
-    render();
-    const box = $('textarea[name="body"]');
+    setSending(false);
     if (box) box.focus();
   }
 
@@ -423,7 +535,7 @@
     data.append('file', file);
     const uploaded = await api('upload', { method: 'POST', body: data });
     state.pendingImage = uploaded;
-    render();
+    composerExtras();
   }
 
   document.addEventListener('click', (ev) => {
@@ -445,22 +557,23 @@
       location.hash = '#orgasmic-chat-' + room.getAttribute('data-och-room');
       return;
     }
-    const open = ev.target.closest('[data-orgasmic-chat], a[href="#orgasmic-chat"], .orgasmic-chat-nav a');
-    if (open && !ev.target.closest('.orgasmic-chat-overlay')) {
-      return;
-    }
     const emojiToggle = ev.target.closest('[data-och-emoji-toggle]');
     if (emojiToggle) {
       ev.preventDefault();
       state.emojiOpen = !state.emojiOpen;
-      render();
+      composerExtras();
+      const box = $('textarea[name="body"]');
+      if (box) box.focus();
       return;
     }
     const emoji = ev.target.closest('[data-och-emoji]');
     if (emoji) {
       ev.preventDefault();
       const box = $('textarea[name="body"]');
-      if (box) box.value += emoji.getAttribute('data-och-emoji');
+      if (box) {
+        box.value += emoji.getAttribute('data-och-emoji');
+        box.focus();
+      }
       return;
     }
     const imageBtn = ev.target.closest('[data-och-image]');
@@ -474,7 +587,7 @@
     if (clearImage) {
       ev.preventDefault();
       state.pendingImage = null;
-      render();
+      composerExtras();
       return;
     }
     const del = ev.target.closest('[data-och-del]');
@@ -484,28 +597,19 @@
       if (!id || !window.confirm('Nachricht löschen?')) return;
       api('messages/' + id, { method: 'DELETE' }).then(() => {
         state.messages = state.messages.filter((m) => m.id !== id);
-        render();
-      }).catch((e) => {
-        state.error = e.message || 'Löschen fehlgeschlagen.';
-        render();
-      });
+        const node = document.querySelector('[data-och-msg="' + id + '"]');
+        if (node) node.remove();
+      }).catch((e) => setError(e.message || 'Löschen fehlgeschlagen.'));
     }
   });
 
   document.addEventListener('input', (ev) => {
     if (ev.target.matches('[data-och-search]')) {
       state.query = ev.target.value;
-      const aside = ev.target.closest('.orgasmic-chat-rooms');
-      if (aside) {
-        const search = aside.querySelector('.orgasmic-chat-search');
-        aside.querySelectorAll('.orgasmic-chat-room, .orgasmic-chat-empty').forEach((n) => n.remove());
-        const wrap = document.createElement('div');
-        wrap.innerHTML = roomsHtml();
-        while (wrap.firstChild) aside.appendChild(wrap.firstChild);
-      }
+      refreshRooms();
       return;
     }
-    if (ev.target.matches('textarea[name="body"]')) {
+    if (ev.target.matches('#orgasmic-chat-root textarea[name="body"]')) {
       ev.target.style.height = 'auto';
       ev.target.style.height = Math.min(140, ev.target.scrollHeight) + 'px';
     }
@@ -516,10 +620,7 @@
     const file = ev.target.files && ev.target.files[0];
     ev.target.value = '';
     if (!file) return;
-    uploadImage(file).catch((e) => {
-      state.error = e.message || 'Upload fehlgeschlagen.';
-      render();
-    });
+    uploadImage(file).catch((e) => setError(e.message || 'Upload fehlgeschlagen.'));
   });
 
   document.addEventListener('submit', (ev) => {
@@ -535,7 +636,7 @@
       closeOverlay();
       return;
     }
-    const box = ev.target.closest && ev.target.closest('textarea[name="body"]');
+    const box = ev.target.closest && ev.target.closest('#orgasmic-chat-root textarea[name="body"]');
     if (box && ev.key === 'Enter' && !ev.shiftKey) {
       ev.preventDefault();
       sendMessage(box.value);
@@ -543,7 +644,7 @@
   });
 
   window.addEventListener('hashchange', () => {
-    if (hashRoute() || document.getElementById('orgasmic-chat-root') && !document.getElementById('orgasmic-chat-root').hidden) {
+    if (hashRoute() || (document.getElementById('orgasmic-chat-root') && !document.getElementById('orgasmic-chat-root').hidden)) {
       bootFromHash();
     }
   });
@@ -560,7 +661,8 @@
             const room = roomById(parseInt(id, 10));
             if (room) room.unread = parseInt(data.rooms[id], 10) || 0;
           });
-          if (!document.getElementById('orgasmic-chat-root').hidden && !state.spaceId) render();
+          const root = document.getElementById('orgasmic-chat-root');
+          if (root && !root.hidden) refreshRooms();
         }
       } catch (e) {}
     }, base);

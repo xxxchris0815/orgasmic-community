@@ -9,6 +9,7 @@ if (!defined('ABSPATH')) {
 class Orgasmic_Fc_Chat_Admin
 {
     public function __construct(
+        private Orgasmic_Fc_Chat_Access $access,
         private Orgasmic_Fc_Chat_Repository $repo,
         private Orgasmic_Fc_Chat_Webhook $webhook
     ) {
@@ -52,14 +53,24 @@ class Orgasmic_Fc_Chat_Admin
 
     public function settings(): void
     {
-        register_setting('orgasmic_fc_chat', Orgasmic_Fc_Chat_Install::OPTION_WEBHOOK_URL, [
-            'type' => 'string',
-            'sanitize_callback' => 'esc_url_raw',
-        ]);
-        register_setting('orgasmic_fc_chat', Orgasmic_Fc_Chat_Install::OPTION_WEBHOOK_SECRET, [
-            'type' => 'string',
-            'sanitize_callback' => 'sanitize_text_field',
-        ]);
+        $hex = static function ($value): string {
+            return sanitize_hex_color((string) $value) ?: '';
+        };
+
+        foreach ([
+            Orgasmic_Fc_Chat_Install::OPTION_WEBHOOK_URL => 'esc_url_raw',
+            Orgasmic_Fc_Chat_Install::OPTION_WEBHOOK_SECRET => 'sanitize_text_field',
+            Orgasmic_Fc_Chat_Install::OPTION_SUBTITLE => 'sanitize_textarea_field',
+            Orgasmic_Fc_Chat_Install::OPTION_ACCENT => $hex,
+            Orgasmic_Fc_Chat_Install::OPTION_COLOR_BG => $hex,
+            Orgasmic_Fc_Chat_Install::OPTION_COLOR_TEXT => $hex,
+            Orgasmic_Fc_Chat_Install::OPTION_COLOR_CARD => $hex,
+            Orgasmic_Fc_Chat_Install::OPTION_COLOR_MINE => $hex,
+            Orgasmic_Fc_Chat_Install::OPTION_COLOR_THEIRS => $hex,
+        ] as $option => $cb) {
+            register_setting('orgasmic_fc_chat', $option, ['sanitize_callback' => $cb]);
+        }
+
         register_setting('orgasmic_fc_chat', Orgasmic_Fc_Chat_Install::OPTION_INCLUDE_BODY, [
             'type' => 'boolean',
             'sanitize_callback' => 'rest_sanitize_boolean',
@@ -82,10 +93,6 @@ class Orgasmic_Fc_Chat_Admin
                 return min(8000, max(200, $value ?: 2000));
             },
         ]);
-        register_setting('orgasmic_fc_chat', Orgasmic_Fc_Chat_Install::OPTION_SUBTITLE, [
-            'type' => 'string',
-            'sanitize_callback' => 'sanitize_textarea_field',
-        ]);
         register_setting('orgasmic_fc_chat', Orgasmic_Fc_Chat_Install::OPTION_APPEARANCE, [
             'type' => 'string',
             'sanitize_callback' => static function ($value): string {
@@ -93,10 +100,23 @@ class Orgasmic_Fc_Chat_Admin
                 return in_array($value, ['auto', 'light', 'dark'], true) ? $value : 'auto';
             },
         ]);
-        register_setting('orgasmic_fc_chat', Orgasmic_Fc_Chat_Install::OPTION_ACCENT, [
+        register_setting('orgasmic_fc_chat', Orgasmic_Fc_Chat_Install::OPTION_SPACE_MODE, [
             'type' => 'string',
             'sanitize_callback' => static function ($value): string {
-                return sanitize_hex_color((string) $value) ?: '';
+                if (is_array($value)) {
+                    return in_array('all', $value, true) ? 'all' : 'selected';
+                }
+                $value = sanitize_text_field((string) $value);
+                return $value === 'selected' ? 'selected' : 'all';
+            },
+        ]);
+        register_setting('orgasmic_fc_chat', Orgasmic_Fc_Chat_Install::OPTION_SPACE_IDS, [
+            'type' => 'array',
+            'sanitize_callback' => static function ($value): array {
+                if (!is_array($value)) {
+                    return [];
+                }
+                return array_values(array_unique(array_filter(array_map('intval', $value))));
             },
         ]);
     }
@@ -121,6 +141,7 @@ class Orgasmic_Fc_Chat_Admin
             return;
         }
 
+        $spaces = $this->access->space_map();
         echo '<div class="wrap"><h1>ORGASMIC Chat — Nachrichten</h1>';
         echo '<p>Letzte Nachrichten über alle Spaces. Geheime Kreise bleiben im Portal trotzdem nur für Mitglieder sichtbar.</p>';
         echo '<table class="widefat striped"><thead><tr>';
@@ -142,9 +163,11 @@ class Orgasmic_Fc_Chat_Admin
             } else {
                 $preview = substr($preview, 0, 160);
             }
+            $space_id = (int) $row['space_id'];
+            $space_title = isset($spaces[$space_id]) ? (string) $spaces[$space_id]['title'] : '#' . $space_id;
             echo '<tr>';
             echo '<td>' . esc_html((string) $row['created_at']) . '</td>';
-            echo '<td>#' . esc_html((string) $row['space_id']) . '</td>';
+            echo '<td>' . esc_html($space_title) . '</td>';
             echo '<td>' . esc_html($user ? $user->display_name : '—') . '</td>';
             echo '<td>' . esc_html($preview) . '</td>';
             echo '<td>' . (!empty($row['deleted']) ? 'gelöscht' : 'aktiv') . '</td>';
@@ -170,11 +193,36 @@ class Orgasmic_Fc_Chat_Admin
         $settings = Orgasmic_Fc_Chat_Install::portal_settings();
         echo '<form method="post" action="options.php">';
         settings_fields('orgasmic_fc_chat');
+
+        echo '<h2>Spaces mit Chat</h2><table class="form-table" role="presentation">';
+        echo '<tr><th>Verfügbarkeit</th><td>';
+        echo '<input type="hidden" name="' . esc_attr(Orgasmic_Fc_Chat_Install::OPTION_SPACE_MODE) . '" value="selected" />';
+        echo '<label><input type="checkbox" name="' . esc_attr(Orgasmic_Fc_Chat_Install::OPTION_SPACE_MODE) . '" value="all" '
+            . checked($settings['space_mode'] !== 'selected', true, false)
+            . ' /> Alle Spaces</label>';
+        echo '<p class="description">Wenn „Alle Spaces“ aus ist, gilt nur die Liste darunter. Mitglieder sehen weiterhin nur Räume ihrer eigenen Kreise.</p>';
+        echo '<fieldset style="margin-top:12px;display:grid;gap:6px">';
+        echo '<input type="hidden" name="' . esc_attr(Orgasmic_Fc_Chat_Install::OPTION_SPACE_IDS) . '[]" value="0" />';
+        $spaces = $this->access->list_spaces();
+        if ($spaces === []) {
+            echo '<p>Keine Spaces gefunden. FluentCommunity aktiv?</p>';
+        }
+        foreach ($spaces as $space) {
+            $checked = $settings['space_mode'] !== 'selected' || in_array($space['id'], $settings['space_ids'], true);
+            echo '<label><input type="checkbox" name="' . esc_attr(Orgasmic_Fc_Chat_Install::OPTION_SPACE_IDS) . '[]" value="'
+                . esc_attr((string) $space['id']) . '"' . checked($checked, true, false) . ' /> '
+                . esc_html($space['title'])
+                . ($space['privacy'] !== '' ? ' <span class="description">(' . esc_html($space['privacy']) . ')</span>' : '')
+                . '</label>';
+        }
+        echo '</fieldset></td></tr></table>';
+
         echo '<h2>Portal</h2><table class="form-table" role="presentation">';
-        echo '<tr><th>Untertitel</th><td>';
+        echo '<tr><th>Untertitel / Unterschrift</th><td>';
         echo '<textarea class="large-text" rows="2" name="' . esc_attr(Orgasmic_Fc_Chat_Install::OPTION_SUBTITLE) . '">';
         echo esc_textarea($settings['subtitle']);
-        echo '</textarea></td></tr>';
+        echo '</textarea>';
+        echo '<p class="description">Text unter der Überschrift „Chat“. Darf leer bleiben.</p></td></tr>';
 
         $appearance = $settings['appearance'];
         echo '<tr><th>Erscheinungsbild</th><td><select name="' . esc_attr(Orgasmic_Fc_Chat_Install::OPTION_APPEARANCE) . '">';
@@ -186,11 +234,20 @@ class Orgasmic_Fc_Chat_Admin
             echo '<option value="' . esc_attr($value) . '"' . selected($appearance, $value, false) . '>' . esc_html($label) . '</option>';
         }
         echo '</select></td></tr>';
+        echo '</table>';
 
-        $accent = $settings['accent'] !== '' ? $settings['accent'] : '#409eff';
-        echo '<tr><th>Akzentfarbe</th><td>';
-        echo '<input type="color" name="' . esc_attr(Orgasmic_Fc_Chat_Install::OPTION_ACCENT) . '" value="' . esc_attr($accent) . '" /></td></tr>';
+        echo '<h2>Farben</h2>';
+        echo '<p class="description">Leer = Automatisch aus dem Erscheinungsbild. Hex-Wert oder Color-Picker.</p>';
+        echo '<table class="form-table" role="presentation">';
+        $this->color_field('Akzent (Buttons, Badge)', Orgasmic_Fc_Chat_Install::OPTION_ACCENT, $settings['accent'], '#409eff');
+        $this->color_field('Hintergrund', Orgasmic_Fc_Chat_Install::OPTION_COLOR_BG, $settings['bg'], '#f4f6f8');
+        $this->color_field('Text', Orgasmic_Fc_Chat_Install::OPTION_COLOR_TEXT, $settings['text'], '#1d2327');
+        $this->color_field('Karten / Thread', Orgasmic_Fc_Chat_Install::OPTION_COLOR_CARD, $settings['card'], '#ffffff');
+        $this->color_field('Eigene Nachrichten', Orgasmic_Fc_Chat_Install::OPTION_COLOR_MINE, $settings['mine'], '#e8f3ff');
+        $this->color_field('Andere Nachrichten', Orgasmic_Fc_Chat_Install::OPTION_COLOR_THEIRS, $settings['theirs'], '#ffffff');
+        echo '</table>';
 
+        echo '<h2>Verhalten</h2><table class="form-table" role="presentation">';
         echo '<tr><th>Polling (Sekunden)</th><td><input type="number" min="3" max="30" name="'
             . esc_attr(Orgasmic_Fc_Chat_Install::OPTION_POLL_SECONDS) . '" value="'
             . esc_attr((string) $settings['poll_seconds']) . '" />';
@@ -232,6 +289,45 @@ class Orgasmic_Fc_Chat_Admin
         wp_nonce_field('orgasmic_fc_chat_test_webhook');
         echo '<input type="hidden" name="action" value="orgasmic_fc_chat_test_webhook" />';
         submit_button('Test-Webhook senden', 'secondary');
-        echo '</form></div>';
+        echo '</form>';
+        echo $this->color_script();
+        echo '</div>';
+    }
+
+    private function color_field(string $label, string $option, string $value, string $fallback): void
+    {
+        $auto = $value === '';
+        echo '<tr><th>' . esc_html($label) . '</th><td>';
+        echo '<label style="margin-right:10px"><input type="checkbox" class="och-color-auto" data-och-color="'
+            . esc_attr($option) . '"' . checked($auto, true, false) . ' /> Automatisch</label>';
+        echo '<input type="color" class="och-color-picker" data-och-color="' . esc_attr($option) . '" value="'
+            . esc_attr($auto ? $fallback : $value) . '"' . disabled($auto, true, false) . ' /> ';
+        echo '<input type="hidden" name="' . esc_attr($option) . '" id="' . esc_attr($option) . '" value="'
+            . esc_attr($value) . '" />';
+        echo '</td></tr>';
+    }
+
+    private function color_script(): string
+    {
+        return <<<'HTML'
+<script>
+(function () {
+  function sync(name) {
+    var auto = document.querySelector('.och-color-auto[data-och-color="' + name + '"]');
+    var picker = document.querySelector('.och-color-picker[data-och-color="' + name + '"]');
+    var hidden = document.getElementById(name);
+    if (!auto || !picker || !hidden) return;
+    picker.disabled = auto.checked;
+    hidden.value = auto.checked ? '' : picker.value;
+  }
+  document.querySelectorAll('.och-color-auto').forEach(function (el) {
+    el.addEventListener('change', function () { sync(el.getAttribute('data-och-color')); });
+  });
+  document.querySelectorAll('.och-color-picker').forEach(function (el) {
+    el.addEventListener('input', function () { sync(el.getAttribute('data-och-color')); });
+  });
+})();
+</script>
+HTML;
     }
 }
