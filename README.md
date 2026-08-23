@@ -11,6 +11,7 @@ Moved from `evolution-api` (`Extras/orgasmic-community`).
 | `orgasmic-fc-tracker/` | **1.2.1** | Engagement-Tracker, Dashboard, Evolution-Webhook |
 | `orgasmic-fc-events/` | **1.0.4** | Kalender im Portal (RSVP, Zoom, Activity Stream) |
 | `orgasmic-fc-embeds/` | **1.1.1** | Bunny-Player, Autoplay-Setting, Wiedergabe-Tracking + Webhook |
+| `orgasmic-fc-chat/` | **1.0.0** | Space-Chat im Portal (Icon oben rechts, Ungelesen-Badge, REST) |
 
 ## ORGASMIC Community Kalender
 
@@ -53,6 +54,21 @@ ZIP: [`orgasmic-fc-embeds-1.1.1.zip`](https://github.com/xxxchris0815/orgasmic-c
 
 Falls der iframe leer bleibt: in Bunny Stream → Allowed Domains `community.orgasmic.live` eintragen.
 
+## ORGASMIC Chat
+
+Plugin-Ordner: `orgasmic-fc-chat/`
+
+Ersatz für den FluentCommunity-Pro-Chat:
+
+- Ein Chatraum pro Space, nur für Mitglieder dieses Spaces
+- Icon oben rechts im Portal, Ungelesen-Badge
+- Text, Emoji, optionales Bild
+- REST-API für Portal und spätere PWA/App (`/wp-json/orgasmic-chat/v1/`)
+
+WP-Admin: **ORGASMIC Chat** (Nachrichtenlog + Einstellungen).
+
+ZIP: [`orgasmic-fc-chat-1.0.0.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-chat-1.0.0.zip)
+
 ### Installation
 
 ```bash
@@ -62,11 +78,14 @@ cp -a orgasmic-fc-events \
   /opt/community/data/wordpress/wp-content/plugins/
 cp -a orgasmic-fc-embeds \
   /opt/community/data/wordpress/wp-content/plugins/
+cp -a orgasmic-fc-chat \
+  /opt/community/data/wordpress/wp-content/plugins/
 
 cd /opt/community
 docker compose --profile tools run --rm wpcli plugin activate orgasmic-fc-tracker
 docker compose --profile tools run --rm wpcli plugin activate orgasmic-fc-events
 docker compose --profile tools run --rm wpcli plugin activate orgasmic-fc-embeds
+docker compose --profile tools run --rm wpcli plugin activate orgasmic-fc-chat
 ```
 
 TEC / FluentCommunity-Events-Beta nicht parallel zum ORGASMIC-Kalender betreiben.
