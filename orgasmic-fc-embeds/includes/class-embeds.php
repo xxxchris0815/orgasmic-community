@@ -8,6 +8,10 @@ if (!defined('ABSPATH')) {
 
 class Orgasmic_Fc_Bunny_Embeds
 {
+    public function __construct(private Orgasmic_Fc_Embeds_Store $store)
+    {
+    }
+
     public function register(): void
     {
         add_action('fluent_community/portal_head', [$this, 'assets']);
@@ -29,6 +33,16 @@ class Orgasmic_Fc_Bunny_Embeds
             return;
         }
         $booted = true;
+
+        $data = [
+            'root' => esc_url_raw(rest_url('orgasmic-embeds/v1/')),
+            'nonce' => wp_create_nonce('wp_rest'),
+            'autoplay' => $this->store->autoplay(),
+            'loggedIn' => is_user_logged_in(),
+        ];
+        echo '<script>window.OrgasmicFcEmbeds = ' . wp_json_encode($data) . ';</script>';
+        echo '<script src="https://assets.mediadelivery.net/playerjs/playerjs-latest.min.js" defer></script>';
         echo '<script src="' . esc_url(ORGAMSIC_FC_EMBEDS_URL . 'assets/embeds.js?ver=' . rawurlencode(ORGAMSIC_FC_EMBEDS_VERSION)) . '" defer></script>';
+        echo '<script src="' . esc_url(ORGAMSIC_FC_EMBEDS_URL . 'assets/track.js?ver=' . rawurlencode(ORGAMSIC_FC_EMBEDS_VERSION)) . '" defer></script>';
     }
 }

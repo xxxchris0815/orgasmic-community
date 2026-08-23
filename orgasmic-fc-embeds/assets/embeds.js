@@ -80,11 +80,16 @@
     }) || null;
   }
 
+  function autoplayEnabled() {
+    return !!(window.OrgasmicFcEmbeds && window.OrgasmicFcEmbeds.autoplay);
+  }
+
   function embedSrc(library, video, autoplay) {
     return 'https://player.mediadelivery.net/embed/'
       + encodeURIComponent(library) + '/' + encodeURIComponent(video)
       + '?autoplay=' + (autoplay ? 'true' : 'false')
-      + '&preload=true&responsive=true';
+      + '&preload=true&responsive=true&playerjs=true&oid='
+      + Math.random().toString(36).slice(2, 10);
   }
 
   function iframeEl(library, video, autoplay) {
@@ -152,7 +157,7 @@
 
     const card = node.closest && node.closest(CARD_SEL);
     const target = (card && !card.querySelector('iframe[src*="mediadelivery.net"]')) ? card : node;
-    target.insertAdjacentElement('afterend', iframeEl(parsed.library, parsed.video, true));
+    target.insertAdjacentElement('afterend', iframeEl(parsed.library, parsed.video, autoplayEnabled()));
     hidePreviewBits(root, parsed.video);
     collapse();
   }

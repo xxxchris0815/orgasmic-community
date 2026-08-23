@@ -2,8 +2,8 @@
 /**
  * Plugin Name: ORGAMSIC Bunny Embeds
  * Plugin URI: https://community.orgasmic.live
- * Description: Embeds Bunny Stream play links as an inline player in FluentCommunity feeds.
- * Version: 1.0.1
+ * Description: Embeds Bunny Stream videos in FluentCommunity, tracks playback, and forwards watch events via webhook.
+ * Version: 1.1.0
  * Requires at least: 6.4
  * Requires PHP: 8.1
  * Author: ORGAMSIC
@@ -18,11 +18,15 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('ORGAMSIC_FC_EMBEDS_VERSION', '1.0.1');
+define('ORGAMSIC_FC_EMBEDS_VERSION', '1.1.0');
 define('ORGAMSIC_FC_EMBEDS_FILE', __FILE__);
 define('ORGAMSIC_FC_EMBEDS_PATH', plugin_dir_path(__FILE__));
 define('ORGAMSIC_FC_EMBEDS_URL', plugin_dir_url(__FILE__));
 
+require_once ORGAMSIC_FC_EMBEDS_PATH . 'includes/class-store.php';
+require_once ORGAMSIC_FC_EMBEDS_PATH . 'includes/class-webhook.php';
+require_once ORGAMSIC_FC_EMBEDS_PATH . 'includes/class-rest.php';
+require_once ORGAMSIC_FC_EMBEDS_PATH . 'includes/class-admin.php';
 require_once ORGAMSIC_FC_EMBEDS_PATH . 'includes/class-embeds.php';
 
 final class Orgasmic_Fc_Embeds_Plugin
@@ -40,12 +44,23 @@ final class Orgasmic_Fc_Embeds_Plugin
 
     private function __construct()
     {
-        add_action('plugins_loaded', [$this, 'boot']);
-    }
+        $store = new Orgasmic_Fc_Embeds_Store();
+        register_activation_hook(ORGAMSIC_FC_EMBEDS_FILE, [$store, 'install']);
 
-    public function boot(): void
-    {
-        (new Orgasmic_Fc_Bunny_Embeds())->register();
+        add_action('plugins_loaded', static function () use ($store): void {
+            $store->maybe_upgrade();
+            $webhook = new Orgasmic_Fc_Embeds_Webhook();
+            (new Orgasmic_Fc_Embeds_Rest($store, $webhook))->register();
+            (new Orgasmic_Fc_Embeds_Admin($store, $webhook))->register();
+            (new Orgasmic_Fc_Bunny_Embeds($store))->register();
+        });
+
+        add_action('orgasmic_fc_embeds_cleanup', [$store, 'cleanup_old']);
+        add_action('plugins_loaded', static function (): void {
+            if (!wp_next_scheduled('orgasmic_fc_embeds_cleanup')) {
+                wp_schedule_event(time() + HOUR_IN_SECONDS, 'daily', 'orgasmic_fc_embeds_cleanup');
+            }
+        });
     }
 }
 
