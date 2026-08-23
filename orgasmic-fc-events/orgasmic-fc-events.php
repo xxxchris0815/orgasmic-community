@@ -1,11 +1,11 @@
 <?php
 /**
- * Plugin Name: ORGAMSIC Community Kalender
+ * Plugin Name: ORGASMIC Community Kalender
  * Description: Event calendar inside FluentCommunity with space-based visibility, RSVP, Zoom Server-to-Server meetings, activity-stream sharing, reminders, and REST API.
- * Version: 1.0.3
+ * Version: 1.0.4
  * Requires at least: 6.4
  * Requires PHP: 8.1
- * Author: ORGAMSIC
+ * Author: ORGASMIC
  * License: GPL-2.0-or-later
  * Text Domain: orgasmic-fc-events
  * Requires Plugins: fluent-community
@@ -17,20 +17,20 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('ORGAMSIC_FC_EVENTS_VERSION', '1.0.3');
-define('ORGAMSIC_FC_EVENTS_FILE', __FILE__);
-define('ORGAMSIC_FC_EVENTS_PATH', plugin_dir_path(__FILE__));
-define('ORGAMSIC_FC_EVENTS_URL', plugin_dir_url(__FILE__));
+define('ORGASMIC_FC_EVENTS_VERSION', '1.0.4');
+define('ORGASMIC_FC_EVENTS_FILE', __FILE__);
+define('ORGASMIC_FC_EVENTS_PATH', plugin_dir_path(__FILE__));
+define('ORGASMIC_FC_EVENTS_URL', plugin_dir_url(__FILE__));
 
-require_once ORGAMSIC_FC_EVENTS_PATH . 'includes/class-install.php';
-require_once ORGAMSIC_FC_EVENTS_PATH . 'includes/class-access.php';
-require_once ORGAMSIC_FC_EVENTS_PATH . 'includes/class-repository.php';
-require_once ORGAMSIC_FC_EVENTS_PATH . 'includes/class-zoom.php';
-require_once ORGAMSIC_FC_EVENTS_PATH . 'includes/class-feed.php';
-require_once ORGAMSIC_FC_EVENTS_PATH . 'includes/class-reminders.php';
-require_once ORGAMSIC_FC_EVENTS_PATH . 'includes/class-rest.php';
-require_once ORGAMSIC_FC_EVENTS_PATH . 'includes/class-admin.php';
-require_once ORGAMSIC_FC_EVENTS_PATH . 'includes/class-portal.php';
+require_once ORGASMIC_FC_EVENTS_PATH . 'includes/class-install.php';
+require_once ORGASMIC_FC_EVENTS_PATH . 'includes/class-access.php';
+require_once ORGASMIC_FC_EVENTS_PATH . 'includes/class-repository.php';
+require_once ORGASMIC_FC_EVENTS_PATH . 'includes/class-zoom.php';
+require_once ORGASMIC_FC_EVENTS_PATH . 'includes/class-feed.php';
+require_once ORGASMIC_FC_EVENTS_PATH . 'includes/class-reminders.php';
+require_once ORGASMIC_FC_EVENTS_PATH . 'includes/class-rest.php';
+require_once ORGASMIC_FC_EVENTS_PATH . 'includes/class-admin.php';
+require_once ORGASMIC_FC_EVENTS_PATH . 'includes/class-portal.php';
 
 final class Orgasmic_Fc_Events
 {
@@ -48,7 +48,7 @@ final class Orgasmic_Fc_Events
     private function __construct()
     {
         $install = new Orgasmic_Fc_Events_Install();
-        register_activation_hook(ORGAMSIC_FC_EVENTS_FILE, [$install, 'activate']);
+        register_activation_hook(ORGASMIC_FC_EVENTS_FILE, [$install, 'activate']);
 
         add_action('plugins_loaded', static function (): void {
             $install = new Orgasmic_Fc_Events_Install();

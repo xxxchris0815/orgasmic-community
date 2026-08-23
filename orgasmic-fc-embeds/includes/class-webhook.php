@@ -21,7 +21,7 @@ class Orgasmic_Fc_Embeds_Webhook
         $body = wp_json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $headers = [
             'Content-Type' => 'application/json',
-            'User-Agent' => 'ORGAMSIC-FC-Embeds/' . ORGAMSIC_FC_EMBEDS_VERSION,
+            'User-Agent' => 'ORGASMIC-FC-Embeds/' . ORGASMIC_FC_EMBEDS_VERSION,
         ];
 
         $secret = (string) get_option(Orgasmic_Fc_Embeds_Store::OPTION_WEBHOOK_SECRET, '');
@@ -58,7 +58,7 @@ class Orgasmic_Fc_Embeds_Webhook
             'category' => 'video',
             'user_id' => get_current_user_id() ?: null,
             'data' => [
-                'message' => 'ORGAMSIC Bunny Embeds test ping',
+                'message' => 'ORGASMIC Bunny Embeds test ping',
             ],
             'site' => home_url(),
             'occurred_at' => gmdate('c'),

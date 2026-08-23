@@ -1,12 +1,15 @@
-=== ORGAMSIC Community Kalender ===
+=== ORGASMIC Community Kalender ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.0.3
+Stable tag: 1.0.4
 License: GPLv2 or later
 
 Event calendar for FluentCommunity with space visibility, RSVP, Zoom S2S, feed sharing, reminders, and REST API.
 
 == Changelog ==
+
+= 1.0.4 =
+* Brand name corrected to ORGASMIC.
 
 = 1.0.3 =
 * Header uses a calendar icon instead of the word "Kalender"
@@ -20,7 +23,7 @@ Event calendar for FluentCommunity with space visibility, RSVP, Zoom S2S, feed s
 * Activity stream posts via FluentCommunity FeedsHelper
 
 = 1.0.1 =
-* Own WP-Admin menu "ORGAMSIC Kalender" instead of a Tracker submenu
+* Own WP-Admin menu "ORGASMIC Kalender" instead of a Tracker submenu
 
 = 1.0.0 =
 * Initial release

@@ -1,9 +1,9 @@
-=== ORGAMSIC FluentCommunity Tracker ===
+=== ORGASMIC FluentCommunity Tracker ===
 Contributors: orgasmic
 Requires at least: 6.4
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.2.0
+Stable tag: 1.2.1
 License: GPLv2 or later
 
 Tracks FluentCommunity lesson progress and community engagement. Local admin dashboard plus optional outbound webhook.
@@ -25,10 +25,13 @@ Does not track private chat/DM contents (FluentCommunity does not expose stable 
 
 1. Copy `orgasmic-fc-tracker` into `wp-content/plugins/`
 2. Activate the plugin
-3. Open WP Admin → ORGAMSIC Tracker
+3. Open WP Admin → ORGASMIC Tracker
 4. Optional: set webhook URL under Einstellungen
 
 == Changelog ==
+
+= 1.2.1 =
+* Brand name corrected to ORGASMIC.
 
 = 1.2.0 =
 * Bunny / oEmbed moved to the separate plugin `orgasmic-fc-embeds`.

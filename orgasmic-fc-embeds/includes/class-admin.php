@@ -24,8 +24,8 @@ class Orgasmic_Fc_Embeds_Admin
     public function menu(): void
     {
         add_menu_page(
-            'ORGAMSIC Bunny',
-            'ORGAMSIC Bunny',
+            'ORGASMIC Bunny',
+            'ORGASMIC Bunny',
             'manage_options',
             'orgasmic-fc-embeds',
             [$this, 'render_log'],
@@ -94,7 +94,7 @@ class Orgasmic_Fc_Embeds_Admin
             return;
         }
 
-        echo '<div class="wrap"><h1>ORGAMSIC Bunny — Wiedergaben</h1>';
+        echo '<div class="wrap"><h1>ORGASMIC Bunny — Wiedergaben</h1>';
         echo '<p>Wer hat welches Video wie weit gesehen. Wird zusätzlich an den Webhook geschickt.</p>';
         echo '<table class="widefat striped"><thead><tr>';
         echo '<th>Zeit (UTC)</th><th>Event</th><th>Mitglied</th><th>Video</th><th>Position</th><th>Max</th><th>%</th>';
@@ -125,7 +125,7 @@ class Orgasmic_Fc_Embeds_Admin
             return;
         }
 
-        echo '<div class="wrap"><h1>ORGAMSIC Bunny — Einstellungen</h1>';
+        echo '<div class="wrap"><h1>ORGASMIC Bunny — Einstellungen</h1>';
         if (isset($_GET['orgasmic_fc_embeds_test'])) {
             $ok = $_GET['orgasmic_fc_embeds_test'] === '1';
             echo '<div class="notice notice-' . ($ok ? 'success' : 'error') . '"><p>';

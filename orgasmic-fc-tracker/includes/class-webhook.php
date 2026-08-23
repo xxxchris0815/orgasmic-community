@@ -21,7 +21,7 @@ class Orgasmic_Fc_Webhook
         $body = wp_json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $headers = [
             'Content-Type' => 'application/json',
-            'User-Agent' => 'ORGAMSIC-FC-Tracker/' . ORGAMSIC_FC_TRACKER_VERSION,
+            'User-Agent' => 'ORGASMIC-FC-Tracker/' . ORGASMIC_FC_TRACKER_VERSION,
         ];
 
         $secret = (string) get_option(Orgasmic_Fc_Store::OPTION_WEBHOOK_SECRET, '');
@@ -58,7 +58,7 @@ class Orgasmic_Fc_Webhook
             'category' => 'system',
             'user_id' => get_current_user_id() ?: null,
             'data' => [
-                'message' => 'ORGAMSIC FluentCommunity Tracker test ping',
+                'message' => 'ORGASMIC FluentCommunity Tracker test ping',
             ],
             'occurred_at' => gmdate('c'),
         ]);

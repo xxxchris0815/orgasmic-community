@@ -24,8 +24,8 @@ class Orgasmic_Fc_Events_Admin
     public function menu(): void
     {
         add_menu_page(
-            'ORGAMSIC Kalender',
-            'ORGAMSIC Kalender',
+            'ORGASMIC Kalender',
+            'ORGASMIC Kalender',
             'manage_options',
             'orgasmic-fc-calendar',
             [$this, 'render'],
@@ -97,7 +97,7 @@ class Orgasmic_Fc_Events_Admin
         }
 
         $reminders = (array) get_option(Orgasmic_Fc_Events_Install::OPTION_DEFAULT_REMINDERS, [1440, 60]);
-        echo '<div class="wrap"><h1>ORGAMSIC Kalender</h1>';
+        echo '<div class="wrap"><h1>ORGASMIC Kalender</h1>';
         echo '<p>Mitglieder sehen Events nur für ihre Spaces (z. B. Outer Circle, Live Community, Inner Circle). Zoom-Meetings werden per Server-to-Server OAuth auf dem gewählten Sub-Account angelegt.</p>';
 
         if (isset($_GET['zoom_test'])) {

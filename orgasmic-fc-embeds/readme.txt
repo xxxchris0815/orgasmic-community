@@ -1,9 +1,9 @@
-=== ORGAMSIC Bunny Embeds ===
+=== ORGASMIC Bunny Embeds ===
 Contributors: orgasmic
 Requires at least: 6.4
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.1.0
+Stable tag: 1.1.1
 License: GPLv2 or later
 
 Turns Bunny Stream play links in FluentCommunity posts into an inline player, tracks playback, and forwards events via webhook.
@@ -15,17 +15,20 @@ Turns Bunny Stream play links in FluentCommunity posts into an inline player, tr
 * Tracks play / pause / progress / ended / seeked per logged-in member
 * Local Wiedergaben log + outbound webhook (`video.play`, …)
 
-Independent of the ORGAMSIC Tracker.
+Independent of the ORGASMIC Tracker.
 
 == Installation ==
 
 1. Copy `orgasmic-fc-embeds` into `wp-content/plugins/`
-2. Activate **ORGAMSIC Bunny Embeds**
-3. Open WP-Admin → ORGAMSIC Bunny → Einstellungen
+2. Activate **ORGASMIC Bunny Embeds**
+3. Open WP-Admin → ORGASMIC Bunny → Einstellungen
 4. Set webhook URL and autoplay
 5. Optional: add `community.orgasmic.live` to Bunny Stream → Allowed Domains
 
 == Changelog ==
+
+= 1.1.1 =
+* Brand name corrected to ORGASMIC.
 
 = 1.1.0 =
 * Playback tracking (who watched how far) with webhook and admin log

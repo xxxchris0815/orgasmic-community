@@ -56,7 +56,7 @@ class Orgasmic_Fc_Events_Zoom
 
         $duration = $this->duration_minutes($event);
         $body = [
-            'topic' => $event['title'] ?? 'ORGAMSIC Event',
+            'topic' => $event['title'] ?? 'ORGASMIC Event',
             'type' => 2,
             'start_time' => gmdate('Y-m-d\TH:i:s\Z', strtotime((string) $event['starts_at']) ?: time()),
             'duration' => $duration,
@@ -91,7 +91,7 @@ class Orgasmic_Fc_Events_Zoom
 
         $duration = $this->duration_minutes($event);
         $updated = $this->request('PATCH', '/meetings/' . rawurlencode($id), [
-            'topic' => $event['title'] ?? 'ORGAMSIC Event',
+            'topic' => $event['title'] ?? 'ORGASMIC Event',
             'start_time' => gmdate('Y-m-d\TH:i:s\Z', strtotime((string) $event['starts_at']) ?: time()),
             'duration' => $duration,
             'timezone' => 'UTC',

@@ -1,12 +1,12 @@
 <?php
 /**
- * Plugin Name: ORGAMSIC FluentCommunity Tracker
+ * Plugin Name: ORGASMIC FluentCommunity Tracker
  * Plugin URI: https://community.orgasmic.live
  * Description: Tracks FluentCommunity lesson progress and community engagement, stores a local activity log, and optionally forwards events via webhook.
- * Version: 1.2.0
+ * Version: 1.2.1
  * Requires at least: 6.4
  * Requires PHP: 8.1
- * Author: ORGAMSIC
+ * Author: ORGASMIC
  * License: GPL-2.0-or-later
  * Text Domain: orgasmic-fc-tracker
  * Requires Plugins: fluent-community
@@ -18,16 +18,16 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('ORGAMSIC_FC_TRACKER_VERSION', '1.2.0');
-define('ORGAMSIC_FC_TRACKER_FILE', __FILE__);
-define('ORGAMSIC_FC_TRACKER_PATH', plugin_dir_path(__FILE__));
-define('ORGAMSIC_FC_TRACKER_URL', plugin_dir_url(__FILE__));
+define('ORGASMIC_FC_TRACKER_VERSION', '1.2.1');
+define('ORGASMIC_FC_TRACKER_FILE', __FILE__);
+define('ORGASMIC_FC_TRACKER_PATH', plugin_dir_path(__FILE__));
+define('ORGASMIC_FC_TRACKER_URL', plugin_dir_url(__FILE__));
 
-require_once ORGAMSIC_FC_TRACKER_PATH . 'includes/class-store.php';
-require_once ORGAMSIC_FC_TRACKER_PATH . 'includes/class-webhook.php';
-require_once ORGAMSIC_FC_TRACKER_PATH . 'includes/class-hooks.php';
-require_once ORGAMSIC_FC_TRACKER_PATH . 'includes/class-admin.php';
-require_once ORGAMSIC_FC_TRACKER_PATH . 'includes/class-rest.php';
+require_once ORGASMIC_FC_TRACKER_PATH . 'includes/class-store.php';
+require_once ORGASMIC_FC_TRACKER_PATH . 'includes/class-webhook.php';
+require_once ORGASMIC_FC_TRACKER_PATH . 'includes/class-hooks.php';
+require_once ORGASMIC_FC_TRACKER_PATH . 'includes/class-admin.php';
+require_once ORGASMIC_FC_TRACKER_PATH . 'includes/class-rest.php';
 
 final class Orgasmic_Fc_Tracker
 {
@@ -56,7 +56,7 @@ final class Orgasmic_Fc_Tracker
         $this->admin = new Orgasmic_Fc_Admin($this->store, $this->webhook);
         $this->rest = new Orgasmic_Fc_Rest($this->store);
 
-        register_activation_hook(ORGAMSIC_FC_TRACKER_FILE, [$this->store, 'install']);
+        register_activation_hook(ORGASMIC_FC_TRACKER_FILE, [$this->store, 'install']);
         add_action('plugins_loaded', [$this, 'boot']);
         add_action('orgasmic_fc_tracker_cleanup', [$this->store, 'cleanup_old_events']);
     }

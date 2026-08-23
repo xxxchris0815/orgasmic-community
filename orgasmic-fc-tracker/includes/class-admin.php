@@ -25,8 +25,8 @@ class Orgasmic_Fc_Admin
     public function menu(): void
     {
         add_menu_page(
-            'ORGAMSIC Tracker',
-            'ORGAMSIC Tracker',
+            'ORGASMIC Tracker',
+            'ORGASMIC Tracker',
             'manage_options',
             'orgasmic-fc-tracker',
             [$this, 'render_dashboard'],
@@ -132,7 +132,7 @@ class Orgasmic_Fc_Admin
 
         $fc_active = defined('FLUENT_COMMUNITY_PLUGIN_VERSION') || class_exists('FluentCommunity\\App\\App');
         if (!$fc_active) {
-            echo '<div class="notice notice-warning"><p>ORGAMSIC Tracker: FluentCommunity ist nicht aktiv. Hooks greifen erst nach der Aktivierung.</p></div>';
+            echo '<div class="notice notice-warning"><p>ORGASMIC Tracker: FluentCommunity ist nicht aktiv. Hooks greifen erst nach der Aktivierung.</p></div>';
         }
 
         if (isset($_GET['orgasmic_fc_test'])) {

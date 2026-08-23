@@ -152,7 +152,7 @@
     const appearance = (state.bootstrap && state.bootstrap.portal && state.bootstrap.portal.appearance) || cfg.appearance || 'auto';
     const accent = (state.bootstrap && state.bootstrap.portal && state.bootstrap.portal.accent) || cfg.accent || '';
     if (accent) root.style.setProperty('--oc-accent-set', accent);
-    const overlay = root.querySelector('.orgamsic-cal-overlay');
+    const overlay = root.querySelector('.orgasmic-cal-overlay');
     if (overlay) {
       overlay.classList.add('oc-theme-' + appearance);
     }
@@ -213,14 +213,14 @@
   }
 
   function openOverlay() {
-    const root = document.getElementById('orgamsic-cal-root');
+    const root = document.getElementById('orgasmic-cal-root');
     if (!root) return;
     root.hidden = false;
     document.body.style.overflow = 'hidden';
   }
 
   function closeOverlay() {
-    const root = document.getElementById('orgamsic-cal-root');
+    const root = document.getElementById('orgasmic-cal-root');
     if (!root) return;
     root.hidden = true;
     root.innerHTML = '';
@@ -281,11 +281,11 @@
 
   function shell(inner) {
     const canManage = !!(state.bootstrap && state.bootstrap.can_manage);
-    return '<div class="orgamsic-cal-overlay"><div class="orgamsic-cal">'
-      + '<header class="orgamsic-cal-top"><div>'
-      + '<p class="oc-sub">ORGAMSIC</p><h1>Kalender</h1>'
+    return '<div class="orgasmic-cal-overlay"><div class="orgasmic-cal">'
+      + '<header class="orgasmic-cal-top"><div>'
+      + '<p class="oc-sub">ORGASMIC</p><h1>Kalender</h1>'
       + '<p class="oc-sub">' + escapeHtml(subtitleText()) + '</p>'
-      + '</div><div class="orgamsic-cal-actions">'
+      + '</div><div class="orgasmic-cal-actions">'
       + (canManage ? '<a class="oc-btn" href="#orgasmic-event-new">Neues Event</a>' : '')
       + '<button type="button" class="oc-close" data-oc-close>Schließen</button>'
       + '</div></header>'
@@ -352,7 +352,7 @@
   }
 
   async function renderList() {
-    const root = document.getElementById('orgamsic-cal-root');
+    const root = document.getElementById('orgasmic-cal-root');
     const m = state.month;
     const canManage = !!(state.bootstrap && state.bootstrap.can_manage);
     const cells = monthCells(m, state.events);
@@ -381,25 +381,25 @@
     const cards = ordered.map((ev) => {
       const img = ev.image_url
         ? '<img src="' + escapeHtml(ev.image_url) + '" alt="">'
-        : '<div class="orgamsic-cal-cover"></div>';
-      return '<a class="orgamsic-cal-card' + (isEventToday(ev) ? ' oc-today-card' : '') + '" href="#orgasmic-event-' + ev.id + '">'
+        : '<div class="orgasmic-cal-cover"></div>';
+      return '<a class="orgasmic-cal-card' + (isEventToday(ev) ? ' oc-today-card' : '') + '" href="#orgasmic-event-' + ev.id + '">'
         + img
-        + '<div class="oc-body"><div class="orgamsic-cal-meta">' + escapeHtml(fmtDate(ev.starts_at, ev.timezone)) + '</div>'
+        + '<div class="oc-body"><div class="orgasmic-cal-meta">' + escapeHtml(fmtDate(ev.starts_at, ev.timezone)) + '</div>'
         + '<h3>' + escapeHtml(ev.title) + todayBadge(ev) + '</h3>'
-        + '<div class="orgamsic-cal-spaces">' + spacesHtml(ev.spaces) + '</div>'
+        + '<div class="orgasmic-cal-spaces">' + spacesHtml(ev.spaces) + '</div>'
         + '<p class="oc-sub">' + escapeHtml(ev.excerpt || '') + '</p>'
         + '<p class="oc-sub">' + (ev.rsvp.counts.going || 0) + ' dabei</p>'
         + '</div></a>';
-    }).join('') || '<div class="orgamsic-cal-empty">Noch keine Events in deinen Kreisen.</div>';
+    }).join('') || '<div class="orgasmic-cal-empty">Noch keine Events in deinen Kreisen.</div>';
 
     mount(root, shell(
-      '<div class="orgamsic-cal-month">'
+      '<div class="orgasmic-cal-month">'
       + '<button type="button" class="oc-ghost" data-oc-prev>←</button>'
       + '<strong>' + MONTHS[m.getMonth()] + ' ' + m.getFullYear() + '</strong>'
       + '<button type="button" class="oc-ghost" data-oc-next>→</button>'
       + '</div>'
-      + '<div class="orgamsic-cal-grid">' + grid + '</div>'
-      + '<div class="orgamsic-cal-list">' + cards + '</div>'
+      + '<div class="orgasmic-cal-grid">' + grid + '</div>'
+      + '<div class="orgasmic-cal-list">' + cards + '</div>'
     ));
     root.querySelector('[data-oc-prev]').onclick = () => {
       state.month = new Date(m.getFullYear(), m.getMonth() - 1, 1);
@@ -418,7 +418,7 @@
   }
 
   async function renderDetail(id) {
-    const root = document.getElementById('orgamsic-cal-root');
+    const root = document.getElementById('orgasmic-cal-root');
     state.error = '';
     try {
       state.event = await api('events/' + id);
@@ -439,16 +439,16 @@
 
     mount(root, shell(
       '<p><a class="oc-btn oc-ghost" href="#orgasmic-calendar">← Alle Events</a></p>'
-      + '<article class="orgamsic-cal-detail">'
+      + '<article class="orgasmic-cal-detail">'
       + '<div class="oc-hero">' + hero + '</div>'
-      + '<div class="orgamsic-cal-spaces">' + spacesHtml(ev.spaces) + '</div>'
+      + '<div class="orgasmic-cal-spaces">' + spacesHtml(ev.spaces) + '</div>'
       + '<h2>' + escapeHtml(ev.title) + todayBadge(ev) + '</h2>'
       + '<p>' + escapeHtml(fmtDate(ev.starts_at, ev.timezone)) + (ev.ends_at ? ' – ' + escapeHtml(fmtDate(ev.ends_at, ev.timezone)) : '') + '</p>'
-      + '<div class="orgamsic-cal-desc">' + (ev.description_html || '') + '</div>'
-      + (ev.rsvp_enabled ? '<div class="orgamsic-cal-rsvp">' + rsvp + '</div>' : '')
+      + '<div class="orgasmic-cal-desc">' + (ev.description_html || '') + '</div>'
+      + (ev.rsvp_enabled ? '<div class="orgasmic-cal-rsvp">' + rsvp + '</div>' : '')
       + '<p class="oc-sub">' + (ev.rsvp.counts.going || 0) + ' Zusagen' + (ev.rsvp_capacity ? ' / ' + ev.rsvp_capacity : '') + ', ' + (ev.rsvp.counts.maybe || 0) + ' vielleicht</p>'
       + join + ' ' + manage
-      + '<h3>Wer nimmt teil</h3><div class="orgamsic-cal-people">' + (people || '<p class="oc-sub">Noch niemand hat zugesagt.</p>') + '</div>'
+      + '<h3>Wer nimmt teil</h3><div class="orgasmic-cal-people">' + (people || '<p class="oc-sub">Noch niemand hat zugesagt.</p>') + '</div>'
       + '</article>'
     ));
     root.querySelectorAll('[data-rsvp]').forEach((btn) => {
@@ -480,7 +480,7 @@
   }
 
   async function renderForm(id, datePrefill) {
-    const root = document.getElementById('orgamsic-cal-root');
+    const root = document.getElementById('orgasmic-cal-root');
     const tz = (state.bootstrap && state.bootstrap.timezone) || 'Europe/Berlin';
     let ev = {
       title: '', description_html: '', timezone: tz,
@@ -518,7 +518,7 @@
 
     mount(root, shell(
       '<p><a class="oc-btn oc-ghost" href="#orgasmic-calendar">← Zurück</a></p>'
-      + '<form class="orgamsic-cal-form" id="oc-form">'
+      + '<form class="orgasmic-cal-form" id="oc-form">'
       + '<label>Name<input name="title" required value="' + escapeHtml(ev.title || '') + '"></label>'
       + '<div class="oc-row-4">'
       + '<label>Datum<input type="date" name="start_date" required value="' + escapeHtml(startParts.date) + '"></label>'

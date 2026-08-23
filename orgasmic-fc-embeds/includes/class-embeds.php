@@ -22,7 +22,7 @@ class Orgasmic_Fc_Bunny_Embeds
 
     public function assets(): void
     {
-        $css = ORGAMSIC_FC_EMBEDS_URL . 'assets/embeds.css?ver=' . rawurlencode(ORGAMSIC_FC_EMBEDS_VERSION);
+        $css = ORGASMIC_FC_EMBEDS_URL . 'assets/embeds.css?ver=' . rawurlencode(ORGASMIC_FC_EMBEDS_VERSION);
         echo '<link rel="stylesheet" href="' . esc_url($css) . '" />';
     }
 
@@ -42,7 +42,7 @@ class Orgasmic_Fc_Bunny_Embeds
         ];
         echo '<script>window.OrgasmicFcEmbeds = ' . wp_json_encode($data) . ';</script>';
         echo '<script src="https://assets.mediadelivery.net/playerjs/playerjs-latest.min.js" defer></script>';
-        echo '<script src="' . esc_url(ORGAMSIC_FC_EMBEDS_URL . 'assets/embeds.js?ver=' . rawurlencode(ORGAMSIC_FC_EMBEDS_VERSION)) . '" defer></script>';
-        echo '<script src="' . esc_url(ORGAMSIC_FC_EMBEDS_URL . 'assets/track.js?ver=' . rawurlencode(ORGAMSIC_FC_EMBEDS_VERSION)) . '" defer></script>';
+        echo '<script src="' . esc_url(ORGASMIC_FC_EMBEDS_URL . 'assets/embeds.js?ver=' . rawurlencode(ORGASMIC_FC_EMBEDS_VERSION)) . '" defer></script>';
+        echo '<script src="' . esc_url(ORGASMIC_FC_EMBEDS_URL . 'assets/track.js?ver=' . rawurlencode(ORGASMIC_FC_EMBEDS_VERSION)) . '" defer></script>';
     }
 }

@@ -60,7 +60,7 @@ class Orgasmic_Fc_Hooks
         add_action('fluent_community/user_level_upgraded', [$this, 'on_level_upgraded'], 20, 3);
         add_action('fluent_community/followed_user', [$this, 'on_followed_user'], 20, 2);
 
-        // Community calendar (ORGAMSIC Events plugin)
+        // Community calendar (ORGASMIC Events plugin)
         add_action('orgasmic_fc/event/created', [$this, 'on_cal_created'], 20, 2);
         add_action('orgasmic_fc/event/updated', [$this, 'on_cal_updated'], 20, 2);
         add_action('orgasmic_fc/event/deleted', [$this, 'on_cal_deleted'], 20, 2);

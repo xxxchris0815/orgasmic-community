@@ -28,7 +28,7 @@ class Orgasmic_Fc_Events_Portal
         if (!is_user_logged_in()) {
             return;
         }
-        $css = ORGAMSIC_FC_EVENTS_URL . 'assets/portal.css?ver=' . rawurlencode(ORGAMSIC_FC_EVENTS_VERSION);
+        $css = ORGASMIC_FC_EVENTS_URL . 'assets/portal.css?ver=' . rawurlencode(ORGASMIC_FC_EVENTS_VERSION);
         echo '<link rel="stylesheet" href="' . esc_url($css) . '" />';
     }
 
@@ -50,8 +50,8 @@ class Orgasmic_Fc_Events_Portal
             'hasToday' => $this->today_has_events(),
         ];
         echo '<script>window.OrgasmicFcEvents = ' . wp_json_encode($data) . ';</script>';
-        echo '<script src="' . esc_url(ORGAMSIC_FC_EVENTS_URL . 'assets/portal.js?ver=' . rawurlencode(ORGAMSIC_FC_EVENTS_VERSION)) . '" defer></script>';
-        echo '<div id="orgamsic-cal-root" hidden></div>';
+        echo '<script src="' . esc_url(ORGASMIC_FC_EVENTS_URL . 'assets/portal.js?ver=' . rawurlencode(ORGASMIC_FC_EVENTS_VERSION)) . '" defer></script>';
+        echo '<div id="orgasmic-cal-root" hidden></div>';
     }
 
     public function header_item($auth, $context = null): void
