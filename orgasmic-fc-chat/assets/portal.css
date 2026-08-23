@@ -2,7 +2,7 @@
   position: fixed;
   inset: 0;
   z-index: 99991;
-  overflow: hidden;
+  overflow: hidden !important;
 }
 
 #orgasmic-chat-root[hidden] {
@@ -92,25 +92,38 @@
   gap: 8px;
 }
 
-.orgasmic-chat button,
-.orgasmic-chat .och-btn {
+#orgasmic-chat-root button,
+.orgasmic-chat-overlay button,
+.orgasmic-chat-overlay .och-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  font: inherit;
+  line-height: inherit;
+  box-sizing: border-box;
+  cursor: pointer;
   border: 0;
+  box-shadow: none;
+  background: transparent;
+  color: inherit;
   border-radius: 10px;
   padding: 10px 14px;
-  cursor: pointer;
-  font: inherit;
-  background: var(--och-accent, #409eff);
-  color: #fff;
   font-weight: 600;
 }
 
-.orgasmic-chat button:disabled {
+#orgasmic-chat-root [data-och-send-btn],
+.orgasmic-chat-overlay .och-btn {
+  background: var(--och-accent, #409eff);
+  color: #fff;
+}
+
+#orgasmic-chat-root button:disabled {
   opacity: 0.55;
   cursor: wait;
 }
 
-.orgasmic-chat .och-close,
-.orgasmic-chat .och-ghost {
+#orgasmic-chat-root .och-close,
+#orgasmic-chat-root .och-ghost {
   background: transparent;
   color: inherit;
   border: 1px solid var(--och-line);
@@ -126,10 +139,11 @@
 
 .orgasmic-chat-rooms {
   border-right: 1px solid var(--och-line);
-  overflow: auto;
+  overflow-y: auto;
   overflow-x: hidden;
   background: var(--och-bg);
   min-height: 0;
+  padding: 0 8px 16px;
 }
 
 .orgasmic-chat-search {
@@ -153,21 +167,38 @@
 
 .orgasmic-chat-room {
   display: grid;
-  grid-template-columns: 44px 1fr auto;
-  gap: 10px;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
   width: 100%;
+  box-sizing: border-box;
   text-align: left;
-  background: transparent;
-  color: inherit;
-  border: 0;
-  border-radius: 0;
-  padding: 12px 14px;
+  background: transparent !important;
+  color: inherit !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  border-radius: 12px;
+  padding: 10px 12px;
   font-weight: 400;
+  cursor: pointer;
+}
+
+.orgasmic-chat-room + .orgasmic-chat-room {
+  margin-top: 2px;
 }
 
 .orgasmic-chat-room:hover,
+.orgasmic-chat-room:focus-visible {
+  background: color-mix(in srgb, var(--och-text) 6%, transparent) !important;
+  outline: none;
+}
+
 .orgasmic-chat-room.is-active {
-  background: color-mix(in srgb, var(--och-accent) 10%, transparent);
+  background: color-mix(in srgb, var(--och-accent) 12%, transparent) !important;
+}
+
+.orgasmic-chat-room .och-copy {
+  min-width: 0;
 }
 
 .orgasmic-chat-room .och-avatar,
@@ -371,8 +402,8 @@
 }
 
 .orgasmic-chat-tools button {
-  background: transparent;
-  color: inherit;
+  background: transparent !important;
+  color: inherit !important;
   min-width: 40px;
   min-height: 40px;
   padding: 0;
@@ -386,8 +417,8 @@
 }
 
 .och-emoji-panel button {
-  background: transparent;
-  color: inherit;
+  background: transparent !important;
+  color: inherit !important;
   font-size: 20px;
   min-width: 36px;
   min-height: 36px;

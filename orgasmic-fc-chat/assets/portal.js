@@ -235,13 +235,13 @@
       const last = room.last_message || {};
       const preview = last.preview || last.body || (last.attachment ? '📷 Bild' : 'Noch keine Nachrichten');
       const who = last.author && last.author.display_name ? last.author.display_name + ': ' : '';
-      return '<button type="button" class="orgasmic-chat-room' + (state.spaceId === room.space_id ? ' is-active' : '') + '" data-och-room="' + room.space_id + '">'
+      return '<div class="orgasmic-chat-room' + (state.spaceId === room.space_id ? ' is-active' : '') + '" role="button" tabindex="0" data-och-room="' + room.space_id + '">'
         + avatarHtml(room.logo, room.title, 'och-avatar')
-        + '<span><span class="och-name">' + escapeHtml(room.title) + '</span>'
+        + '<span class="och-copy"><span class="och-name">' + escapeHtml(room.title) + '</span>'
         + '<span class="och-preview">' + escapeHtml((who + preview).slice(0, 90)) + '</span></span>'
         + '<span class="och-meta"><span class="och-time">' + escapeHtml(fmtTime(last.created_at)) + '</span>'
         + (room.unread > 0 ? '<span class="och-unread">' + escapeHtml(badgeText(room.unread)) + '</span>' : '')
-        + '</span></button>';
+        + '</span></div>';
     }).join('');
   }
 
@@ -634,6 +634,12 @@
   document.addEventListener('keydown', (ev) => {
     if (ev.key === 'Escape' && hashRoute()) {
       closeOverlay();
+      return;
+    }
+    const room = ev.target.closest && ev.target.closest('[data-och-room]');
+    if (room && (ev.key === 'Enter' || ev.key === ' ')) {
+      ev.preventDefault();
+      location.hash = '#orgasmic-chat-' + room.getAttribute('data-och-room');
       return;
     }
     const box = ev.target.closest && ev.target.closest('#orgasmic-chat-root textarea[name="body"]');

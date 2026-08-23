@@ -1,12 +1,15 @@
 === ORGASMIC Chat ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.0.1
+Stable tag: 1.0.2
 License: GPLv2 or later
 
 Space chat for FluentCommunity. One room per space, members only, header icon with unread badge, REST API.
 
 == Changelog ==
+
+= 1.0.2 =
+* Room list no longer inherits FluentCommunity primary button styles
 
 = 1.0.1 =
 * Admin color settings and editable subtitle
