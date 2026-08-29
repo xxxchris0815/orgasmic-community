@@ -11,7 +11,7 @@ Moved from `evolution-api` (`Extras/orgasmic-community`).
 | `orgasmic-fc-tracker/` | **1.2.1** | Engagement-Tracker, Dashboard, Evolution-Webhook |
 | `orgasmic-fc-events/` | **1.0.4** | Kalender im Portal (RSVP, Zoom, Activity Stream) |
 | `orgasmic-fc-embeds/` | **1.1.1** | Bunny-Player, Autoplay-Setting, Wiedergabe-Tracking + Webhook |
-| `orgasmic-fc-chat/` | **1.1.0** | Space-Chat (Bild + Sprachnachricht, Offline-Cache, Capacitor-Kamera/Mikro) |
+| `orgasmic-fc-chat/` | **1.1.1** | Space-Chat (WhatsApp-UI, Bild + Sprache, Offline-Cache) |
 | `orgasmic-fc-app/` | **1.1.0** | PWA, Web Push, Prefs, Capacitor-Token-API + optional Firebase |
 
 ## ORGASMIC Community Kalender
@@ -70,7 +70,7 @@ Ersatz für den FluentCommunity-Pro-Chat:
 
 WP-Admin: **ORGASMIC Chat → Einstellungen** (Farben, Untertitel, welche Spaces Chat haben).
 
-ZIP: [`orgasmic-fc-chat-1.1.0.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-chat-1.1.0.zip)
+ZIP: [`orgasmic-fc-chat-1.1.1.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-chat-1.1.1.zip)
 
 ## ORGASMIC App (PWA + Push)
 

@@ -306,19 +306,33 @@
     }).join('');
   }
 
-  function messageHtml(msg, prevDay) {
+  function sameBurst(prev, msg) {
+    return !!(prev && prev.user_id === msg.user_id && fmtDay(prev.created_at) === fmtDay(msg.created_at));
+  }
+
+  function iconSvg(path) {
+    return '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + path + '</svg>';
+  }
+
+  function sendIcon() {
+    return '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M3.4 20.4 21 12 3.4 3.6 3 10.2 15 12 3 13.8z"></path></svg>';
+  }
+
+  function messageHtml(msg, prevDay, prevMsg) {
     const day = fmtDay(msg.created_at);
     let html = '';
     if (day && day !== prevDay) {
       html += '<div class="och-day">' + escapeHtml(day) + '</div>';
     }
     const mine = state.me && msg.user_id === state.me.id;
+    const follow = (!day || day === prevDay) && sameBurst(prevMsg, msg);
     const author = msg.author || {};
     const canDelete = mine || state.canManage;
-    html += '<article class="orgasmic-chat-msg' + (mine ? ' is-mine' : '') + '" data-och-msg="' + msg.id + '">';
-    if (!mine) html += avatarHtml(author.avatar, author.display_name, 'och-avatar');
+    html += '<article class="orgasmic-chat-msg' + (mine ? ' is-mine' : '') + (follow ? ' is-follow' : '') + '" data-och-msg="' + msg.id + '" data-och-uid="' + msg.user_id + '">';
+    if (!mine && !follow) html += avatarHtml(author.avatar, author.display_name, 'och-avatar');
+    else if (!mine) html += '<span class="och-avatar och-avatar-spacer" aria-hidden="true"></span>';
     html += '<div class="och-bubble">';
-    if (!mine) html += '<div class="och-author">' + escapeHtml(author.display_name || 'Mitglied') + '</div>';
+    if (!mine && !follow) html += '<div class="och-author">' + escapeHtml(author.display_name || 'Mitglied') + '</div>';
     if (msg.body) html += '<div class="och-text">' + linkify(msg.body) + '</div>';
     if (msg.attachment && (msg.attachment.kind === 'audio' || (msg.attachment.mime && String(msg.attachment.mime).indexOf('audio/') === 0))) {
       html += '<div class="och-voice"><audio controls preload="metadata" src="' + escapeHtml(msg.attachment.url) + '"></audio>';
@@ -340,9 +354,11 @@
       return '<div class="orgasmic-chat-empty" data-och-empty>Schreib die erste Nachricht in diesem Kreis.</div>';
     }
     let lastDay = '';
+    let prevMsg = null;
     return state.messages.map((msg) => {
-      const built = messageHtml(msg, lastDay);
+      const built = messageHtml(msg, lastDay, prevMsg);
       lastDay = built.day;
+      prevMsg = msg;
       return built.html;
     }).join('');
   }
@@ -358,10 +374,17 @@
     const empty = scroller.querySelector('[data-och-empty]');
     if (empty) empty.remove();
     let day = lastRenderedDay();
+    let prevMsg = null;
+    const lastArt = scroller.querySelector('article.orgasmic-chat-msg:last-of-type');
+    if (lastArt) {
+      const id = parseInt(lastArt.getAttribute('data-och-msg'), 10);
+      prevMsg = state.messages.find((m) => m.id === id) || null;
+    }
     const wrap = document.createElement('div');
     items.forEach((msg) => {
-      const built = messageHtml(msg, day);
+      const built = messageHtml(msg, day, prevMsg);
       day = built.day;
+      prevMsg = msg;
       wrap.insertAdjacentHTML('beforeend', built.html);
     });
     while (wrap.firstChild) scroller.appendChild(wrap.firstChild);
@@ -369,17 +392,9 @@
   }
 
   function refreshRooms() {
-    const aside = $('.orgasmic-chat-rooms');
-    if (!aside) return;
-    const search = aside.querySelector('.orgasmic-chat-search');
-    aside.querySelectorAll('.orgasmic-chat-room, .orgasmic-chat-empty').forEach((n) => n.remove());
-    const wrap = document.createElement('div');
-    wrap.innerHTML = roomsHtml();
-    while (wrap.firstChild) aside.appendChild(wrap.firstChild);
-    if (search && document.activeElement !== search.querySelector('input')) {
-      const input = search.querySelector('input');
-      if (input && input.value !== state.query) input.value = state.query;
-    }
+    const list = $('[data-och-rooms]');
+    if (!list) return;
+    list.innerHTML = roomsHtml();
   }
 
   function setSending(on) {
@@ -387,7 +402,8 @@
     const btn = $('[data-och-send-btn]');
     if (btn) {
       btn.disabled = on;
-      btn.textContent = on ? 'Senden…' : 'Senden';
+      btn.setAttribute('aria-label', on ? 'Senden…' : 'Senden');
+      btn.innerHTML = sendIcon();
     }
   }
 
@@ -427,12 +443,12 @@
       + '<p class="och-sub" data-och-error hidden></p>'
       + '<form data-och-send>'
       + '<div class="orgasmic-chat-tools">'
-      + '<button type="button" class="och-ghost" data-och-emoji-toggle title="Emoji">☺</button>'
-      + '<button type="button" class="och-ghost" data-och-image title="Bild">🖼</button>'
-      + '<button type="button" class="och-ghost' + (state.recording ? ' is-rec' : '') + '" data-och-voice title="Sprachnachricht">🎤</button>'
+      + '<button type="button" class="och-icon-btn" data-och-emoji-toggle title="Emoji" aria-label="Emoji">' + iconSvg('<circle cx="12" cy="12" r="9"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"></path>') + '</button>'
+      + '<button type="button" class="och-icon-btn" data-och-image title="Bild" aria-label="Bild">' + iconSvg('<rect x="4" y="5" width="16" height="14" rx="2"></rect><circle cx="9" cy="10" r="1.4"></circle><path d="m8 16 3-3 2 2 3-4 3 5"></path>') + '</button>'
+      + '<button type="button" class="och-icon-btn' + (state.recording ? ' is-rec' : '') + '" data-och-voice title="Sprachnachricht" aria-label="Sprachnachricht">' + iconSvg('<path d="M12 15a3 3 0 0 0 3-3V8a3 3 0 0 0-6 0v4a3 3 0 0 0 3 3z"></path><path d="M19 12a7 7 0 0 1-14 0M12 19v2"></path>') + '</button>'
       + '</div>'
-      + '<textarea name="body" maxlength="' + (state.portal.maxLength || 2000) + '" placeholder="Nachricht an ' + escapeHtml(room.title) + '" rows="1"></textarea>'
-      + '<button type="submit" data-och-send-btn' + (state.sending ? ' disabled' : '') + '>Senden</button>'
+      + '<textarea name="body" maxlength="' + (state.portal.maxLength || 2000) + '" placeholder="Nachricht" rows="1"></textarea>'
+      + '<button type="submit" class="och-send" data-och-send-btn aria-label="Senden"' + (state.sending ? ' disabled' : '') + '>' + sendIcon() + '</button>'
       + '</form><input type="file" accept="image/*" hidden data-och-file /></div>';
   }
 
@@ -444,27 +460,27 @@
     const stick = !prev || (prev.scrollHeight - prev.scrollTop - prev.clientHeight < 80);
 
     root.innerHTML = '<div class="orgasmic-chat-overlay"><div class="orgasmic-chat' + (state.spaceId ? ' is-thread' : '') + '">'
-      + '<header class="orgasmic-chat-top"><div>'
-      + '<p class="och-sub">ORGASMIC</p><h1>Chat</h1>'
-      + '<p class="och-sub" data-och-subtitle' + (state.portal.subtitle ? '' : ' hidden') + '>' + escapeHtml(state.portal.subtitle || '') + '</p>'
-      + '</div><div class="orgasmic-chat-actions">'
-      + '<button type="button" class="och-close" data-och-close>Schließen</button>'
-      + '</div></header>'
       + '<p class="orgasmic-chat-offline" data-och-offline' + (state.offline ? '' : ' hidden') + '>Offline — zuletzt geladene Nachrichten.</p>'
       + '<div class="orgasmic-chat-body">'
       + '<aside class="orgasmic-chat-rooms">'
-      + '<div class="orgasmic-chat-search"><input type="search" value="' + escapeHtml(state.query) + '" placeholder="Kreis suchen" data-och-search /></div>'
-      + roomsHtml()
+      + '<header class="orgasmic-chat-list-top"><div><h1>Chats</h1>'
+      + '<p class="och-sub" data-och-subtitle' + (state.portal.subtitle ? '' : ' hidden') + '>' + escapeHtml(state.portal.subtitle || '') + '</p>'
+      + '</div><button type="button" class="och-icon-btn" data-och-close aria-label="Schließen" title="Schließen">'
+      + iconSvg('<path d="M6 6l12 12M18 6 6 18"></path>') + '</button></header>'
+      + '<div class="orgasmic-chat-search"><input type="search" value="' + escapeHtml(state.query) + '" placeholder="Suchen" data-och-search /></div>'
+      + '<div class="orgasmic-chat-roomlist" data-och-rooms>' + roomsHtml() + '</div>'
       + '</aside>'
       + '<section class="orgasmic-chat-thread">'
       + (room
         ? '<div class="orgasmic-chat-thread-top">'
-          + '<button type="button" class="och-ghost orgasmic-chat-back" data-och-back>Zurück</button>'
+          + '<button type="button" class="och-icon-btn orgasmic-chat-back" data-och-back aria-label="Zurück">' + iconSvg('<path d="M15 6 9 12l6 6"></path>') + '</button>'
           + avatarHtml(room.logo, room.title, 'och-avatar')
-          + '<h2>' + escapeHtml(room.title) + '</h2></div>'
+          + '<div class="och-thread-who"><h2>' + escapeHtml(room.title) + '</h2><p class="och-sub">Kreis</p></div>'
+          + '<button type="button" class="och-icon-btn orgasmic-chat-thread-close" data-och-close aria-label="Schließen">'
+          + iconSvg('<path d="M6 6l12 12M18 6 6 18"></path>') + '</button></div>'
           + '<div class="orgasmic-chat-messages" id="och-scroll">' + messagesHtml() + '</div>'
           + composerHtml(room)
-        : '<div class="orgasmic-chat-placeholder">Wähle links einen Kreis.</div>')
+        : '<div class="orgasmic-chat-placeholder">Wähle links einen Kreis, um zu schreiben.</div>')
       + '</section></div></div></div>';
 
     applyTheme(root);

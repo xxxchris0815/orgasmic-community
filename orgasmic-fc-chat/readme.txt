@@ -1,12 +1,15 @@
 === ORGASMIC Chat ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.1.0
+Stable tag: 1.1.1
 License: GPLv2 or later
 
 Space chat for FluentCommunity. One room per space, members only, header icon with unread badge, REST API.
 
 == Changelog ==
+
+= 1.1.1 =
+* WhatsApp-like bubbles, chat wallpaper, compact list, and round send button
 
 = 1.1.0 =
 * Voice messages (browser MediaRecorder, Capacitor VoiceRecorder if present)
