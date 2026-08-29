@@ -155,6 +155,7 @@ class Orgasmic_Fc_Chat_Rest
             'preview' => $message['body'] !== '' ? $message['body'] : ($message['attachment'] ? '📷 Bild' : ''),
             'attachment_id' => $attachment_id ?: null,
         ]);
+        do_action('orgasmic_fc/chat/message', $message, $space_id, $user_id);
 
         return rest_ensure_response($message);
     }

@@ -1,0 +1,43 @@
+#orgasmic-app-prompt {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 100000;
+}
+
+.orgasmic-app-banner {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--el-bg-color, #fff);
+  color: inherit;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+  border: 1px solid var(--el-border-color, rgba(15, 23, 42, 0.12));
+}
+
+.orgasmic-app-banner p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.orgasmic-app-banner button {
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--el-color-primary, #409eff);
+  color: #fff;
+}
+
+.orgasmic-app-banner .oa-ghost {
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--el-border-color, rgba(15, 23, 42, 0.12));
+}

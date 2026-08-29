@@ -11,7 +11,8 @@ Moved from `evolution-api` (`Extras/orgasmic-community`).
 | `orgasmic-fc-tracker/` | **1.2.1** | Engagement-Tracker, Dashboard, Evolution-Webhook |
 | `orgasmic-fc-events/` | **1.0.4** | Kalender im Portal (RSVP, Zoom, Activity Stream) |
 | `orgasmic-fc-embeds/` | **1.1.1** | Bunny-Player, Autoplay-Setting, Wiedergabe-Tracking + Webhook |
-| `orgasmic-fc-chat/` | **1.0.2** | Space-Chat im Portal (Icon oben rechts, Ungelesen-Badge, REST) |
+| `orgasmic-fc-chat/` | **1.0.3** | Space-Chat im Portal (Icon oben rechts, Ungelesen-Badge, REST) |
+| `orgasmic-fc-app/` | **1.0.0** | PWA, Cache, Push (Chat, Beiträge, Kommentare, Events) |
 
 ## ORGASMIC Community Kalender
 
@@ -67,7 +68,22 @@ Ersatz für den FluentCommunity-Pro-Chat:
 
 WP-Admin: **ORGASMIC Chat → Einstellungen** (Farben, Untertitel, welche Spaces Chat haben).
 
-ZIP: [`orgasmic-fc-chat-1.0.2.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-chat-1.0.2.zip)
+ZIP: [`orgasmic-fc-chat-1.0.3.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-chat-1.0.3.zip)
+
+## ORGASMIC App (PWA + Push)
+
+Plugin-Ordner: `orgasmic-fc-app/`
+
+Kein zweites Native-Frontend. Das FluentCommunity-Portal wird zur App:
+
+1. **Jetzt:** PWA (Homescreen, Service Worker Cache, Web Push)
+2. **Stores später:** Capacitor um dieselbe URL — gleiche REST, andere Push-Tokens (FCM/APNs)
+
+Push geht nur an Mitglieder des jeweiligen Spaces. Chat-Text ist standardmäßig nicht in der Notification.
+
+WP-Admin: **ORGASMIC App**. PHP 8.2+ für den Push-Versand (`openssl_pkey_derive`).
+
+ZIP: [`orgasmic-fc-app-1.0.0.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.0.0.zip)
 
 ### Installation
 
@@ -80,12 +96,15 @@ cp -a orgasmic-fc-embeds \
   /opt/community/data/wordpress/wp-content/plugins/
 cp -a orgasmic-fc-chat \
   /opt/community/data/wordpress/wp-content/plugins/
+cp -a orgasmic-fc-app \
+  /opt/community/data/wordpress/wp-content/plugins/
 
 cd /opt/community
 docker compose --profile tools run --rm wpcli plugin activate orgasmic-fc-tracker
 docker compose --profile tools run --rm wpcli plugin activate orgasmic-fc-events
 docker compose --profile tools run --rm wpcli plugin activate orgasmic-fc-embeds
 docker compose --profile tools run --rm wpcli plugin activate orgasmic-fc-chat
+docker compose --profile tools run --rm wpcli plugin activate orgasmic-fc-app
 ```
 
 TEC / FluentCommunity-Events-Beta nicht parallel zum ORGASMIC-Kalender betreiben.
