@@ -1,12 +1,15 @@
 === ORGASMIC App ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.1.0
+Stable tag: 1.1.1
 License: GPLv2 or later
 
 PWA, offline cache, and Web Push for chat, posts, comments, and calendar events.
 
 == Changelog ==
+
+= 1.1.1 =
+* Mobile nav shows the bell glyph instead of an empty blue circle
 
 = 1.1.0 =
 * Capacitor token REST (`POST /push/token`) and optional Firebase HTTP v1 send

@@ -50,6 +50,7 @@ class Orgasmic_Fc_Chat_Portal
         $data = [
             'root' => esc_url_raw(rest_url('orgasmic-chat/v1/')),
             'nonce' => wp_create_nonce('wp_rest'),
+            'navIcon' => $this->icon_svg(),
             'canManage' => $this->access->can_manage($user_id),
             'subtitle' => $settings['subtitle'],
             'appearance' => $settings['appearance'],
@@ -81,9 +82,7 @@ class Orgasmic_Fc_Chat_Portal
         $label = $unread > 0 ? 'Chat, ' . $unread . ' ungelesen' : 'Chat';
         echo '<li class="top_menu_item fcom_icon_link orgasmic-chat-nav' . ($unread > 0 ? ' has-unread' : '') . '">';
         echo '<a href="#orgasmic-chat" data-orgasmic-chat="1" aria-label="' . esc_attr($label) . '" title="Chat">';
-        echo '<svg class="och-nav-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
-        echo '<path d="M21 12c0 3.866-3.806 7-8.5 7-.86 0-1.69-.1-2.47-.29L4.5 20.5l1.2-3.37C4.64 16.1 4 14.62 4 13c0-3.866 3.806-7 8.5-7S21 8.134 21 12z"></path>';
-        echo '</svg>';
+        echo $this->icon_svg();
         echo '<span class="och-nav-label">Chat</span>';
         echo $this->badge_html($unread);
         echo '</a></li>';
@@ -95,19 +94,30 @@ class Orgasmic_Fc_Chat_Portal
             return $items;
         }
         $unread = $this->current_unread();
-        $items[] = [
-            'title' => $unread > 0 ? 'Chat · ' . $unread : 'Chat',
-            'permalink' => '#orgasmic-chat',
-            'slug' => 'orgasmic-chat',
-            'icon' => 'el-icon-chat-dot-round',
-            'is_custom' => true,
-        ];
+        $items[] = $this->menu_entry($unread);
         return $items;
     }
 
     public function mobile_menu($items)
     {
-        return $this->menu_items($items);
+        if (!is_array($items)) {
+            return $items;
+        }
+        $items[] = $this->menu_entry($this->current_unread());
+        return $items;
+    }
+
+    private function menu_entry(int $unread): array
+    {
+        return [
+            'title' => $unread > 0 ? 'Chat · ' . $unread : 'Chat',
+            'name' => 'Chat',
+            'permalink' => '#orgasmic-chat',
+            'slug' => 'orgasmic-chat',
+            'icon_svg' => $this->icon_svg(),
+            'svg_icon' => $this->icon_svg(),
+            'is_custom' => true,
+        ];
     }
 
     private function current_unread(): int
@@ -132,5 +142,12 @@ class Orgasmic_Fc_Chat_Portal
         }
         $text = $unread > 99 ? '99+' : (string) $unread;
         return '<span class="och-nav-badge" data-orgasmic-chat-badge="1">' . esc_html($text) . '</span>';
+    }
+
+    private function icon_svg(): string
+    {
+        return '<svg class="och-nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22">'
+            . '<path fill="currentColor" d="M21 12c0 3.866-3.806 7-8.5 7-.86 0-1.69-.1-2.47-.29L4.5 20.5l1.2-3.37C4.64 16.1 4 14.62 4 13c0-3.866 3.806-7 8.5-7S21 8.134 21 12z"></path>'
+            . '</svg>';
     }
 }

@@ -43,6 +43,7 @@ class Orgasmic_Fc_App_Portal
         $data = [
             'root' => esc_url_raw(rest_url('orgasmic-app/v1/')),
             'nonce' => wp_create_nonce('wp_rest'),
+            'navIcon' => $this->icon_svg(),
             'sw' => esc_url_raw(home_url('/orgasmic-sw.js')),
             'prefs' => Orgasmic_Fc_App_Install::prefs_for(get_current_user_id()),
         ];
@@ -71,10 +72,7 @@ class Orgasmic_Fc_App_Portal
         }
         echo '<li class="top_menu_item fcom_icon_link orgasmic-app-nav">';
         echo '<a href="#orgasmic-notify" data-orgasmic-notify="1" aria-label="Benachrichtigungen" title="Benachrichtigungen">';
-        echo '<svg class="oa-nav-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
-        echo '<path d="M6 9a6 6 0 1 1 12 0c0 7 3 7 3 9H3c0-2 3-2 3-9"></path>';
-        echo '<path d="M10 20a2 2 0 0 0 4 0"></path>';
-        echo '</svg>';
+        echo $this->icon_svg();
         echo '<span class="oa-nav-label">Benachrichtigungen</span>';
         echo '</a></li>';
     }
@@ -84,18 +82,36 @@ class Orgasmic_Fc_App_Portal
         if (!is_array($items)) {
             return $items;
         }
-        $items[] = [
-            'title' => 'Benachrichtigungen',
-            'permalink' => '#orgasmic-notify',
-            'slug' => 'orgasmic-notify',
-            'icon' => 'el-icon-bell',
-            'is_custom' => true,
-        ];
+        $items[] = $this->menu_entry();
         return $items;
     }
 
     public function mobile_menu($items)
     {
-        return $this->menu_items($items);
+        if (!is_array($items)) {
+            return $items;
+        }
+        $items[] = $this->menu_entry();
+        return $items;
+    }
+
+    private function menu_entry(): array
+    {
+        return [
+            'title' => 'Benachrichtigungen',
+            'name' => 'Benachrichtigungen',
+            'permalink' => '#orgasmic-notify',
+            'slug' => 'orgasmic-notify',
+            'icon_svg' => $this->icon_svg(),
+            'svg_icon' => $this->icon_svg(),
+            'is_custom' => true,
+        ];
+    }
+
+    private function icon_svg(): string
+    {
+        return '<svg class="oa-nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22">'
+            . '<path fill="currentColor" d="M12 3a6 6 0 0 0-6 6c0 7-3 7-3 9h18c0-2-3-2-3-9a6 6 0 0 0-6-6zm-2.2 17a2.2 2.2 0 0 0 4.4 0h-4.4z"></path>'
+            . '</svg>';
     }
 }

@@ -164,9 +164,41 @@
       || 'Termine für deine Kreise — RSVP, Zoom, wer dabei ist.';
   }
 
+  function paintNavIcons() {
+    const svg = cfg.navIcon;
+    if (!svg) return;
+    document.querySelectorAll('.orgasmic-cal-nav a, a[data-orgasmic-calendar], a[href*="#orgasmic-calendar"]').forEach((host) => {
+      host.querySelectorAll('.el-icon, i[class*="el-icon"]').forEach((node) => {
+        if (!node.querySelector('path, rect, circle')) node.remove();
+      });
+      const existing = host.querySelector('svg');
+      if (existing && existing.querySelector('path, rect, circle')) return;
+      if (existing) existing.remove();
+      host.insertAdjacentHTML('afterbegin', svg);
+    });
+  }
+
+  function watchNavIcons() {
+    let scheduled = 0;
+    const run = () => {
+      scheduled = 0;
+      paintNavIcons();
+    };
+    const schedule = () => {
+      if (scheduled) return;
+      scheduled = requestAnimationFrame(run);
+    };
+    paintNavIcons();
+    [200, 800, 2000].forEach((ms) => setTimeout(paintNavIcons, ms));
+    if (typeof MutationObserver === 'undefined' || !document.body) return;
+    const obs = new MutationObserver(schedule);
+    obs.observe(document.body, { childList: true, subtree: true });
+    setTimeout(() => obs.disconnect(), 8000);
+  }
+
   function updateNavIndicator() {
     const hasToday = state.events.some(isEventToday) || !!cfg.hasToday;
-    document.querySelectorAll('.orgasmic-cal-nav, a[data-orgasmic-calendar], a[href="#orgasmic-calendar"]').forEach((el) => {
+    document.querySelectorAll('.orgasmic-cal-nav, a[data-orgasmic-calendar], a[href*="#orgasmic-calendar"]').forEach((el) => {
       const node = el.classList && el.classList.contains('orgasmic-cal-nav') ? el : el.closest('.orgasmic-cal-nav') || el;
       node.classList.toggle('has-today', hasToday);
       const link = node.tagName === 'A' ? node : node.querySelector('a') || node;
@@ -626,10 +658,12 @@
   window.addEventListener('hashchange', bootFromHash);
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
+      watchNavIcons();
       updateNavIndicator();
       bootFromHash();
     });
   } else {
+    watchNavIcons();
     updateNavIndicator();
     bootFromHash();
   }

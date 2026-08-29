@@ -218,9 +218,41 @@
     return n > 99 ? '99+' : String(n);
   }
 
+  function paintNavIcons() {
+    const svg = cfg.navIcon;
+    if (!svg) return;
+    document.querySelectorAll('.orgasmic-chat-nav a, a[data-orgasmic-chat], a[href*="#orgasmic-chat"]').forEach((host) => {
+      host.querySelectorAll('.el-icon, i[class*="el-icon"]').forEach((node) => {
+        if (!node.querySelector('path, rect, circle')) node.remove();
+      });
+      const existing = host.querySelector('svg');
+      if (existing && existing.querySelector('path, rect, circle')) return;
+      if (existing) existing.remove();
+      host.insertAdjacentHTML('afterbegin', svg);
+    });
+  }
+
+  function watchNavIcons() {
+    let scheduled = 0;
+    const run = () => {
+      scheduled = 0;
+      paintNavIcons();
+    };
+    const schedule = () => {
+      if (scheduled) return;
+      scheduled = requestAnimationFrame(run);
+    };
+    paintNavIcons();
+    [200, 800, 2000].forEach((ms) => setTimeout(paintNavIcons, ms));
+    if (typeof MutationObserver === 'undefined' || !document.body) return;
+    const obs = new MutationObserver(schedule);
+    obs.observe(document.body, { childList: true, subtree: true });
+    setTimeout(() => obs.disconnect(), 8000);
+  }
+
   function updateNavBadge(total) {
     state.unread = total;
-    const nodes = document.querySelectorAll('.orgasmic-chat-nav, a[data-orgasmic-chat], a[href="#orgasmic-chat"]');
+    const nodes = document.querySelectorAll('.orgasmic-chat-nav, a[data-orgasmic-chat], a[href*="#orgasmic-chat"]');
     nodes.forEach((el) => {
       const node = el.classList && el.classList.contains('orgasmic-chat-nav') ? el : el.closest('.orgasmic-chat-nav') || el;
       node.classList.toggle('has-unread', total > 0);
@@ -986,6 +1018,7 @@
   }
 
   updateNavBadge(cfg.unread || 0);
+  watchNavIcons();
   pollUnread();
   if (hashRoute()) bootFromHash();
 })();

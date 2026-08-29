@@ -242,13 +242,41 @@
   justify-content: center;
   min-width: 36px;
   min-height: 36px;
-  color: inherit;
 }
 
-.orgasmic-cal-nav .oc-nav-icon {
-  display: block;
-  width: 22px;
-  height: 22px;
+.orgasmic-cal-nav a,
+a[href*="#orgasmic-calendar"],
+a[data-orgasmic-calendar] {
+  color: inherit !important;
+  background: transparent !important;
+}
+
+.orgasmic-cal-nav .oc-nav-icon,
+.orgasmic-cal-nav svg,
+a[href*="#orgasmic-calendar"] svg,
+a[data-orgasmic-calendar] svg {
+  display: block !important;
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px;
+  min-height: 22px;
+  fill: currentColor !important;
+  stroke: none !important;
+  color: inherit !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.orgasmic-cal-nav .el-icon,
+a[href*="#orgasmic-calendar"] .el-icon,
+a[data-orgasmic-calendar] .el-icon,
+a[href*="#orgasmic-calendar"] i[class*="el-icon"] {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  width: 22px !important;
+  height: 22px !important;
+  font-size: 22px !important;
 }
 
 .orgasmic-cal-nav .oc-nav-label {

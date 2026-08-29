@@ -78,6 +78,38 @@
     }
   }
 
+  function paintNavIcons() {
+    const svg = cfg.navIcon;
+    if (!svg) return;
+    document.querySelectorAll('.orgasmic-app-nav a, a[data-orgasmic-notify], a[href*="#orgasmic-notify"]').forEach((host) => {
+      host.querySelectorAll('.el-icon, i[class*="el-icon"]').forEach((node) => {
+        if (!node.querySelector('path, rect, circle')) node.remove();
+      });
+      const existing = host.querySelector('svg');
+      if (existing && existing.querySelector('path, rect, circle')) return;
+      if (existing) existing.remove();
+      host.insertAdjacentHTML('afterbegin', svg);
+    });
+  }
+
+  function watchNavIcons() {
+    let scheduled = 0;
+    const run = () => {
+      scheduled = 0;
+      paintNavIcons();
+    };
+    const schedule = () => {
+      if (scheduled) return;
+      scheduled = requestAnimationFrame(run);
+    };
+    paintNavIcons();
+    [200, 800, 2000].forEach((ms) => setTimeout(paintNavIcons, ms));
+    if (typeof MutationObserver === 'undefined' || !document.body) return;
+    const obs = new MutationObserver(schedule);
+    obs.observe(document.body, { childList: true, subtree: true });
+    setTimeout(() => obs.disconnect(), 8000);
+  }
+
   function syncPrefsHash() {
     if ((location.hash || '') === '#orgasmic-notify') openPrefs();
     else if (prefsRoot() && !prefsRoot().hidden) closePrefs();
@@ -183,6 +215,7 @@
 
   window.addEventListener('hashchange', syncPrefsHash);
   applyPrefs(cfg.prefs);
+  watchNavIcons();
   if ((location.hash || '') === '#orgasmic-notify') openPrefs();
 
   async function enableNativePush() {

@@ -43,6 +43,7 @@ class Orgasmic_Fc_Events_Portal
         $data = [
             'root' => esc_url_raw(rest_url('orgasmic-events/v1/')),
             'nonce' => wp_create_nonce('wp_rest'),
+            'navIcon' => $this->icon_svg(),
             'canManage' => $this->access->can_manage(),
             'subtitle' => $settings['subtitle'],
             'appearance' => $settings['appearance'],
@@ -62,11 +63,7 @@ class Orgasmic_Fc_Events_Portal
         $today = $this->today_has_events();
         echo '<li class="top_menu_item fcom_icon_link orgasmic-cal-nav' . ($today ? ' has-today' : '') . '">';
         echo '<a href="#orgasmic-calendar" data-orgasmic-calendar="1" aria-label="Kalender" title="Kalender">';
-        echo '<svg class="oc-nav-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
-        echo '<rect x="3.25" y="4.5" width="17.5" height="16.25" rx="2.25"></rect>';
-        echo '<path d="M8 3.25v3M16 3.25v3M3.25 9.5h17.5"></path>';
-        echo '<path d="M8 13h.01M12 13h.01M16 13h.01M8 16.5h.01M12 16.5h.01M16 16.5h.01"></path>';
-        echo '</svg>';
+        echo $this->icon_svg();
         echo '<span class="oc-nav-label">Kalender</span>';
         if ($today) {
             echo '<span class="oc-nav-dot" title="Heute findet ein Event statt"></span>';
@@ -79,19 +76,30 @@ class Orgasmic_Fc_Events_Portal
         if (!is_array($items)) {
             return $items;
         }
-        $items[] = [
-            'title' => $this->today_has_events() ? 'Kalender · heute' : 'Kalender',
-            'permalink' => '#orgasmic-calendar',
-            'slug' => 'orgasmic-calendar',
-            'icon' => 'el-icon-date',
-            'is_custom' => true,
-        ];
+        $items[] = $this->menu_entry();
         return $items;
     }
 
     public function mobile_menu($items)
     {
-        return $this->menu_items($items);
+        if (!is_array($items)) {
+            return $items;
+        }
+        $items[] = $this->menu_entry();
+        return $items;
+    }
+
+    private function menu_entry(): array
+    {
+        return [
+            'title' => $this->today_has_events() ? 'Kalender · heute' : 'Kalender',
+            'name' => 'Kalender',
+            'permalink' => '#orgasmic-calendar',
+            'slug' => 'orgasmic-calendar',
+            'icon_svg' => $this->icon_svg(),
+            'svg_icon' => $this->icon_svg(),
+            'is_custom' => true,
+        ];
     }
 
     private function today_has_events(): bool
@@ -148,5 +156,12 @@ class Orgasmic_Fc_Events_Portal
 
         $cached = false;
         return false;
+    }
+
+    private function icon_svg(): string
+    {
+        return '<svg class="oc-nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22">'
+            . '<path fill="currentColor" d="M8 2h2v2h4V2h2v2h2.5A1.5 1.5 0 0 1 20 5.5V8H4V5.5A1.5 1.5 0 0 1 5.5 4H8V2zm-4 8h16v9.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19.5V10z"></path>'
+            . '</svg>';
     }
 }
