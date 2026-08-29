@@ -42,6 +42,13 @@
   let usingNativeVoice = false;
   let voiceAudio = null;
   let voiceBtn = null;
+  let voiceSource = null;
+  let voiceStartedAt = 0;
+  let voiceDuration = 0;
+  let voiceRaf = 0;
+  let voiceObjectUrl = '';
+  let audioCtx = null;
+  const MEDIA_CACHE = 'orgasmic-chat-media-v1';
   const MAX_VOICE = cfg.maxVoiceSeconds || 90;
 
   function $(sel, root) {
@@ -183,6 +190,88 @@
     } catch (e) {
       /* quota */
     }
+  }
+
+  async function mediaStore() {
+    if (!('caches' in window)) return null;
+    try {
+      return await caches.open(MEDIA_CACHE);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function mediaMatch(url) {
+    const cache = await mediaStore();
+    if (!cache || !url) return null;
+    try {
+      return await cache.match(url);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function mediaPut(url, buffer, type) {
+    const cache = await mediaStore();
+    if (!cache || !url || !buffer) return;
+    try {
+      await cache.put(url, new Response(buffer, {
+        headers: { 'Content-Type': type || 'application/octet-stream' },
+      }));
+    } catch (e) {}
+  }
+
+  async function mediaBytes(url) {
+    if (!url) return null;
+    const hit = await mediaMatch(url);
+    if (hit) {
+      return {
+        buffer: await hit.arrayBuffer(),
+        type: (hit.headers.get('Content-Type') || '').split(';')[0],
+      };
+    }
+    const res = await fetch(url, { credentials: 'same-origin' });
+    if (!res.ok) return null;
+    const type = (res.headers.get('content-type') || '').split(';')[0];
+    const buffer = await res.arrayBuffer();
+    await mediaPut(url, buffer, type);
+    return { buffer: buffer, type: type };
+  }
+
+  function prefetchAttachments(messages) {
+    (messages || []).forEach((msg) => {
+      const url = msg && msg.attachment && msg.attachment.url;
+      if (!url) return;
+      mediaMatch(url).then((hit) => {
+        if (hit) return;
+        mediaBytes(url).catch(() => {});
+      });
+    });
+  }
+
+  function hydrateImages() {
+    document.querySelectorAll('#orgasmic-chat-root img.och-photo').forEach(async (img) => {
+      const url = img.getAttribute('data-och-src') || img.getAttribute('src');
+      if (!url) return;
+      img.setAttribute('data-och-src', url);
+      const hit = await mediaMatch(url);
+      if (!hit) return;
+      const blob = await hit.blob();
+      img.src = URL.createObjectURL(blob);
+    });
+  }
+
+  function getAudioCtx() {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) return null;
+    if (!audioCtx) audioCtx = new Ctor();
+    return audioCtx;
+  }
+
+  function audioMime(type) {
+    const t = String(type || '').toLowerCase();
+    if (!t || t === 'video/webm' || t === 'application/octet-stream') return 'audio/webm';
+    return t;
   }
 
   function setOffline(on) {
@@ -370,55 +459,53 @@
   }
 
   function stopVoicePlayback() {
+    if (voiceRaf) {
+      cancelAnimationFrame(voiceRaf);
+      voiceRaf = 0;
+    }
+    if (voiceSource) {
+      try { voiceSource.stop(); } catch (e) {}
+      voiceSource = null;
+    }
     if (voiceAudio) {
       try { voiceAudio.pause(); } catch (e) {}
+      if (voiceAudio.parentNode) voiceAudio.parentNode.removeChild(voiceAudio);
       voiceAudio = null;
+    }
+    if (voiceObjectUrl) {
+      URL.revokeObjectURL(voiceObjectUrl);
+      voiceObjectUrl = '';
     }
     if (voiceBtn) {
       voiceBtn.classList.remove('is-playing');
       voiceBtn.setAttribute('aria-label', 'Abspielen');
       voiceBtn.innerHTML = playIcon();
-      const dur = voiceBtn.parentElement && voiceBtn.parentElement.querySelector('[data-och-voice-dur]');
       const track = voiceBtn.parentElement && voiceBtn.parentElement.querySelector('.och-voice-track i');
       if (track) track.style.width = '0%';
       voiceBtn = null;
     }
   }
 
-  async function toggleVoicePlayback(btn) {
-    const url = btn.getAttribute('data-och-play');
-    if (!url) return;
-    if (voiceBtn === btn && voiceAudio) {
-      stopVoicePlayback();
-      return;
-    }
-    stopVoicePlayback();
-    const audio = new Audio();
+  function paintVoiceProgress(btn, current, total) {
+    const track = btn.parentElement && btn.parentElement.querySelector('.och-voice-track i');
+    const label = btn.parentElement && btn.parentElement.querySelector('[data-och-voice-dur]');
+    if (track && total) track.style.width = Math.min(100, (100 * current) / total) + '%';
+    if (label) label.textContent = fmtDuration(Math.max(0, Math.round(current)));
+  }
+
+  async function playViaElement(btn, buffer, mime) {
+    const blob = new Blob([buffer], { type: mime });
+    voiceObjectUrl = URL.createObjectURL(blob);
+    const audio = document.createElement('audio');
     audio.preload = 'auto';
+    audio.muted = false;
+    audio.defaultMuted = false;
     audio.volume = 1;
-    const start = async (src, mime) => {
-      if (mime) {
-        audio.src = src;
-      } else {
-        audio.src = src;
-      }
-      await audio.play();
-    };
-    try {
-      await start(url);
-    } catch (e) {
-      try {
-        const res = await fetch(url, { credentials: 'same-origin' });
-        if (!res.ok) throw new Error('play');
-        const raw = await res.arrayBuffer();
-        const type = (res.headers.get('content-type') || '').split(';')[0] || 'audio/webm';
-        const blob = new Blob([raw], { type: type.indexOf('audio/') === 0 || type === 'video/webm' ? (type === 'video/webm' ? 'audio/webm' : type) : 'audio/webm' });
-        await start(URL.createObjectURL(blob));
-      } catch (err) {
-        setError('Sprachnachricht konnte nicht abgespielt werden.');
-        return;
-      }
-    }
+    audio.setAttribute('playsinline', 'true');
+    audio.src = voiceObjectUrl;
+    const root = document.getElementById('orgasmic-chat-root');
+    if (root) root.appendChild(audio);
+    await audio.play();
     voiceAudio = audio;
     voiceBtn = btn;
     btn.classList.add('is-playing');
@@ -426,17 +513,71 @@
     btn.innerHTML = pauseIcon();
     audio.addEventListener('timeupdate', () => {
       if (voiceBtn !== btn) return;
-      const track = btn.parentElement && btn.parentElement.querySelector('.och-voice-track i');
-      const label = btn.parentElement && btn.parentElement.querySelector('[data-och-voice-dur]');
-      const total = audio.duration || 0;
-      if (track && total) track.style.width = Math.min(100, (100 * audio.currentTime) / total) + '%';
-      if (label && total) label.textContent = fmtDuration(Math.round(audio.currentTime));
+      paintVoiceProgress(btn, audio.currentTime || 0, audio.duration || 0);
     });
     audio.addEventListener('ended', stopVoicePlayback);
     audio.addEventListener('error', () => {
       stopVoicePlayback();
       setError('Sprachnachricht konnte nicht abgespielt werden.');
     });
+  }
+
+  async function toggleVoicePlayback(btn) {
+    const url = btn.getAttribute('data-och-play');
+    if (!url) return;
+    if (voiceBtn === btn && (voiceSource || voiceAudio)) {
+      stopVoicePlayback();
+      return;
+    }
+    stopVoicePlayback();
+    setError('');
+    let packed = null;
+    try {
+      packed = await mediaBytes(url);
+    } catch (e) {
+      packed = null;
+    }
+    if (!packed || !packed.buffer || !packed.buffer.byteLength) {
+      setError('Sprachnachricht nicht gefunden.');
+      return;
+    }
+    const mime = audioMime(packed.type);
+    const ctx = getAudioCtx();
+    if (ctx) {
+      try {
+        if (ctx.state === 'suspended') await ctx.resume();
+        const decoded = await ctx.decodeAudioData(packed.buffer.slice(0));
+        const src = ctx.createBufferSource();
+        const gain = ctx.createGain();
+        gain.gain.value = 1;
+        src.buffer = decoded;
+        src.connect(gain);
+        gain.connect(ctx.destination);
+        voiceSource = src;
+        voiceBtn = btn;
+        voiceDuration = decoded.duration || 0;
+        voiceStartedAt = ctx.currentTime;
+        btn.classList.add('is-playing');
+        btn.setAttribute('aria-label', 'Pause');
+        btn.innerHTML = pauseIcon();
+        src.onended = () => {
+          if (voiceSource === src) stopVoicePlayback();
+        };
+        src.start();
+        const tick = () => {
+          if (voiceSource !== src) return;
+          paintVoiceProgress(btn, Math.max(0, ctx.currentTime - voiceStartedAt), voiceDuration);
+          voiceRaf = requestAnimationFrame(tick);
+        };
+        voiceRaf = requestAnimationFrame(tick);
+        return;
+      } catch (e) {}
+    }
+    try {
+      await playViaElement(btn, packed.buffer, mime);
+    } catch (e) {
+      setError('Sprachnachricht konnte nicht abgespielt werden.');
+    }
   }
 
   function messageHtml(msg, prevDay, prevMsg) {
@@ -459,7 +600,7 @@
       html += voicePlayerHtml(msg.attachment.url, msg.attachment.duration);
     } else if (msg.attachment && (msg.attachment.thumb || msg.attachment.url)) {
       html += '<a href="' + escapeHtml(msg.attachment.url || msg.attachment.thumb) + '" target="_blank" rel="noopener">'
-        + '<img class="och-photo" src="' + escapeHtml(msg.attachment.thumb || msg.attachment.url) + '" alt="" />'
+        + '<img class="och-photo" data-och-src="' + escapeHtml(msg.attachment.thumb || msg.attachment.url) + '" src="' + escapeHtml(msg.attachment.thumb || msg.attachment.url) + '" alt="" />'
         + '</a>';
     }
     html += '<div class="och-foot"><span>' + escapeHtml(fmtTime(msg.created_at)) + '</span>';
@@ -508,6 +649,8 @@
     });
     while (wrap.firstChild) scroller.appendChild(wrap.firstChild);
     if (stick) scroller.scrollTop = scroller.scrollHeight;
+    prefetchAttachments(items);
+    hydrateImages();
   }
 
   function refreshRooms() {
@@ -609,6 +752,8 @@
     if (scroller && stick) scroller.scrollTop = scroller.scrollHeight;
     const box = $('textarea[name="body"]', root);
     if (box && state.spaceId) box.focus();
+    prefetchAttachments(state.messages);
+    hydrateImages();
   }
 
   async function loadRooms() {
@@ -665,6 +810,7 @@
         if (state.messages.length) lastId = state.messages[state.messages.length - 1].id;
       }
       cacheSet('orgasmic-chat-msgs:' + cacheUid() + ':' + state.spaceId, state.messages.slice(-50));
+      prefetchAttachments(reset ? state.messages : incoming);
       setOffline(false);
       await api('rooms/' + state.spaceId + '/read', {
         method: 'POST',
@@ -795,6 +941,9 @@
     if (extra && extra.duration) data.append('duration', String(extra.duration));
     const uploaded = await api('upload', { method: 'POST', body: data });
     state.pendingImage = uploaded;
+    if (uploaded && uploaded.url && file && file.arrayBuffer) {
+      file.arrayBuffer().then((buf) => mediaPut(uploaded.url, buf, file.type || uploaded.mime)).catch(() => {});
+    }
     composerExtras();
     return uploaded;
   }
@@ -860,14 +1009,23 @@
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
       throw new Error('Sprachnachrichten braucht Mikrofonzugriff (HTTPS) oder die Capacitor-App.');
     }
-    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'].find((t) => MediaRecorder.isTypeSupported(t)) || '';
-    mediaRecorder = new MediaRecorder(mediaStream, mime ? { mimeType: mime } : undefined);
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        channelCount: 1,
+      },
+    });
+    const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'].find((t) => MediaRecorder.isTypeSupported(t)) || '';
+    const recOpts = { audioBitsPerSecond: 96000 };
+    if (mime) recOpts.mimeType = mime;
+    mediaRecorder = new MediaRecorder(mediaStream, recOpts);
     recordChunks = [];
     mediaRecorder.ondataavailable = (ev) => {
       if (ev.data && ev.data.size) recordChunks.push(ev.data);
     };
-    mediaRecorder.start();
+    mediaRecorder.start(250);
     state.recording = true;
     composerExtras();
     recordTimer = setInterval(tickRecord, 1000);
