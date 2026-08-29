@@ -8,7 +8,7 @@ if (!defined('ABSPATH')) {
 
 class Orgasmic_Fc_App_Install
 {
-    public const DB_VERSION = '1.0.1';
+    public const DB_VERSION = '1.1.0';
     public const OPTION_DB = 'orgasmic_fc_app_db';
     public const OPTION_VAPID_PUBLIC = 'orgasmic_fc_app_vapid_public';
     public const OPTION_VAPID_PRIVATE = 'orgasmic_fc_app_vapid_private';
@@ -21,6 +21,7 @@ class Orgasmic_Fc_App_Install
     public const OPTION_INCLUDE_BODY = 'orgasmic_fc_app_include_body';
     public const OPTION_START_URL = 'orgasmic_fc_app_start_url';
     public const OPTION_THEME = 'orgasmic_fc_app_theme';
+    public const OPTION_FCM_JSON = 'orgasmic_fc_app_fcm_json';
     public const META_PREFS = 'orgasmic_fc_app_prefs';
     public const PREF_KEYS = ['chat', 'feed', 'comment', 'event'];
 
@@ -154,6 +155,8 @@ class Orgasmic_Fc_App_Install
             p256dh VARCHAR(255) NOT NULL,
             auth_token VARCHAR(255) NOT NULL,
             content_encoding VARCHAR(32) NOT NULL DEFAULT 'aes128gcm',
+            channel VARCHAR(16) NOT NULL DEFAULT 'web',
+            platform VARCHAR(16) NULL,
             user_agent VARCHAR(190) NULL,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,

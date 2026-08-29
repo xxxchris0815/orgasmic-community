@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ORGASMIC App
  * Description: PWA shell, offline cache, and push notifications for chat, posts, comments, and calendar events. Same APIs later wrap in Capacitor for the App Store.
- * Version: 1.0.1
+ * Version: 1.1.0
  * Requires at least: 6.4
  * Requires PHP: 8.1
  * Author: ORGASMIC
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('ORGASMIC_FC_APP_VERSION', '1.0.1');
+define('ORGASMIC_FC_APP_VERSION', '1.1.0');
 define('ORGASMIC_FC_APP_FILE', __FILE__);
 define('ORGASMIC_FC_APP_PATH', plugin_dir_path(__FILE__));
 define('ORGASMIC_FC_APP_URL', plugin_dir_url(__FILE__));
@@ -26,6 +26,7 @@ require_once ORGASMIC_FC_APP_PATH . 'includes/class-install.php';
 require_once ORGASMIC_FC_APP_PATH . 'includes/class-access.php';
 require_once ORGASMIC_FC_APP_PATH . 'includes/class-vapid.php';
 require_once ORGASMIC_FC_APP_PATH . 'includes/class-webpush.php';
+require_once ORGASMIC_FC_APP_PATH . 'includes/class-fcm.php';
 require_once ORGASMIC_FC_APP_PATH . 'includes/class-store.php';
 require_once ORGASMIC_FC_APP_PATH . 'includes/class-notify.php';
 require_once ORGASMIC_FC_APP_PATH . 'includes/class-rest.php';
@@ -58,10 +59,11 @@ final class Orgasmic_Fc_App
             $access = new Orgasmic_Fc_App_Access();
             $store = new Orgasmic_Fc_App_Store();
             $push = new Orgasmic_Fc_App_WebPush();
-            $notify = new Orgasmic_Fc_App_Notify($access, $store, $push);
+            $fcm = new Orgasmic_Fc_App_Fcm();
+            $notify = new Orgasmic_Fc_App_Notify($access, $store, $push, $fcm);
 
-            (new Orgasmic_Fc_App_Rest($store, $push))->register();
-            (new Orgasmic_Fc_App_Admin($store, $push))->register();
+            (new Orgasmic_Fc_App_Rest($store, $push, $fcm))->register();
+            (new Orgasmic_Fc_App_Admin($store, $push, $fcm))->register();
             (new Orgasmic_Fc_App_Pwa())->register();
             (new Orgasmic_Fc_App_Portal())->register();
             $notify->register();

@@ -356,6 +356,54 @@
   margin-top: 6px;
 }
 
+.orgasmic-chat-msg .och-voice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  min-width: min(260px, 100%);
+}
+
+.orgasmic-chat-msg .och-voice audio {
+  width: 100%;
+  height: 36px;
+}
+
+.orgasmic-chat-msg .och-voice-dur {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--och-muted);
+}
+
+.och-record {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 0 4px 8px;
+}
+
+.och-rec-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #e11d48;
+  animation: och-pulse 1s ease-in-out infinite;
+}
+
+@keyframes och-pulse {
+  50% { opacity: 0.35; }
+}
+
+#orgasmic-chat-root .och-ghost.is-rec {
+  color: #e11d48 !important;
+}
+
+.och-pending-voice audio {
+  height: 36px;
+  max-width: 180px;
+}
+
 .orgasmic-chat-msg .och-foot {
   display: flex;
   gap: 8px;

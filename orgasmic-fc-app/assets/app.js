@@ -185,6 +185,29 @@
   applyPrefs(cfg.prefs);
   if ((location.hash || '') === '#orgasmic-notify') openPrefs();
 
+  async function enableNativePush() {
+    const Cap = window.Capacitor && window.Capacitor.Plugins;
+    if (!Cap || !Cap.PushNotifications) return false;
+    const perm = await Cap.PushNotifications.requestPermissions();
+    if (perm.receive !== 'granted' && perm.display !== 'granted') return false;
+    await Cap.PushNotifications.register();
+    await Cap.PushNotifications.addListener('registration', async (ev) => {
+      const platform = (window.Capacitor.getPlatform && window.Capacitor.getPlatform()) || '';
+      await postJson('push/token', { channel: 'fcm', platform: platform, token: ev.value });
+    });
+    await Cap.PushNotifications.addListener('pushNotificationActionPerformed', (ev) => {
+      const data = (ev.notification && ev.notification.data) || {};
+      if (data.url) window.location.href = data.url;
+    });
+    return true;
+  }
+
+  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  if (isNative) {
+    enableNativePush().catch(() => {});
+    return;
+  }
+
   if (!('serviceWorker' in navigator)) return;
 
   navigator.serviceWorker.register(cfg.sw, { scope: '/' }).then(async () => {

@@ -27,12 +27,20 @@
     sending: false,
     emojiOpen: false,
     pendingImage: null,
+    recording: false,
+    recordSeconds: 0,
     offline: false,
   };
 
   let unreadTimer = null;
   let threadTimer = null;
   let lastId = 0;
+  let mediaRecorder = null;
+  let mediaStream = null;
+  let recordTimer = null;
+  let recordChunks = [];
+  let usingNativeVoice = false;
+  const MAX_VOICE = cfg.maxVoiceSeconds || 90;
 
   function $(sel, root) {
     return (root || document).querySelector(sel);
@@ -181,6 +189,30 @@
     if (el) el.hidden = !state.offline;
   }
 
+  function nativePlugins() {
+    return (window.Capacitor && window.Capacitor.Plugins) || {};
+  }
+
+  function attachPreview(att) {
+    if (!att) return '';
+    if (att.kind === 'audio' || (att.mime && String(att.mime).indexOf('audio/') === 0)) {
+      return '🎤 Sprachnachricht';
+    }
+    return '📷 Bild';
+  }
+
+  function fmtDuration(sec) {
+    const n = Math.max(0, parseInt(sec, 10) || 0);
+    return Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0');
+  }
+
+  function base64ToFile(b64, mime, name) {
+    const raw = atob(b64);
+    const bytes = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i += 1) bytes[i] = raw.charCodeAt(i);
+    return new File([bytes], name, { type: mime || 'application/octet-stream' });
+  }
+
   function badgeText(n) {
     if (n < 1) return '';
     return n > 99 ? '99+' : String(n);
@@ -239,6 +271,7 @@
     state.messages = [];
     lastId = 0;
     stopThreadPoll();
+    cancelVoice(true);
     if ((location.hash || '').indexOf('orgasmic-chat') === 1) {
       history.replaceState(null, '', location.pathname + location.search);
     }
@@ -261,7 +294,7 @@
     }
     return rooms.map((room) => {
       const last = room.last_message || {};
-      const preview = last.preview || last.body || (last.attachment ? '📷 Bild' : 'Noch keine Nachrichten');
+      const preview = last.preview || last.body || (last.attachment ? attachPreview(last.attachment) : 'Noch keine Nachrichten');
       const who = last.author && last.author.display_name ? last.author.display_name + ': ' : '';
       return '<div class="orgasmic-chat-room' + (state.spaceId === room.space_id ? ' is-active' : '') + '" role="button" tabindex="0" data-och-room="' + room.space_id + '">'
         + avatarHtml(room.logo, room.title, 'och-avatar')
@@ -287,9 +320,13 @@
     html += '<div class="och-bubble">';
     if (!mine) html += '<div class="och-author">' + escapeHtml(author.display_name || 'Mitglied') + '</div>';
     if (msg.body) html += '<div class="och-text">' + linkify(msg.body) + '</div>';
-    if (msg.attachment && msg.attachment.thumb) {
+    if (msg.attachment && (msg.attachment.kind === 'audio' || (msg.attachment.mime && String(msg.attachment.mime).indexOf('audio/') === 0))) {
+      html += '<div class="och-voice"><audio controls preload="metadata" src="' + escapeHtml(msg.attachment.url) + '"></audio>';
+      if (msg.attachment.duration) html += '<span class="och-voice-dur">' + escapeHtml(fmtDuration(msg.attachment.duration)) + '</span>';
+      html += '</div>';
+    } else if (msg.attachment && (msg.attachment.thumb || msg.attachment.url)) {
       html += '<a href="' + escapeHtml(msg.attachment.url || msg.attachment.thumb) + '" target="_blank" rel="noopener">'
-        + '<img class="och-photo" src="' + escapeHtml(msg.attachment.thumb) + '" alt="" />'
+        + '<img class="och-photo" src="' + escapeHtml(msg.attachment.thumb || msg.attachment.url) + '" alt="" />'
         + '</a>';
     }
     html += '<div class="och-foot"><span>' + escapeHtml(fmtTime(msg.created_at)) + '</span>';
@@ -369,7 +406,15 @@
     if (state.emojiOpen) {
       html += '<div class="och-emoji-panel">' + EMOJI.map((e) => '<button type="button" data-och-emoji="' + e + '">' + e + '</button>').join('') + '</div>';
     }
-    if (state.pendingImage) {
+    if (state.recording) {
+      html += '<div class="och-record"><span class="och-rec-dot" aria-hidden="true"></span><span>Aufnahme ' + escapeHtml(fmtDuration(state.recordSeconds)) + '</span>'
+        + '<button type="button" class="och-ghost" data-och-voice-stop>Fertig</button>'
+        + '<button type="button" class="och-ghost" data-och-voice-cancel>Abbrechen</button></div>';
+    } else if (state.pendingImage && (state.pendingImage.kind === 'audio' || (state.pendingImage.mime && String(state.pendingImage.mime).indexOf('audio/') === 0))) {
+      html += '<div class="och-pending och-pending-voice"><audio controls src="' + escapeHtml(state.pendingImage.url) + '"></audio>'
+        + '<span>Sprachnachricht' + (state.pendingImage.duration ? ' · ' + fmtDuration(state.pendingImage.duration) : '') + '</span>'
+        + '<button type="button" class="och-ghost" data-och-clear-image>Entfernen</button></div>';
+    } else if (state.pendingImage) {
       html += '<div class="och-pending"><img src="' + escapeHtml(state.pendingImage.thumb || state.pendingImage.url) + '" alt="" /><span>Bild angehängt</span><button type="button" class="och-ghost" data-och-clear-image>Entfernen</button></div>';
     }
     host.innerHTML = html;
@@ -384,6 +429,7 @@
       + '<div class="orgasmic-chat-tools">'
       + '<button type="button" class="och-ghost" data-och-emoji-toggle title="Emoji">☺</button>'
       + '<button type="button" class="och-ghost" data-och-image title="Bild">🖼</button>'
+      + '<button type="button" class="och-ghost' + (state.recording ? ' is-rec' : '') + '" data-och-voice title="Sprachnachricht">🎤</button>'
       + '</div>'
       + '<textarea name="body" maxlength="' + (state.portal.maxLength || 2000) + '" placeholder="Nachricht an ' + escapeHtml(room.title) + '" rows="1"></textarea>'
       + '<button type="submit" data-och-send-btn' + (state.sending ? ' disabled' : '') + '>Senden</button>'
@@ -545,6 +591,7 @@
     state.error = '';
     state.emojiOpen = false;
     state.pendingImage = null;
+    cancelVoice(true);
     try {
       await loadRooms();
       if (state.spaceId && !roomById(state.spaceId)) {
@@ -565,6 +612,14 @@
 
   async function sendMessage(body) {
     if (!state.spaceId || state.sending) return;
+    if (state.recording) {
+      try {
+        await stopVoice();
+      } catch (e) {
+        setError(e.message || 'Aufnahme fehlgeschlagen.');
+        return;
+      }
+    }
     const box = $('textarea[name="body"]');
     const text = String(body || (box ? box.value : '')).trim();
     if (!text && !state.pendingImage) return;
@@ -598,12 +653,163 @@
     if (box) box.focus();
   }
 
-  async function uploadImage(file) {
+  async function uploadFile(file, extra) {
     const data = new FormData();
     data.append('file', file);
+    if (extra && extra.duration) data.append('duration', String(extra.duration));
     const uploaded = await api('upload', { method: 'POST', body: data });
     state.pendingImage = uploaded;
     composerExtras();
+    return uploaded;
+  }
+
+  async function pickNativeImage() {
+    const Camera = nativePlugins().Camera;
+    if (!Camera || !Camera.getPhoto) return null;
+    const photo = await Camera.getPhoto({
+      quality: 80,
+      resultType: 'base64',
+      source: 'PROMPT',
+      width: 1600,
+    });
+    if (!photo || !photo.base64String) return null;
+    const format = (photo.format || 'jpeg').replace('jpg', 'jpeg');
+    return base64ToFile(photo.base64String, 'image/' + format, 'photo.' + (format === 'jpeg' ? 'jpg' : format));
+  }
+
+  async function chooseImage() {
+    try {
+      const file = await pickNativeImage();
+      if (file) {
+        await uploadFile(file);
+        return;
+      }
+    } catch (e) {
+      if (e && (e.message === 'User cancelled photos app' || e.message === 'canceled')) return;
+    }
+    const input = $('[data-och-file]');
+    if (input) input.click();
+  }
+
+  function tickRecord() {
+    state.recordSeconds += 1;
+    const label = $('.och-record span:not(.och-rec-dot)');
+    if (label) label.textContent = 'Aufnahme ' + fmtDuration(state.recordSeconds);
+    if (state.recordSeconds >= MAX_VOICE) {
+      stopVoice().catch((e) => setError(e.message || 'Aufnahme fehlgeschlagen.'));
+    }
+  }
+
+  async function startVoice() {
+    if (state.recording || state.sending) return;
+    setError('');
+    state.recordSeconds = 0;
+    recordChunks = [];
+    usingNativeVoice = false;
+
+    const VoiceRecorder = nativePlugins().VoiceRecorder;
+    if (VoiceRecorder && VoiceRecorder.startRecording) {
+      if (VoiceRecorder.requestAudioRecordingPermission) {
+        const perm = await VoiceRecorder.requestAudioRecordingPermission();
+        if (perm && perm.value === false) throw new Error('Mikrofon nicht erlaubt.');
+      }
+      await VoiceRecorder.startRecording();
+      usingNativeVoice = true;
+      state.recording = true;
+      composerExtras();
+      recordTimer = setInterval(tickRecord, 1000);
+      return;
+    }
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+      throw new Error('Sprachnachrichten braucht Mikrofonzugriff (HTTPS) oder die Capacitor-App.');
+    }
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'].find((t) => MediaRecorder.isTypeSupported(t)) || '';
+    mediaRecorder = new MediaRecorder(mediaStream, mime ? { mimeType: mime } : undefined);
+    recordChunks = [];
+    mediaRecorder.ondataavailable = (ev) => {
+      if (ev.data && ev.data.size) recordChunks.push(ev.data);
+    };
+    mediaRecorder.start();
+    state.recording = true;
+    composerExtras();
+    recordTimer = setInterval(tickRecord, 1000);
+  }
+
+  async function stopVoice() {
+    if (!state.recording) return;
+    if (recordTimer) {
+      clearInterval(recordTimer);
+      recordTimer = null;
+    }
+    const seconds = state.recordSeconds || 1;
+    state.recording = false;
+    composerExtras();
+
+    if (usingNativeVoice) {
+      usingNativeVoice = false;
+      const VoiceRecorder = nativePlugins().VoiceRecorder;
+      const res = VoiceRecorder && VoiceRecorder.stopRecording ? await VoiceRecorder.stopRecording() : null;
+      const value = (res && res.value) || res || {};
+      const b64 = value.recordDataBase64 || value.base64 || '';
+      if (!b64) throw new Error('Keine Aufnahme.');
+      const mime = value.mimeType || 'audio/aac';
+      const ext = mime.indexOf('webm') >= 0 ? 'webm' : (mime.indexOf('ogg') >= 0 ? 'ogg' : 'm4a');
+      const file = base64ToFile(b64, mime, 'voice.' + ext);
+      const duration = value.msDuration ? Math.round(value.msDuration / 1000) : seconds;
+      await uploadFile(file, { duration: duration });
+      return;
+    }
+
+    await new Promise((resolve, reject) => {
+      if (!mediaRecorder) {
+        resolve();
+        return;
+      }
+      mediaRecorder.onstop = () => resolve();
+      mediaRecorder.onerror = () => reject(new Error('Aufnahme fehlgeschlagen.'));
+      if (mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+      else resolve();
+    });
+    if (mediaStream) {
+      mediaStream.getTracks().forEach((t) => t.stop());
+      mediaStream = null;
+    }
+    const type = (mediaRecorder && mediaRecorder.mimeType) || 'audio/webm';
+    mediaRecorder = null;
+    const blob = new Blob(recordChunks, { type: type.split(';')[0] });
+    recordChunks = [];
+    if (!blob.size) throw new Error('Keine Aufnahme.');
+    const ext = type.indexOf('mp4') >= 0 ? 'm4a' : (type.indexOf('ogg') >= 0 ? 'ogg' : 'webm');
+    const file = new File([blob], 'voice.' + ext, { type: blob.type });
+    await uploadFile(file, { duration: seconds });
+  }
+
+  function cancelVoice(silent) {
+    if (recordTimer) {
+      clearInterval(recordTimer);
+      recordTimer = null;
+    }
+    state.recording = false;
+    state.recordSeconds = 0;
+    if (usingNativeVoice) {
+      usingNativeVoice = false;
+      const VoiceRecorder = nativePlugins().VoiceRecorder;
+      if (VoiceRecorder && VoiceRecorder.stopRecording) {
+        VoiceRecorder.stopRecording().catch(() => {});
+      }
+    }
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      try { mediaRecorder.stop(); } catch (e) {}
+    }
+    mediaRecorder = null;
+    if (mediaStream) {
+      mediaStream.getTracks().forEach((t) => t.stop());
+      mediaStream = null;
+    }
+    recordChunks = [];
+    if (!silent) composerExtras();
   }
 
   document.addEventListener('click', (ev) => {
@@ -647,8 +853,29 @@
     const imageBtn = ev.target.closest('[data-och-image]');
     if (imageBtn) {
       ev.preventDefault();
-      const input = $('[data-och-file]');
-      if (input) input.click();
+      chooseImage().catch((e) => setError(e.message || 'Bild fehlgeschlagen.'));
+      return;
+    }
+    const voiceBtn = ev.target.closest('[data-och-voice]');
+    if (voiceBtn) {
+      ev.preventDefault();
+      if (state.recording) {
+        stopVoice().catch((e) => setError(e.message || 'Aufnahme fehlgeschlagen.'));
+      } else {
+        startVoice().catch((e) => setError(e.message || 'Mikrofon nicht verfügbar.'));
+      }
+      return;
+    }
+    const voiceStop = ev.target.closest('[data-och-voice-stop]');
+    if (voiceStop) {
+      ev.preventDefault();
+      stopVoice().catch((e) => setError(e.message || 'Aufnahme fehlgeschlagen.'));
+      return;
+    }
+    const voiceCancel = ev.target.closest('[data-och-voice-cancel]');
+    if (voiceCancel) {
+      ev.preventDefault();
+      cancelVoice();
       return;
     }
     const clearImage = ev.target.closest('[data-och-clear-image]');
@@ -688,7 +915,7 @@
     const file = ev.target.files && ev.target.files[0];
     ev.target.value = '';
     if (!file) return;
-    uploadImage(file).catch((e) => setError(e.message || 'Upload fehlgeschlagen.'));
+    uploadFile(file).catch((e) => setError(e.message || 'Upload fehlgeschlagen.'));
   });
 
   document.addEventListener('submit', (ev) => {

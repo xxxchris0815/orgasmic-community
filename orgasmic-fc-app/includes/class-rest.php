@@ -10,7 +10,8 @@ class Orgasmic_Fc_App_Rest
 {
     public function __construct(
         private Orgasmic_Fc_App_Store $store,
-        private Orgasmic_Fc_App_WebPush $push
+        private Orgasmic_Fc_App_WebPush $push,
+        private Orgasmic_Fc_App_Fcm $fcm
     ) {
     }
 
@@ -39,6 +40,12 @@ class Orgasmic_Fc_App_Rest
             'methods' => 'POST',
             'permission_callback' => static fn() => is_user_logged_in(),
             'callback' => [$this, 'unsubscribe'],
+        ]);
+
+        register_rest_route($ns, '/push/token', [
+            'methods' => 'POST',
+            'permission_callback' => static fn() => is_user_logged_in(),
+            'callback' => [$this, 'token'],
         ]);
 
         register_rest_route($ns, '/prefs', [
@@ -71,7 +78,24 @@ class Orgasmic_Fc_App_Rest
                 'event' => (bool) get_option(Orgasmic_Fc_App_Install::OPTION_EVENT, 1),
             ],
             'prefs' => Orgasmic_Fc_App_Install::prefs_for(get_current_user_id()),
+            'native' => [
+                'capacitorReady' => true,
+                'fcmConfigured' => $this->fcm->can_send(),
+                'tokenPath' => 'push/token',
+            ],
         ]);
+    }
+
+    public function token(WP_REST_Request $request)
+    {
+        $token = sanitize_text_field((string) $request->get_param('token'));
+        $platform = sanitize_key((string) $request->get_param('platform'));
+        if ($token === '') {
+            return new WP_Error('invalid', 'Token fehlt.', ['status' => 400]);
+        }
+        $this->store->save_token(get_current_user_id(), $token, $platform);
+
+        return rest_ensure_response(['ok' => true]);
     }
 
     public function get_prefs(): WP_REST_Response
@@ -114,7 +138,13 @@ class Orgasmic_Fc_App_Rest
 
     public function unsubscribe(WP_REST_Request $request)
     {
-        $endpoint = esc_url_raw((string) $request->get_param('endpoint'));
+        $endpoint = (string) $request->get_param('endpoint');
+        $token = sanitize_text_field((string) $request->get_param('token'));
+        if ($token !== '') {
+            $endpoint = 'fcm:' . $token;
+        } else {
+            $endpoint = esc_url_raw($endpoint);
+        }
         if ($endpoint === '') {
             return new WP_Error('invalid', 'Endpoint fehlt.', ['status' => 400]);
         }

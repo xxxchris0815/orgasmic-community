@@ -302,6 +302,11 @@ class Orgasmic_Fc_Chat_Repository
 
     private function attachment_payload(int $attachment_id): ?array
     {
+        return self::attachment_payload_for($attachment_id);
+    }
+
+    public static function attachment_payload_for(int $attachment_id): ?array
+    {
         if ($attachment_id < 1) {
             return null;
         }
@@ -309,14 +314,32 @@ class Orgasmic_Fc_Chat_Repository
         if (!$url) {
             return null;
         }
-        $image = wp_get_attachment_image_src($attachment_id, 'large');
+        $mime = (string) get_post_mime_type($attachment_id);
+        $kind = str_starts_with($mime, 'audio/') ? 'audio' : 'image';
+        $image = $kind === 'image' ? wp_get_attachment_image_src($attachment_id, 'large') : null;
 
         return [
             'id' => $attachment_id,
             'url' => esc_url_raw($url),
-            'thumb' => $image ? esc_url_raw((string) $image[0]) : esc_url_raw($url),
-            'mime' => (string) get_post_mime_type($attachment_id),
+            'thumb' => $image ? esc_url_raw((string) $image[0]) : '',
+            'mime' => $mime,
+            'kind' => $kind,
+            'duration' => $kind === 'audio' ? (int) get_post_meta($attachment_id, '_orgasmic_audio_duration', true) : 0,
         ];
+    }
+
+    public static function attachment_label(?array $attachment): string
+    {
+        if (!$attachment) {
+            return '';
+        }
+        $kind = (string) ($attachment['kind'] ?? '');
+        $mime = (string) ($attachment['mime'] ?? '');
+        if ($kind === 'audio' || str_starts_with($mime, 'audio/')) {
+            return '🎤 Sprachnachricht';
+        }
+
+        return '📷 Bild';
     }
 
     private function preview(array $message): string
@@ -330,7 +353,7 @@ class Orgasmic_Fc_Chat_Repository
             return substr($body, 0, 140);
         }
         if (!empty($message['attachment'])) {
-            return '📷 Bild';
+            return self::attachment_label($message['attachment']);
         }
 
         return '';

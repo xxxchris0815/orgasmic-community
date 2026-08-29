@@ -16,13 +16,15 @@ class Orgasmic_Fc_App_Store
         $hash = hash('sha256', $endpoint);
         $wpdb->query(
             $wpdb->prepare(
-                "INSERT INTO {$table} (user_id, endpoint, endpoint_hash, p256dh, auth_token, content_encoding, user_agent, created_at, updated_at)
-                 VALUES (%d, %s, %s, %s, %s, %s, %s, %s, %s)
+                "INSERT INTO {$table} (user_id, endpoint, endpoint_hash, p256dh, auth_token, content_encoding, channel, platform, user_agent, created_at, updated_at)
+                 VALUES (%d, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                  ON DUPLICATE KEY UPDATE
                     user_id = VALUES(user_id),
                     p256dh = VALUES(p256dh),
                     auth_token = VALUES(auth_token),
                     content_encoding = VALUES(content_encoding),
+                    channel = VALUES(channel),
+                    platform = VALUES(platform),
                     user_agent = VALUES(user_agent),
                     updated_at = VALUES(updated_at)",
                 $user_id,
@@ -31,6 +33,45 @@ class Orgasmic_Fc_App_Store
                 $p256dh,
                 $auth,
                 $encoding ?: 'aes128gcm',
+                'web',
+                '',
+                substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 190),
+                $now,
+                $now
+            )
+        );
+    }
+
+    public function save_token(int $user_id, string $token, string $platform = ''): void
+    {
+        $token = trim($token);
+        $platform = sanitize_key($platform);
+        if ($token === '') {
+            return;
+        }
+        $endpoint = 'fcm:' . $token;
+        global $wpdb;
+        $table = Orgasmic_Fc_App_Install::subs_table();
+        $now = gmdate('Y-m-d H:i:s');
+        $hash = hash('sha256', $endpoint);
+        $wpdb->query(
+            $wpdb->prepare(
+                "INSERT INTO {$table} (user_id, endpoint, endpoint_hash, p256dh, auth_token, content_encoding, channel, platform, user_agent, created_at, updated_at)
+                 VALUES (%d, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                 ON DUPLICATE KEY UPDATE
+                    user_id = VALUES(user_id),
+                    channel = VALUES(channel),
+                    platform = VALUES(platform),
+                    user_agent = VALUES(user_agent),
+                    updated_at = VALUES(updated_at)",
+                $user_id,
+                $endpoint,
+                $hash,
+                '-',
+                '-',
+                'fcm',
+                'fcm',
+                $platform,
                 substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 190),
                 $now,
                 $now

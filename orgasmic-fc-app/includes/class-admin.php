@@ -10,7 +10,8 @@ class Orgasmic_Fc_App_Admin
 {
     public function __construct(
         private Orgasmic_Fc_App_Store $store,
-        private Orgasmic_Fc_App_WebPush $push
+        private Orgasmic_Fc_App_WebPush $push,
+        private Orgasmic_Fc_App_Fcm $fcm
     ) {
     }
 
@@ -49,6 +50,18 @@ class Orgasmic_Fc_App_Admin
             Orgasmic_Fc_App_Install::OPTION_START_URL => 'sanitize_text_field',
             Orgasmic_Fc_App_Install::OPTION_THEME => static function ($value): string {
                 return sanitize_hex_color((string) $value) ?: '#121c30';
+            },
+            Orgasmic_Fc_App_Install::OPTION_FCM_JSON => static function ($value): string {
+                $value = is_string($value) ? trim($value) : '';
+                if ($value === '') {
+                    return (string) get_option(Orgasmic_Fc_App_Install::OPTION_FCM_JSON, '');
+                }
+                $json = json_decode($value, true);
+                if (!is_array($json) || empty($json['private_key']) || empty($json['client_email']) || empty($json['project_id'])) {
+                    return (string) get_option(Orgasmic_Fc_App_Install::OPTION_FCM_JSON, '');
+                }
+                delete_transient('orgasmic_fc_app_fcm_token');
+                return $value;
             },
         ] as $option => $cb) {
             register_setting('orgasmic_fc_app', $option, ['sanitize_callback' => $cb]);
@@ -136,6 +149,14 @@ class Orgasmic_Fc_App_Admin
         echo '<p class="description"><code>mailto:…</code> für den Push-Dienst (nicht öffentlich in der Notification).</p></td></tr>';
         echo '<tr><th>VAPID Public</th><td><code>' . esc_html(Orgasmic_Fc_App_Vapid::public_key() ?: '— wird beim Aktivieren erzeugt —') . '</code></td></tr>';
         echo '</table>';
+
+        echo '<h2>Capacitor / Firebase</h2><table class="form-table" role="presentation">';
+        echo '<tr><th>FCM Service Account</th><td>';
+        echo '<textarea class="large-text code" rows="6" name="' . esc_attr(Orgasmic_Fc_App_Install::OPTION_FCM_JSON) . '" placeholder=\'{ "type": "service_account", "project_id": "…" }\'></textarea>';
+        echo '<p class="description">JSON aus Firebase → Projekteinstellungen → Dienstkonten. Leer lassen behält den gespeicherten Schlüssel. Aktuell: '
+            . ($this->fcm->can_send() ? '<strong>hinterlegt</strong> — Store-Tokens können zugestellt werden.' : '<strong>nicht hinterlegt</strong> — Website-Push läuft weiter, Capacitor-Push wartet.')
+            . '</p></td></tr>';
+        echo '</table>';
         submit_button();
         echo '</form>';
 
@@ -145,8 +166,8 @@ class Orgasmic_Fc_App_Admin
         submit_button('Test-Push an mich senden', 'secondary');
         echo '</form>';
 
-        echo '<h2>App Stores später</h2>';
-        echo '<p>Nicht die Community in Native neu bauen. Capacitor um <code>community.orgasmic.live</code> legen, dieselbe REST-API, Tokens statt Web-Push. iOS-Web-Push nur nach „Zum Home-Bildschirm“.</p>';
+        echo '<h2>Capacitor (Store-Apps)</h2>';
+        echo '<p>Nicht die Community neu bauen. Ein Capacitor-Projekt lädt <code>community.orgasmic.live</code>. Plugins: <code>@capacitor/push-notifications</code>, <code>@capacitor/camera</code>, <code>capacitor-voice-recorder</code>. Die Website schickt das FCM-Token an <code>/wp-json/orgasmic-app/v1/push/token</code>. Chat nutzt Kamera und Mikro der App, falls vorhanden — sonst den Browser.</p>';
         echo '</div>';
     }
 

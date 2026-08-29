@@ -13,7 +13,8 @@ class Orgasmic_Fc_App_Notify
     public function __construct(
         private Orgasmic_Fc_App_Access $access,
         private Orgasmic_Fc_App_Store $store,
-        private Orgasmic_Fc_App_WebPush $push
+        private Orgasmic_Fc_App_WebPush $push,
+        private Orgasmic_Fc_App_Fcm $fcm
     ) {
     }
 
@@ -42,7 +43,10 @@ class Orgasmic_Fc_App_Notify
         if (is_array($message)) {
             $preview = trim((string) ($message['body'] ?? ''));
             if ($preview === '' && !empty($message['attachment'])) {
-                $preview = 'Neues Bild';
+                $att = $message['attachment'];
+                $mime = is_array($att) ? (string) ($att['mime'] ?? '') : '';
+                $kind = is_array($att) ? (string) ($att['kind'] ?? '') : '';
+                $preview = ($kind === 'audio' || str_starts_with($mime, 'audio/')) ? 'Neue Sprachnachricht' : 'Neues Bild';
             }
         }
         $body = $this->with_body('Neue Nachricht', $preview);
@@ -229,14 +233,17 @@ class Orgasmic_Fc_App_Notify
         $last_error = '';
         $last_status = 0;
         foreach ($subs as $sub) {
-            $result = $this->push->send($sub, $payload);
+            $channel = (string) ($sub['channel'] ?? 'web');
+            $result = ($channel === 'fcm' || $channel === 'apns')
+                ? $this->fcm->send($sub, $payload)
+                : $this->push->send($sub, $payload);
             if (!empty($result['ok'])) {
                 $ok_any = true;
                 continue;
             }
             $last_status = (int) ($result['status'] ?? 0);
             $last_error = (string) ($result['error'] ?? 'send failed');
-            if (in_array($last_status, [404, 410], true)) {
+            if (in_array($last_status, [404, 410], true) || str_contains($last_error, 'UNREGISTERED')) {
                 $this->store->delete_endpoint((string) $sub['endpoint']);
             }
         }

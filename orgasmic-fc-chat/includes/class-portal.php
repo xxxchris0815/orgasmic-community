@@ -61,6 +61,7 @@ class Orgasmic_Fc_Chat_Portal
             'theirs' => $settings['theirs'],
             'pollSeconds' => $settings['poll_seconds'],
             'maxLength' => $settings['max_length'],
+            'maxVoiceSeconds' => 90,
             'unread' => $unread,
             'me' => $this->access->user_payload($user_id),
         ];

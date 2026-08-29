@@ -152,7 +152,7 @@ class Orgasmic_Fc_Chat_Rest
             'message_id' => $message['id'],
             'space_id' => $space_id,
             'body' => $body,
-            'preview' => $message['body'] !== '' ? $message['body'] : ($message['attachment'] ? '📷 Bild' : ''),
+            'preview' => $message['body'] !== '' ? $message['body'] : ($message['attachment'] ? Orgasmic_Fc_Chat_Repository::attachment_label($message['attachment']) : ''),
             'attachment_id' => $attachment_id ?: null,
         ]);
         do_action('orgasmic_fc/chat/message', $message, $space_id, $user_id);
@@ -231,25 +231,46 @@ class Orgasmic_Fc_Chat_Rest
             return new WP_Error('upload_error', 'Upload fehlgeschlagen.', ['status' => 400]);
         }
 
-        $size = (int) ($file['size'] ?? 0);
-        if ($size < 1 || $size > 4 * 1024 * 1024) {
-            return new WP_Error('too_large', 'Bild maximal 4 MB.', ['status' => 400]);
+        $parsed = $this->parse_upload($file);
+        if (is_wp_error($parsed)) {
+            return $parsed;
         }
 
-        $check = wp_check_filetype_and_ext(
-            (string) $file['tmp_name'],
-            (string) $file['name']
-        );
-        $ext = strtolower((string) ($check['ext'] ?? ''));
-        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true)) {
-            return new WP_Error('invalid_type', 'Nur Bilder (JPG, PNG, GIF, WebP).', ['status' => 400]);
+        $max = $parsed['kind'] === 'audio' ? 8 * 1024 * 1024 : 4 * 1024 * 1024;
+        if ($parsed['size'] < 1 || $parsed['size'] > $max) {
+            return new WP_Error(
+                'too_large',
+                $parsed['kind'] === 'audio' ? 'Sprachnachricht maximal 8 MB.' : 'Bild maximal 4 MB.',
+                ['status' => 400]
+            );
         }
+
+        $_FILES['file']['name'] = $parsed['filename'];
+        $_FILES['file']['type'] = $parsed['mime'];
+
+        $mime_filter = static function (array $mimes) use ($parsed): array {
+            $mimes[$parsed['ext']] = $parsed['mime'];
+            return $mimes;
+        };
+        $type_filter = static function ($data, $file, $filename, $mimes) use ($parsed) {
+            if (is_array($data) && empty($data['ext'])) {
+                $data['ext'] = $parsed['ext'];
+                $data['type'] = $parsed['mime'];
+                $data['proper_filename'] = $parsed['filename'];
+            }
+            return $data;
+        };
+        add_filter('upload_mimes', $mime_filter);
+        add_filter('wp_check_filetype_and_ext', $type_filter, 10, 4);
 
         require_once ABSPATH . 'wp-admin/includes/file.php';
         require_once ABSPATH . 'wp-admin/includes/media.php';
         require_once ABSPATH . 'wp-admin/includes/image.php';
 
         $id = media_handle_upload('file', 0);
+        remove_filter('upload_mimes', $mime_filter);
+        remove_filter('wp_check_filetype_and_ext', $type_filter, 10);
+
         if (is_wp_error($id)) {
             return new WP_Error('upload_error', $id->get_error_message(), ['status' => 400]);
         }
@@ -259,15 +280,76 @@ class Orgasmic_Fc_Chat_Rest
             'post_author' => $user_id,
         ]);
 
-        $url = wp_get_attachment_url((int) $id);
-        $image = wp_get_attachment_image_src((int) $id, 'large');
+        $duration = (int) $request->get_param('duration');
+        if ($parsed['kind'] === 'audio' && $duration > 0) {
+            update_post_meta((int) $id, '_orgasmic_audio_duration', min(180, $duration));
+        }
 
-        return rest_ensure_response([
-            'id' => (int) $id,
-            'url' => $url ? esc_url_raw($url) : '',
-            'thumb' => $image ? esc_url_raw((string) $image[0]) : ($url ? esc_url_raw($url) : ''),
-            'mime' => (string) get_post_mime_type((int) $id),
-        ]);
+        $payload = Orgasmic_Fc_Chat_Repository::attachment_payload_for((int) $id);
+        if ($payload === null) {
+            return new WP_Error('upload_error', 'Datei konnte nicht gelesen werden.', ['status' => 400]);
+        }
+
+        return rest_ensure_response($payload);
+    }
+
+    /**
+     * @return array{kind:string,ext:string,mime:string,filename:string,size:int}|WP_Error
+     */
+    private function parse_upload(array $file)
+    {
+        $tmp = (string) ($file['tmp_name'] ?? '');
+        $size = (int) ($file['size'] ?? 0);
+        if ($tmp === '' || !is_uploaded_file($tmp)) {
+            return new WP_Error('upload_error', 'Upload ungültig.', ['status' => 400]);
+        }
+
+        $detected = '';
+        if (function_exists('finfo_open')) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            if ($finfo) {
+                $detected = (string) finfo_file($finfo, $tmp);
+                finfo_close($finfo);
+            }
+        }
+        if ($detected === '' && function_exists('mime_content_type')) {
+            $detected = (string) mime_content_type($tmp);
+        }
+
+        $map = [
+            'image/jpeg' => ['jpg', 'image/jpeg', 'image'],
+            'image/png' => ['png', 'image/png', 'image'],
+            'image/gif' => ['gif', 'image/gif', 'image'],
+            'image/webp' => ['webp', 'image/webp', 'image'],
+            'audio/webm' => ['webm', 'audio/webm', 'audio'],
+            'video/webm' => ['webm', 'audio/webm', 'audio'],
+            'audio/ogg' => ['ogg', 'audio/ogg', 'audio'],
+            'application/ogg' => ['ogg', 'audio/ogg', 'audio'],
+            'audio/mpeg' => ['mp3', 'audio/mpeg', 'audio'],
+            'audio/mp4' => ['m4a', 'audio/mp4', 'audio'],
+            'audio/x-m4a' => ['m4a', 'audio/mp4', 'audio'],
+            'audio/aac' => ['aac', 'audio/aac', 'audio'],
+            'audio/wav' => ['wav', 'audio/wav', 'audio'],
+            'audio/x-wav' => ['wav', 'audio/wav', 'audio'],
+        ];
+        $client = strtolower((string) ($file['type'] ?? ''));
+        $client = explode(';', $client)[0];
+        if (!isset($map[$detected]) && $client !== '' && isset($map[$client])) {
+            $detected = $client;
+        }
+        if (!isset($map[$detected])) {
+            return new WP_Error('invalid_type', 'Nur Bilder oder Sprachnachrichten.', ['status' => 400]);
+        }
+
+        [$ext, $mime, $kind] = $map[$detected];
+
+        return [
+            'kind' => $kind,
+            'ext' => $ext,
+            'mime' => $mime,
+            'filename' => ($kind === 'audio' ? 'voice' : 'image') . '-' . time() . '.' . $ext,
+            'size' => $size,
+        ];
     }
 
     private function deny_space(int $space_id)

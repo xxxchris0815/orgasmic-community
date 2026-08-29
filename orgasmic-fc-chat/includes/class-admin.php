@@ -156,7 +156,7 @@ class Orgasmic_Fc_Chat_Admin
             $user = !empty($row['user_id']) ? get_userdata((int) $row['user_id']) : null;
             $preview = (string) $row['body'];
             if ($preview === '' && !empty($row['attachment'])) {
-                $preview = '📷 Bild';
+                $preview = Orgasmic_Fc_Chat_Repository::attachment_label($row['attachment']);
             }
             if (function_exists('mb_substr')) {
                 $preview = mb_substr($preview, 0, 160);

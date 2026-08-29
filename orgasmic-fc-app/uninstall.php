@@ -23,6 +23,7 @@ delete_option('orgasmic_fc_app_notify_event');
 delete_option('orgasmic_fc_app_include_body');
 delete_option('orgasmic_fc_app_start_url');
 delete_option('orgasmic_fc_app_theme');
+delete_option('orgasmic_fc_app_fcm_json');
 
 $wpdb->delete($wpdb->usermeta, ['meta_key' => 'orgasmic_fc_app_prefs']);
 
