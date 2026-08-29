@@ -1,12 +1,15 @@
 === ORGASMIC Chat ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.1.4
+Stable tag: 1.1.5
 License: GPLv2 or later
 
 Space chat for FluentCommunity. One room per space, members only, header icon with unread badge, REST API.
 
 == Changelog ==
+
+= 1.1.5 =
+* Record voice as WebM/Opus again (browser default mic, no AGC/bitrate overrides)
 
 = 1.1.4 =
 * Cache images and voice notes locally (Cache API)

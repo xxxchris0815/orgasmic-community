@@ -1009,23 +1009,14 @@
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
       throw new Error('Sprachnachrichten braucht Mikrofonzugriff (HTTPS) oder die Capacitor-App.');
     }
-    mediaStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-        channelCount: 1,
-      },
-    });
-    const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'].find((t) => MediaRecorder.isTypeSupported(t)) || '';
-    const recOpts = { audioBitsPerSecond: 96000 };
-    if (mime) recOpts.mimeType = mime;
-    mediaRecorder = new MediaRecorder(mediaStream, recOpts);
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'].find((t) => MediaRecorder.isTypeSupported(t)) || '';
+    mediaRecorder = new MediaRecorder(mediaStream, mime ? { mimeType: mime } : undefined);
     recordChunks = [];
     mediaRecorder.ondataavailable = (ev) => {
       if (ev.data && ev.data.size) recordChunks.push(ev.data);
     };
-    mediaRecorder.start(250);
+    mediaRecorder.start();
     state.recording = true;
     composerExtras();
     recordTimer = setInterval(tickRecord, 1000);
