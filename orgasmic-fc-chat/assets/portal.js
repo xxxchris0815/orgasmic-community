@@ -27,6 +27,7 @@
     sending: false,
     emojiOpen: false,
     pendingImage: null,
+    offline: false,
   };
 
   let unreadTimer = null;
@@ -151,6 +152,33 @@
       throw new Error(data.message || 'Fehler ' + res.status);
     }
     return data;
+  }
+
+  function cacheUid() {
+    return String((state.me && state.me.id) || (cfg.me && cfg.me.id) || 0);
+  }
+
+  function cacheGet(key) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function cacheSet(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) {
+      /* quota */
+    }
+  }
+
+  function setOffline(on) {
+    state.offline = !!on;
+    const el = $('[data-och-offline]');
+    if (el) el.hidden = !state.offline;
   }
 
   function badgeText(n) {
@@ -376,6 +404,7 @@
       + '</div><div class="orgasmic-chat-actions">'
       + '<button type="button" class="och-close" data-och-close>Schließen</button>'
       + '</div></header>'
+      + '<p class="orgasmic-chat-offline" data-och-offline' + (state.offline ? '' : ' hidden') + '>Offline — zuletzt geladene Nachrichten.</p>'
       + '<div class="orgasmic-chat-body">'
       + '<aside class="orgasmic-chat-rooms">'
       + '<div class="orgasmic-chat-search"><input type="search" value="' + escapeHtml(state.query) + '" placeholder="Kreis suchen" data-och-search /></div>'
@@ -402,12 +431,34 @@
   }
 
   async function loadRooms() {
-    const data = await api('rooms');
-    state.rooms = data.rooms || [];
-    state.me = data.me || state.me;
-    state.canManage = !!data.can_manage;
-    applyPortal(data.portal);
-    updateNavBadge(data.unread || 0);
+    try {
+      const data = await api('rooms');
+      state.rooms = data.rooms || [];
+      state.me = data.me || state.me;
+      state.canManage = !!data.can_manage;
+      applyPortal(data.portal);
+      updateNavBadge(data.unread || 0);
+      cacheSet('orgasmic-chat-rooms:' + cacheUid(), {
+        rooms: state.rooms,
+        me: state.me,
+        can_manage: state.canManage,
+        portal: data.portal || null,
+        unread: data.unread || 0,
+      });
+      setOffline(false);
+    } catch (err) {
+      const cached = cacheGet('orgasmic-chat-rooms:' + cacheUid());
+      if (cached && Array.isArray(cached.rooms) && cached.rooms.length) {
+        state.rooms = cached.rooms;
+        if (cached.me) state.me = cached.me;
+        if (typeof cached.can_manage !== 'undefined') state.canManage = !!cached.can_manage;
+        applyPortal(cached.portal);
+        updateNavBadge(cached.unread || 0);
+        setOffline(true);
+        return;
+      }
+      throw err;
+    }
   }
 
   async function loadMessages(reset) {
@@ -415,31 +466,48 @@
     const path = reset
       ? 'rooms/' + state.spaceId + '/messages?limit=50'
       : 'rooms/' + state.spaceId + '/messages?after=' + lastId + '&limit=50';
-    const data = await api(path);
-    const items = data.items || [];
-    const incoming = [];
-    if (reset) {
-      state.messages = items;
-      if (state.messages.length) lastId = state.messages[state.messages.length - 1].id;
-    } else if (items.length) {
-      const seen = new Set(state.messages.map((m) => m.id));
-      items.forEach((m) => {
-        if (!seen.has(m.id)) {
-          state.messages.push(m);
-          incoming.push(m);
-        }
-      });
-      if (state.messages.length) lastId = state.messages[state.messages.length - 1].id;
+    try {
+      const data = await api(path);
+      const items = data.items || [];
+      const incoming = [];
+      if (reset) {
+        state.messages = items;
+        if (state.messages.length) lastId = state.messages[state.messages.length - 1].id;
+      } else if (items.length) {
+        const seen = new Set(state.messages.map((m) => m.id));
+        items.forEach((m) => {
+          if (!seen.has(m.id)) {
+            state.messages.push(m);
+            incoming.push(m);
+          }
+        });
+        if (state.messages.length) lastId = state.messages[state.messages.length - 1].id;
+      }
+      cacheSet('orgasmic-chat-msgs:' + cacheUid() + ':' + state.spaceId, state.messages.slice(-50));
+      setOffline(false);
+      await api('rooms/' + state.spaceId + '/read', {
+        method: 'POST',
+        body: JSON.stringify({ last_id: lastId || data.latest_id || 0 }),
+      }).then((res) => {
+        const room = roomById(state.spaceId);
+        if (room) room.unread = 0;
+        if (typeof res.unread === 'number') updateNavBadge(res.unread);
+      }).catch(() => {});
+      return incoming;
+    } catch (err) {
+      if (!reset) {
+        setOffline(true);
+        throw err;
+      }
+      const cached = cacheGet('orgasmic-chat-msgs:' + cacheUid() + ':' + state.spaceId);
+      if (cached && Array.isArray(cached) && cached.length) {
+        state.messages = cached;
+        if (state.messages.length) lastId = state.messages[state.messages.length - 1].id;
+        setOffline(true);
+        return [];
+      }
+      throw err;
     }
-    await api('rooms/' + state.spaceId + '/read', {
-      method: 'POST',
-      body: JSON.stringify({ last_id: lastId || data.latest_id || 0 }),
-    }).then((res) => {
-      const room = roomById(state.spaceId);
-      if (room) room.unread = 0;
-      if (typeof res.unread === 'number') updateNavBadge(res.unread);
-    }).catch(() => {});
-    return incoming;
   }
 
   function stopThreadPoll() {

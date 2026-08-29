@@ -46,7 +46,8 @@ class Orgasmic_Fc_App_Notify
             }
         }
         $body = $this->with_body('Neue Nachricht', $preview);
-        $recipients = array_diff($this->access->space_member_ids($space_id), [$actor_id]);
+        $recipients = array_values(array_diff($this->access->space_member_ids($space_id), [$actor_id]));
+        $recipients = $this->filter_prefs($recipients, 'chat');
         $this->store->enqueue(
             $recipients,
             'chat',
@@ -75,7 +76,8 @@ class Orgasmic_Fc_App_Notify
         $title = $this->access->space_title($space_id);
         $excerpt = wp_strip_all_tags((string) ($this->access->prop($feed, 'title') ?: $this->access->prop($feed, 'message') ?: ''));
         $body = $this->with_body('Neuer Beitrag', $excerpt);
-        $recipients = array_diff($this->access->space_member_ids($space_id), [$actor]);
+        $recipients = array_values(array_diff($this->access->space_member_ids($space_id), [$actor]));
+        $recipients = $this->filter_prefs($recipients, 'feed');
         $this->store->enqueue(
             $recipients,
             'feed',
@@ -113,13 +115,12 @@ class Orgasmic_Fc_App_Notify
                 }
             }
         }
-        $parent = (int) $this->access->prop($comment, 'parent_id');
-        unset($parent);
-        $recipients = array_diff(array_unique($recipients), [$actor]);
+        $recipients = array_values(array_diff(array_unique($recipients), [$actor]));
         if ($space_id > 0) {
             $allowed = $this->access->space_member_ids($space_id);
             $recipients = array_values(array_intersect($recipients, $allowed));
         }
+        $recipients = $this->filter_prefs($recipients, 'comment');
 
         $excerpt = wp_strip_all_tags((string) ($this->access->prop($comment, 'message') ?: $this->access->prop($comment, 'content') ?: ''));
         $this->store->enqueue(
@@ -146,6 +147,7 @@ class Orgasmic_Fc_App_Notify
         $minutes = (int) $minutes;
         $when = $minutes >= 1440 ? 'morgen' : 'in ' . $minutes . ' Minuten';
         $recipients = array_values(array_unique(array_map('intval', (array) $user_ids)));
+        $recipients = $this->filter_prefs($recipients, 'event');
         $this->store->enqueue(
             $recipients,
             'event',
@@ -172,7 +174,8 @@ class Orgasmic_Fc_App_Notify
         foreach ($space_ids as $space_id) {
             $recipients = array_merge($recipients, $this->access->space_member_ids($space_id));
         }
-        $recipients = array_diff(array_unique($recipients), [(int) $actor_id]);
+        $recipients = array_values(array_diff(array_unique($recipients), [(int) $actor_id]));
+        $recipients = $this->filter_prefs($recipients, 'event');
         $this->store->enqueue(
             $recipients,
             'event',
@@ -244,6 +247,24 @@ class Orgasmic_Fc_App_Notify
         }
 
         $this->store->mark_retry((int) $row['id'], $last_error ?: 'kein Gerät', $last_status);
+    }
+
+    private function filter_prefs(array $user_ids, string $kind): array
+    {
+        $user_ids = array_values(array_unique(array_filter(array_map('intval', $user_ids))));
+        if ($user_ids === []) {
+            return [];
+        }
+        update_meta_cache('user', $user_ids);
+        $out = [];
+        foreach ($user_ids as $id) {
+            $prefs = Orgasmic_Fc_App_Install::prefs_for($id);
+            if (!empty($prefs[$kind])) {
+                $out[] = $id;
+            }
+        }
+
+        return $out;
     }
 
     private function enabled(string $option): bool

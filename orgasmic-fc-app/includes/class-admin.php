@@ -99,7 +99,7 @@ class Orgasmic_Fc_App_Admin
 
         $counts = $this->store->counts();
         echo '<div class="wrap"><h1>ORGASMIC App</h1>';
-        echo '<p>PWA fürs Homescreen plus Push für Chat, Beiträge, Kommentare und Events. Dieselbe REST-API nutzt später Capacitor für Play Store / App Store.</p>';
+        echo '<p>PWA fürs Homescreen plus Push für Chat, Beiträge, Kommentare und Events. Mitglieder steuern ihre eigenen Arten über die Glocke im Portal. Dieselbe REST-API nutzt später Capacitor für Play Store / App Store.</p>';
 
         if (isset($_GET['orgasmic_fc_app_test'])) {
             echo '<div class="notice notice-success"><p>Test wurde in die Queue gelegt. Am Handy/Browser muss Push erlaubt sein.</p></div>';

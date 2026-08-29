@@ -11,8 +11,8 @@ Moved from `evolution-api` (`Extras/orgasmic-community`).
 | `orgasmic-fc-tracker/` | **1.2.1** | Engagement-Tracker, Dashboard, Evolution-Webhook |
 | `orgasmic-fc-events/` | **1.0.4** | Kalender im Portal (RSVP, Zoom, Activity Stream) |
 | `orgasmic-fc-embeds/` | **1.1.1** | Bunny-Player, Autoplay-Setting, Wiedergabe-Tracking + Webhook |
-| `orgasmic-fc-chat/` | **1.0.3** | Space-Chat im Portal (Icon oben rechts, Ungelesen-Badge, REST) |
-| `orgasmic-fc-app/` | **1.0.0** | PWA, Cache, Push (Chat, Beiträge, Kommentare, Events) |
+| `orgasmic-fc-chat/` | **1.0.4** | Space-Chat im Portal (Icon oben rechts, Ungelesen-Badge, REST, Offline-Cache) |
+| `orgasmic-fc-app/` | **1.0.1** | PWA, Cache, Push (Chat, Beiträge, Kommentare, Events), Mitglieder-Prefs |
 
 ## ORGASMIC Community Kalender
 
@@ -65,10 +65,11 @@ Ersatz für den FluentCommunity-Pro-Chat:
 - Icon oben rechts im Portal, Ungelesen-Badge
 - Text, Emoji, optionales Bild
 - REST-API für Portal und spätere PWA/App (`/wp-json/orgasmic-chat/v1/`)
+- Offline: letzte Räume und Nachrichten im localStorage (kein REST-Cache im Service Worker)
 
 WP-Admin: **ORGASMIC Chat → Einstellungen** (Farben, Untertitel, welche Spaces Chat haben).
 
-ZIP: [`orgasmic-fc-chat-1.0.3.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-chat-1.0.3.zip)
+ZIP: [`orgasmic-fc-chat-1.0.4.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-chat-1.0.4.zip)
 
 ## ORGASMIC App (PWA + Push)
 
@@ -79,11 +80,11 @@ Kein zweites Native-Frontend. Das FluentCommunity-Portal wird zur App:
 1. **Jetzt:** PWA (Homescreen, Service Worker Cache, Web Push)
 2. **Stores später:** Capacitor um dieselbe URL — gleiche REST, andere Push-Tokens (FCM/APNs)
 
-Push geht nur an Mitglieder des jeweiligen Spaces. Chat-Text ist standardmäßig nicht in der Notification.
+Push geht nur an Mitglieder des jeweiligen Spaces. Chat-Text ist standardmäßig nicht in der Notification. Jedes Mitglied kann Chat / Beiträge / Kommentare / Events über die Glocke im Portal abschalten.
 
 WP-Admin: **ORGASMIC App**. PHP 8.2+ für den Push-Versand (`openssl_pkey_derive`).
 
-ZIP: [`orgasmic-fc-app-1.0.0.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.0.0.zip)
+ZIP: [`orgasmic-fc-app-1.0.1.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.0.1.zip)
 
 ### Installation
 

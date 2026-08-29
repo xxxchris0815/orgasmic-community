@@ -24,4 +24,6 @@ delete_option('orgasmic_fc_app_include_body');
 delete_option('orgasmic_fc_app_start_url');
 delete_option('orgasmic_fc_app_theme');
 
+$wpdb->delete($wpdb->usermeta, ['meta_key' => 'orgasmic_fc_app_prefs']);
+
 wp_clear_scheduled_hook('orgasmic_fc_app_send');

@@ -10,15 +10,33 @@ class Orgasmic_Fc_App_Pwa
 {
     public function register(): void
     {
-        add_action('init', [$this, 'serve'], 0);
-        add_filter('query_vars', static function (array $vars): array {
-            $vars[] = 'orgasmic_pwa';
-            return $vars;
-        });
+        add_action('init', [self::class, 'register_rewrites'], 0);
+        add_action('init', [$this, 'serve'], 1);
+        add_filter('query_vars', [self::class, 'query_vars']);
+    }
+
+    public static function query_vars(array $vars): array
+    {
+        $vars[] = 'orgasmic_pwa';
+        return $vars;
+    }
+
+    public static function register_rewrites(): void
+    {
+        add_rewrite_rule('^orgasmic-sw\.js$', 'index.php?orgasmic_pwa=sw', 'top');
+        add_rewrite_rule('^orgasmic-manifest\.json$', 'index.php?orgasmic_pwa=manifest', 'top');
     }
 
     public function serve(): void
     {
+        $asset = (string) get_query_var('orgasmic_pwa');
+        if ($asset === 'sw') {
+            $this->javascript();
+        }
+        if ($asset === 'manifest') {
+            $this->manifest();
+        }
+
         $path = (string) parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
         $path = rtrim($path, '/') ?: '/';
         if (str_ends_with($path, '/orgasmic-sw.js') || $path === '/orgasmic-sw.js') {

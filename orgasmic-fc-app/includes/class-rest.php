@@ -40,6 +40,19 @@ class Orgasmic_Fc_App_Rest
             'permission_callback' => static fn() => is_user_logged_in(),
             'callback' => [$this, 'unsubscribe'],
         ]);
+
+        register_rest_route($ns, '/prefs', [
+            [
+                'methods' => 'GET',
+                'permission_callback' => static fn() => is_user_logged_in(),
+                'callback' => [$this, 'get_prefs'],
+            ],
+            [
+                'methods' => 'POST',
+                'permission_callback' => static fn() => is_user_logged_in(),
+                'callback' => [$this, 'save_prefs'],
+            ],
+        ]);
     }
 
     public function bootstrap(): WP_REST_Response
@@ -57,7 +70,27 @@ class Orgasmic_Fc_App_Rest
                 'comment' => (bool) get_option(Orgasmic_Fc_App_Install::OPTION_COMMENT, 1),
                 'event' => (bool) get_option(Orgasmic_Fc_App_Install::OPTION_EVENT, 1),
             ],
+            'prefs' => Orgasmic_Fc_App_Install::prefs_for(get_current_user_id()),
         ]);
+    }
+
+    public function get_prefs(): WP_REST_Response
+    {
+        return rest_ensure_response([
+            'prefs' => Orgasmic_Fc_App_Install::prefs_for(get_current_user_id()),
+        ]);
+    }
+
+    public function save_prefs(WP_REST_Request $request)
+    {
+        $json = $request->get_json_params();
+        if (!is_array($json)) {
+            $json = [];
+        }
+        $incoming = isset($json['prefs']) && is_array($json['prefs']) ? $json['prefs'] : $json;
+        $prefs = Orgasmic_Fc_App_Install::save_prefs(get_current_user_id(), $incoming);
+
+        return rest_ensure_response(['ok' => true, 'prefs' => $prefs]);
     }
 
     public function subscribe(WP_REST_Request $request)

@@ -1,6 +1,6 @@
 (function () {
   const cfg = window.OrgasmicFcApp || {};
-  if (!cfg.root || !('serviceWorker' in navigator)) return;
+  if (!cfg.root) return;
 
   function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -11,7 +11,17 @@
     return output;
   }
 
-  async function api(path, body) {
+  async function getJson(path) {
+    const res = await fetch(cfg.root + path.replace(/^\//, ''), {
+      credentials: 'same-origin',
+      headers: { 'X-WP-Nonce': cfg.nonce, Accept: 'application/json' },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || 'Fehler ' + res.status);
+    return data;
+  }
+
+  async function postJson(path, body) {
     const res = await fetch(cfg.root + path.replace(/^\//, ''), {
       method: 'POST',
       credentials: 'same-origin',
@@ -27,12 +37,50 @@
     return data;
   }
 
-  async function bootstrap() {
-    const res = await fetch(cfg.root + 'bootstrap', {
-      credentials: 'same-origin',
-      headers: { 'X-WP-Nonce': cfg.nonce, Accept: 'application/json' },
+  function prefsRoot() {
+    return document.getElementById('orgasmic-app-prefs');
+  }
+
+  function setPrefsStatus(message, isError) {
+    const el = document.querySelector('[data-oa-prefs-status]');
+    if (!el) return;
+    el.textContent = message || '';
+    el.hidden = !message;
+    el.classList.toggle('is-error', !!isError);
+  }
+
+  function applyPrefs(prefs) {
+    const form = document.querySelector('[data-oa-prefs]');
+    if (!form || !prefs) return;
+    ['chat', 'feed', 'comment', 'event'].forEach((key) => {
+      const input = form.querySelector('[name="' + key + '"]');
+      if (input) input.checked = prefs[key] !== false;
     });
-    return res.json();
+  }
+
+  function openPrefs() {
+    const root = prefsRoot();
+    if (!root) return;
+    root.hidden = false;
+    applyPrefs(cfg.prefs);
+    getJson('prefs').then((data) => {
+      cfg.prefs = data.prefs || cfg.prefs;
+      applyPrefs(cfg.prefs);
+    }).catch(() => {});
+  }
+
+  function closePrefs() {
+    const root = prefsRoot();
+    if (!root) return;
+    root.hidden = true;
+    if ((location.hash || '') === '#orgasmic-notify') {
+      history.replaceState(null, '', location.pathname + location.search);
+    }
+  }
+
+  function syncPrefsHash() {
+    if ((location.hash || '') === '#orgasmic-notify') openPrefs();
+    else if (prefsRoot() && !prefsRoot().hidden) closePrefs();
   }
 
   function showPrompt(installable) {
@@ -54,6 +102,7 @@
   }
 
   async function enablePush(info) {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') return;
     const reg = await navigator.serviceWorker.ready;
@@ -65,7 +114,7 @@
       });
     }
     const raw = sub.toJSON();
-    await api('push/subscribe', {
+    await postJson('push/subscribe', {
       endpoint: raw.endpoint,
       keys: raw.keys,
       contentEncoding: (PushManager.supportedContentEncodings && PushManager.supportedContentEncodings[0]) || 'aes128gcm',
@@ -80,6 +129,11 @@
   });
 
   document.addEventListener('click', async (ev) => {
+    if (ev.target.closest('[data-oa-prefs-close]') || ev.target.closest('.orgasmic-app-prefs-overlay') === ev.target) {
+      ev.preventDefault();
+      closePrefs();
+      return;
+    }
     if (ev.target.closest('[data-oa-dismiss]')) {
       sessionStorage.setItem('orgasmic-app-prompt', '1');
       const root = document.getElementById('orgasmic-app-prompt');
@@ -88,7 +142,7 @@
     }
     if (!ev.target.closest('[data-oa-enable]')) return;
     try {
-      const info = await bootstrap();
+      const info = await getJson('bootstrap');
       if (deferredPrompt) {
         deferredPrompt.prompt();
         await deferredPrompt.userChoice;
@@ -101,9 +155,45 @@
     } catch (e) {}
   });
 
+  document.addEventListener('submit', async (ev) => {
+    const form = ev.target.closest('[data-oa-prefs]');
+    if (!form) return;
+    ev.preventDefault();
+    const prefs = {};
+    ['chat', 'feed', 'comment', 'event'].forEach((key) => {
+      const input = form.querySelector('[name="' + key + '"]');
+      prefs[key] = !!(input && input.checked);
+    });
+    try {
+      const data = await postJson('prefs', { prefs: prefs });
+      cfg.prefs = data.prefs || prefs;
+      applyPrefs(cfg.prefs);
+      setPrefsStatus('Gespeichert.');
+      setTimeout(() => setPrefsStatus(''), 2000);
+    } catch (e) {
+      setPrefsStatus(e.message || 'Speichern fehlgeschlagen.', true);
+    }
+  });
+
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && prefsRoot() && !prefsRoot().hidden) {
+      closePrefs();
+    }
+  });
+
+  window.addEventListener('hashchange', syncPrefsHash);
+  applyPrefs(cfg.prefs);
+  if ((location.hash || '') === '#orgasmic-notify') openPrefs();
+
+  if (!('serviceWorker' in navigator)) return;
+
   navigator.serviceWorker.register(cfg.sw, { scope: '/' }).then(async () => {
     try {
-      const info = await bootstrap();
+      const info = await getJson('bootstrap');
+      if (info.prefs) {
+        cfg.prefs = info.prefs;
+        applyPrefs(cfg.prefs);
+      }
       if (!info.enabled) return;
       if (Notification.permission === 'granted' && info.vapidPublicKey) {
         await enablePush(info);

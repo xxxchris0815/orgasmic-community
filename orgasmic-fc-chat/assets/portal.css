@@ -87,6 +87,21 @@
   font-size: 13px;
 }
 
+.orgasmic-chat-offline {
+  margin: 0;
+  padding: 8px 16px;
+  font-size: 12px;
+  text-align: center;
+  background: #fef3c7;
+  color: #92400e;
+  flex-shrink: 0;
+}
+
+.orgasmic-chat-overlay.och-theme-dark .orgasmic-chat-offline {
+  background: #3f2e0c;
+  color: #fde68a;
+}
+
 .orgasmic-chat-actions {
   display: flex;
   gap: 8px;

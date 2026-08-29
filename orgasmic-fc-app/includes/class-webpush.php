@@ -81,7 +81,10 @@ class Orgasmic_Fc_App_WebPush
         }
 
         $details = openssl_pkey_get_details($local);
-        $as_public = "\x04" . $details['ec']['x'] . $details['ec']['y'];
+        if (!is_array($details) || empty($details['ec']['x']) || empty($details['ec']['y'])) {
+            throw new RuntimeException('Lokaler ECDH-Punkt ungültig.');
+        }
+        $as_public = Orgasmic_Fc_App_Vapid::uncompressed_point($details);
         $salt = random_bytes(16);
 
         $ikm = hash_hkdf('sha256', $shared, 32, "WebPush: info\0" . $ua_public . $as_public, $ua_auth);

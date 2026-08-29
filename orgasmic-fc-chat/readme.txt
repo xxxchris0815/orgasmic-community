@@ -1,12 +1,15 @@
 === ORGASMIC Chat ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.0.3
+Stable tag: 1.0.4
 License: GPLv2 or later
 
 Space chat for FluentCommunity. One room per space, members only, header icon with unread badge, REST API.
 
 == Changelog ==
+
+= 1.0.4 =
+* Cache rooms and last messages in localStorage for offline viewing
 
 = 1.0.3 =
 * Fires orgasmic_fc/chat/message for the App/push plugin

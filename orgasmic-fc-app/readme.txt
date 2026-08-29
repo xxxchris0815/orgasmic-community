@@ -1,12 +1,17 @@
 === ORGASMIC App ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 License: GPLv2 or later
 
 PWA, offline cache, and Web Push for chat, posts, comments, and calendar events.
 
 == Changelog ==
+
+= 1.0.1 =
+* Per-member notification prefs (chat, feed, comment, event)
+* Pad VAPID/ECDH P-256 coordinates to 32 bytes
+* Register /orgasmic-sw.js and /orgasmic-manifest.json rewrite rules on activate
 
 = 1.0.0 =
 * Manifest + service worker
