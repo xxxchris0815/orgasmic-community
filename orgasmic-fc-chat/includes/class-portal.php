@@ -21,7 +21,6 @@ class Orgasmic_Fc_Chat_Portal
         add_action('fluent_community/portal_footer', [$this, 'boot']);
         add_action('fluent_community/headless/footer', [$this, 'boot']);
         add_action('fluent_community/before_header_menu_items', [$this, 'header_item'], 8, 2);
-        add_filter('fluent_community/main_menu_items', [$this, 'menu_items'], 18, 2);
         add_filter('fluent_community/mobile_menu', [$this, 'mobile_menu'], 18, 1);
     }
 
@@ -82,20 +81,10 @@ class Orgasmic_Fc_Chat_Portal
         $label = $unread > 0 ? 'Chat, ' . $unread . ' ungelesen' : 'Chat';
         echo '<li class="top_menu_item fcom_icon_link orgasmic-chat-nav' . ($unread > 0 ? ' has-unread' : '') . '">';
         echo '<a href="#orgasmic-chat" data-orgasmic-chat="1" aria-label="' . esc_attr($label) . '" title="Chat">';
-        echo $this->icon_svg();
+        echo $this->icon_svg(false);
         echo '<span class="och-nav-label">Chat</span>';
         echo $this->badge_html($unread);
         echo '</a></li>';
-    }
-
-    public function menu_items($items, $scope = null)
-    {
-        if (!is_array($items)) {
-            return $items;
-        }
-        $unread = $this->current_unread();
-        $items[] = $this->menu_entry($unread);
-        return $items;
     }
 
     public function mobile_menu($items)
@@ -144,10 +133,14 @@ class Orgasmic_Fc_Chat_Portal
         return '<span class="och-nav-badge" data-orgasmic-chat-badge="1">' . esc_html($text) . '</span>';
     }
 
-    private function icon_svg(): string
+    private function icon_svg(bool $filled = true): string
     {
-        return '<svg class="och-nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22">'
-            . '<path fill="currentColor" d="M21 12c0 3.866-3.806 7-8.5 7-.86 0-1.69-.1-2.47-.29L4.5 20.5l1.2-3.37C4.64 16.1 4 14.62 4 13c0-3.866 3.806-7 8.5-7S21 8.134 21 12z"></path>'
-            . '</svg>';
+        $path = 'M21 12c0 3.866-3.806 7-8.5 7-.86 0-1.69-.1-2.47-.29L4.5 20.5l1.2-3.37C4.64 16.1 4 14.62 4 13c0-3.866 3.806-7 8.5-7S21 8.134 21 12z';
+        if ($filled) {
+            return '<svg class="och-nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22">'
+                . '<path fill="currentColor" d="' . $path . '"></path></svg>';
+        }
+        return '<svg class="och-nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+            . '<path d="' . $path . '"></path></svg>';
     }
 }

@@ -40,6 +40,8 @@
   let recordTimer = null;
   let recordChunks = [];
   let usingNativeVoice = false;
+  let voiceAudio = null;
+  let voiceBtn = null;
   const MAX_VOICE = cfg.maxVoiceSeconds || 90;
 
   function $(sel, root) {
@@ -195,7 +197,7 @@
 
   function attachPreview(att) {
     if (!att) return '';
-    if (att.kind === 'audio' || (att.mime && String(att.mime).indexOf('audio/') === 0)) {
+    if (att.kind === 'audio' || (att.mime && (String(att.mime).indexOf('audio/') === 0 || att.mime === 'video/webm'))) {
       return '🎤 Sprachnachricht';
     }
     return '📷 Bild';
@@ -303,6 +305,7 @@
     state.messages = [];
     lastId = 0;
     stopThreadPoll();
+    stopVoicePlayback();
     cancelVoice(true);
     if ((location.hash || '').indexOf('orgasmic-chat') === 1) {
       history.replaceState(null, '', location.pathname + location.search);
@@ -350,6 +353,92 @@
     return '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M3.4 20.4 21 12 3.4 3.6 3 10.2 15 12 3 13.8z"></path></svg>';
   }
 
+  function playIcon() {
+    return '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M8 5.2v13.6L19 12z"></path></svg>';
+  }
+
+  function pauseIcon() {
+    return '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M7 5h4v14H7zm6 0h4v14h-4z"></path></svg>';
+  }
+
+  function voicePlayerHtml(url, duration) {
+    return '<div class="och-voice">'
+      + '<button type="button" class="och-voice-play" data-och-play="' + escapeHtml(url) + '" aria-label="Abspielen">' + playIcon() + '</button>'
+      + '<span class="och-voice-track" aria-hidden="true"><i></i></span>'
+      + '<span class="och-voice-dur" data-och-voice-dur>' + escapeHtml(fmtDuration(duration || 0)) + '</span>'
+      + '</div>';
+  }
+
+  function stopVoicePlayback() {
+    if (voiceAudio) {
+      try { voiceAudio.pause(); } catch (e) {}
+      voiceAudio = null;
+    }
+    if (voiceBtn) {
+      voiceBtn.classList.remove('is-playing');
+      voiceBtn.setAttribute('aria-label', 'Abspielen');
+      voiceBtn.innerHTML = playIcon();
+      const dur = voiceBtn.parentElement && voiceBtn.parentElement.querySelector('[data-och-voice-dur]');
+      const track = voiceBtn.parentElement && voiceBtn.parentElement.querySelector('.och-voice-track i');
+      if (track) track.style.width = '0%';
+      voiceBtn = null;
+    }
+  }
+
+  async function toggleVoicePlayback(btn) {
+    const url = btn.getAttribute('data-och-play');
+    if (!url) return;
+    if (voiceBtn === btn && voiceAudio) {
+      stopVoicePlayback();
+      return;
+    }
+    stopVoicePlayback();
+    const audio = new Audio();
+    audio.preload = 'auto';
+    audio.volume = 1;
+    const start = async (src, mime) => {
+      if (mime) {
+        audio.src = src;
+      } else {
+        audio.src = src;
+      }
+      await audio.play();
+    };
+    try {
+      await start(url);
+    } catch (e) {
+      try {
+        const res = await fetch(url, { credentials: 'same-origin' });
+        if (!res.ok) throw new Error('play');
+        const raw = await res.arrayBuffer();
+        const type = (res.headers.get('content-type') || '').split(';')[0] || 'audio/webm';
+        const blob = new Blob([raw], { type: type.indexOf('audio/') === 0 || type === 'video/webm' ? (type === 'video/webm' ? 'audio/webm' : type) : 'audio/webm' });
+        await start(URL.createObjectURL(blob));
+      } catch (err) {
+        setError('Sprachnachricht konnte nicht abgespielt werden.');
+        return;
+      }
+    }
+    voiceAudio = audio;
+    voiceBtn = btn;
+    btn.classList.add('is-playing');
+    btn.setAttribute('aria-label', 'Pause');
+    btn.innerHTML = pauseIcon();
+    audio.addEventListener('timeupdate', () => {
+      if (voiceBtn !== btn) return;
+      const track = btn.parentElement && btn.parentElement.querySelector('.och-voice-track i');
+      const label = btn.parentElement && btn.parentElement.querySelector('[data-och-voice-dur]');
+      const total = audio.duration || 0;
+      if (track && total) track.style.width = Math.min(100, (100 * audio.currentTime) / total) + '%';
+      if (label && total) label.textContent = fmtDuration(Math.round(audio.currentTime));
+    });
+    audio.addEventListener('ended', stopVoicePlayback);
+    audio.addEventListener('error', () => {
+      stopVoicePlayback();
+      setError('Sprachnachricht konnte nicht abgespielt werden.');
+    });
+  }
+
   function messageHtml(msg, prevDay, prevMsg) {
     const day = fmtDay(msg.created_at);
     let html = '';
@@ -366,10 +455,8 @@
     html += '<div class="och-bubble">';
     if (!mine && !follow) html += '<div class="och-author">' + escapeHtml(author.display_name || 'Mitglied') + '</div>';
     if (msg.body) html += '<div class="och-text">' + linkify(msg.body) + '</div>';
-    if (msg.attachment && (msg.attachment.kind === 'audio' || (msg.attachment.mime && String(msg.attachment.mime).indexOf('audio/') === 0))) {
-      html += '<div class="och-voice"><audio controls preload="metadata" src="' + escapeHtml(msg.attachment.url) + '"></audio>';
-      if (msg.attachment.duration) html += '<span class="och-voice-dur">' + escapeHtml(fmtDuration(msg.attachment.duration)) + '</span>';
-      html += '</div>';
+    if (msg.attachment && (msg.attachment.kind === 'audio' || (msg.attachment.mime && String(msg.attachment.mime).indexOf('audio/') === 0) || msg.attachment.mime === 'video/webm')) {
+      html += voicePlayerHtml(msg.attachment.url, msg.attachment.duration);
     } else if (msg.attachment && (msg.attachment.thumb || msg.attachment.url)) {
       html += '<a href="' + escapeHtml(msg.attachment.url || msg.attachment.thumb) + '" target="_blank" rel="noopener">'
         + '<img class="och-photo" src="' + escapeHtml(msg.attachment.thumb || msg.attachment.url) + '" alt="" />'
@@ -459,7 +546,7 @@
         + '<button type="button" class="och-ghost" data-och-voice-stop>Fertig</button>'
         + '<button type="button" class="och-ghost" data-och-voice-cancel>Abbrechen</button></div>';
     } else if (state.pendingImage && (state.pendingImage.kind === 'audio' || (state.pendingImage.mime && String(state.pendingImage.mime).indexOf('audio/') === 0))) {
-      html += '<div class="och-pending och-pending-voice"><audio controls src="' + escapeHtml(state.pendingImage.url) + '"></audio>'
+      html += '<div class="och-pending och-pending-voice">' + voicePlayerHtml(state.pendingImage.url, state.pendingImage.duration)
         + '<span>Sprachnachricht' + (state.pendingImage.duration ? ' · ' + fmtDuration(state.pendingImage.duration) : '') + '</span>'
         + '<button type="button" class="och-ghost" data-och-clear-image>Entfernen</button></div>';
     } else if (state.pendingImage) {
@@ -635,6 +722,7 @@
       return;
     }
     openOverlay();
+    if (state.spaceId !== (route.spaceId || 0)) stopVoicePlayback();
     state.spaceId = route.spaceId || 0;
     state.error = '';
     state.emojiOpen = false;
@@ -861,6 +949,12 @@
   }
 
   document.addEventListener('click', (ev) => {
+    const play = ev.target.closest('[data-och-play]');
+    if (play) {
+      ev.preventDefault();
+      toggleVoicePlayback(play);
+      return;
+    }
     const close = ev.target.closest('[data-och-close]');
     if (close) {
       ev.preventDefault();

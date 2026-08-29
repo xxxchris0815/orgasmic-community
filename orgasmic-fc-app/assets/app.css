@@ -53,39 +53,23 @@
   min-height: 36px;
 }
 
-.orgasmic-app-nav a,
-a[href*="#orgasmic-notify"],
-a[data-orgasmic-notify] {
+.orgasmic-app-nav a {
   color: inherit !important;
   background: transparent !important;
 }
 
 .orgasmic-app-nav .oa-nav-icon,
-.orgasmic-app-nav svg,
-a[href*="#orgasmic-notify"] svg,
-a[data-orgasmic-notify] svg {
+.orgasmic-app-nav svg {
   display: block !important;
   width: 22px !important;
   height: 22px !important;
   min-width: 22px;
   min-height: 22px;
-  fill: currentColor !important;
-  stroke: none !important;
+  fill: none !important;
+  stroke: currentColor !important;
   color: inherit !important;
   opacity: 1 !important;
   visibility: visible !important;
-}
-
-.orgasmic-app-nav .el-icon,
-a[href*="#orgasmic-notify"] .el-icon,
-a[data-orgasmic-notify] .el-icon,
-a[href*="#orgasmic-notify"] i[class*="el-icon"] {
-  background: transparent !important;
-  border: 0 !important;
-  box-shadow: none !important;
-  width: 22px !important;
-  height: 22px !important;
-  font-size: 22px !important;
 }
 
 .orgasmic-app-nav .oa-nav-label {

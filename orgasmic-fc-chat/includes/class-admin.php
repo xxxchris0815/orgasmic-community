@@ -239,7 +239,7 @@ class Orgasmic_Fc_Chat_Admin
         echo '<h2>Farben</h2>';
         echo '<p class="description">Leer = Automatisch aus dem Erscheinungsbild. Hex-Wert oder Color-Picker.</p>';
         echo '<table class="form-table" role="presentation">';
-        $this->color_field('Akzent (Buttons, Badge)', Orgasmic_Fc_Chat_Install::OPTION_ACCENT, $settings['accent'], '#409eff');
+        $this->color_field('Akzent (Buttons, Badge)', Orgasmic_Fc_Chat_Install::OPTION_ACCENT, $settings['accent'], '#c4a35a');
         $this->color_field('Hintergrund', Orgasmic_Fc_Chat_Install::OPTION_COLOR_BG, $settings['bg'], '#f4f6f8');
         $this->color_field('Text', Orgasmic_Fc_Chat_Install::OPTION_COLOR_TEXT, $settings['text'], '#1d2327');
         $this->color_field('Karten / Thread', Orgasmic_Fc_Chat_Install::OPTION_COLOR_CARD, $settings['card'], '#ffffff');

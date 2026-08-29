@@ -19,7 +19,6 @@ class Orgasmic_Fc_Events_Portal
         add_action('fluent_community/portal_footer', [$this, 'boot']);
         add_action('fluent_community/headless/footer', [$this, 'boot']);
         add_action('fluent_community/before_header_menu_items', [$this, 'header_item'], 10, 2);
-        add_filter('fluent_community/main_menu_items', [$this, 'menu_items'], 20, 2);
         add_filter('fluent_community/mobile_menu', [$this, 'mobile_menu'], 20, 1);
     }
 
@@ -63,21 +62,12 @@ class Orgasmic_Fc_Events_Portal
         $today = $this->today_has_events();
         echo '<li class="top_menu_item fcom_icon_link orgasmic-cal-nav' . ($today ? ' has-today' : '') . '">';
         echo '<a href="#orgasmic-calendar" data-orgasmic-calendar="1" aria-label="Kalender" title="Kalender">';
-        echo $this->icon_svg();
+        echo $this->icon_svg(false);
         echo '<span class="oc-nav-label">Kalender</span>';
         if ($today) {
             echo '<span class="oc-nav-dot" title="Heute findet ein Event statt"></span>';
         }
         echo '</a></li>';
-    }
-
-    public function menu_items($items, $scope = null)
-    {
-        if (!is_array($items)) {
-            return $items;
-        }
-        $items[] = $this->menu_entry();
-        return $items;
     }
 
     public function mobile_menu($items)
@@ -158,10 +148,16 @@ class Orgasmic_Fc_Events_Portal
         return false;
     }
 
-    private function icon_svg(): string
+    private function icon_svg(bool $filled = true): string
     {
-        return '<svg class="oc-nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22">'
-            . '<path fill="currentColor" d="M8 2h2v2h4V2h2v2h2.5A1.5 1.5 0 0 1 20 5.5V8H4V5.5A1.5 1.5 0 0 1 5.5 4H8V2zm-4 8h16v9.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19.5V10z"></path>'
+        if ($filled) {
+            return '<svg class="oc-nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22">'
+                . '<path fill="currentColor" d="M8 2h2v2h4V2h2v2h2.5A1.5 1.5 0 0 1 20 5.5V8H4V5.5A1.5 1.5 0 0 1 5.5 4H8V2zm-4 8h16v9.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19.5V10z"></path>'
+                . '</svg>';
+        }
+        return '<svg class="oc-nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+            . '<rect x="3.25" y="4.5" width="17.5" height="16.25" rx="2.25"></rect>'
+            . '<path d="M8 3.25v3M16 3.25v3M3.25 9.5h17.5"></path>'
             . '</svg>';
     }
 }

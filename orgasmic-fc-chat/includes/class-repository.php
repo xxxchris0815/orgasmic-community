@@ -315,7 +315,9 @@ class Orgasmic_Fc_Chat_Repository
             return null;
         }
         $mime = (string) get_post_mime_type($attachment_id);
-        $kind = str_starts_with($mime, 'audio/') ? 'audio' : 'image';
+        $kind = (str_starts_with($mime, 'audio/') || $mime === 'video/webm' || $mime === 'application/ogg')
+            ? 'audio'
+            : 'image';
         $image = $kind === 'image' ? wp_get_attachment_image_src($attachment_id, 'large') : null;
 
         return [

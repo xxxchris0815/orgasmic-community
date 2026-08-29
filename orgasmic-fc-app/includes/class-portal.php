@@ -15,7 +15,6 @@ class Orgasmic_Fc_App_Portal
         add_action('fluent_community/portal_footer', [$this, 'boot']);
         add_action('fluent_community/headless/footer', [$this, 'boot']);
         add_action('fluent_community/before_header_menu_items', [$this, 'header_item'], 9, 2);
-        add_filter('fluent_community/main_menu_items', [$this, 'menu_items'], 19, 2);
         add_filter('fluent_community/mobile_menu', [$this, 'mobile_menu'], 19, 1);
     }
 
@@ -72,18 +71,9 @@ class Orgasmic_Fc_App_Portal
         }
         echo '<li class="top_menu_item fcom_icon_link orgasmic-app-nav">';
         echo '<a href="#orgasmic-notify" data-orgasmic-notify="1" aria-label="Benachrichtigungen" title="Benachrichtigungen">';
-        echo $this->icon_svg();
+        echo $this->icon_svg(false);
         echo '<span class="oa-nav-label">Benachrichtigungen</span>';
         echo '</a></li>';
-    }
-
-    public function menu_items($items, $scope = null)
-    {
-        if (!is_array($items)) {
-            return $items;
-        }
-        $items[] = $this->menu_entry();
-        return $items;
     }
 
     public function mobile_menu($items)
@@ -108,10 +98,16 @@ class Orgasmic_Fc_App_Portal
         ];
     }
 
-    private function icon_svg(): string
+    private function icon_svg(bool $filled = true): string
     {
-        return '<svg class="oa-nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22">'
-            . '<path fill="currentColor" d="M12 3a6 6 0 0 0-6 6c0 7-3 7-3 9h18c0-2-3-2-3-9a6 6 0 0 0-6-6zm-2.2 17a2.2 2.2 0 0 0 4.4 0h-4.4z"></path>'
+        if ($filled) {
+            return '<svg class="oa-nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22">'
+                . '<path fill="currentColor" d="M12 3a6 6 0 0 0-6 6c0 7-3 7-3 9h18c0-2-3-2-3-9a6 6 0 0 0-6-6zm-2.2 17a2.2 2.2 0 0 0 4.4 0h-4.4z"></path>'
+                . '</svg>';
+        }
+        return '<svg class="oa-nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+            . '<path d="M6 9a6 6 0 1 1 12 0c0 7 3 7 3 9H3c0-2 3-2 3-9"></path>'
+            . '<path d="M10 20a2 2 0 0 0 4 0"></path>'
             . '</svg>';
     }
 }

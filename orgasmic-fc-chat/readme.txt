@@ -1,12 +1,17 @@
 === ORGASMIC Chat ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.1.2
+Stable tag: 1.1.3
 License: GPLv2 or later
 
 Space chat for FluentCommunity. One room per space, members only, header icon with unread badge, REST API.
 
 == Changelog ==
+
+= 1.1.3 =
+* Keep Chat out of the center header menu (icon only, right side)
+* Custom voice player that actually plays recordings
+* Live ORGASMIC wallpaper (navy + gold) and readable bubble text
 
 = 1.1.2 =
 * Mobile nav shows the chat glyph instead of an empty blue circle

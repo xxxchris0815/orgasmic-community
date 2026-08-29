@@ -24,32 +24,32 @@
 
 .orgasmic-chat-overlay.och-theme-auto {
   --och-bg: var(--och-portal-bg, var(--el-bg-color-page, var(--el-bg-color, #fff)));
-  --och-text: var(--och-portal-text, var(--el-text-color-primary, inherit));
+  --och-text: var(--och-portal-text, var(--el-text-color-primary, #1a1625));
   --och-card: var(--och-portal-card, var(--el-bg-color, #fff));
   --och-line: var(--och-portal-line, var(--el-border-color, rgba(15, 23, 42, 0.08)));
-  --och-accent: var(--och-accent-set, #00a884);
-  --och-muted: color-mix(in srgb, var(--och-text) 58%, transparent);
-  --och-mine: var(--och-mine-set, color-mix(in srgb, var(--och-accent) 22%, #fff));
-  --och-theirs: var(--och-theirs-set, #fff);
+  --och-accent: var(--och-accent-set, #c4a35a);
+  --och-muted: #4a4338;
+  --och-mine: var(--och-mine-set, #f3e6c4);
+  --och-theirs: var(--och-theirs-set, #fffdf8);
   --och-list: var(--och-card);
   --och-header: color-mix(in srgb, var(--och-card) 88%, var(--och-text));
-  --och-chat-bg: color-mix(in srgb, var(--och-bg) 82%, #c4b8a8);
-  --och-pattern: rgba(15, 23, 42, 0.05);
+  --och-chat-bg: #16131f;
+  --och-pattern: rgba(196, 163, 90, 0.32);
 }
 
 .orgasmic-chat-overlay.och-theme-light {
-  --och-bg: #efeae2;
-  --och-text: #111b21;
+  --och-bg: #f7f1e6;
+  --och-text: #1a1625;
   --och-card: #ffffff;
-  --och-line: rgba(17, 27, 33, 0.08);
-  --och-accent: var(--och-accent-set, #00a884);
-  --och-muted: #667781;
-  --och-mine: #d9fdd3;
-  --och-theirs: #ffffff;
+  --och-line: rgba(26, 22, 37, 0.1);
+  --och-accent: var(--och-accent-set, #c4a35a);
+  --och-muted: #4a4338;
+  --och-mine: #f3e6c4;
+  --och-theirs: #fffdf8;
   --och-list: #ffffff;
-  --och-header: #f0f2f5;
-  --och-chat-bg: #efeae2;
-  --och-pattern: rgba(17, 27, 33, 0.06);
+  --och-header: #f3ead8;
+  --och-chat-bg: #16131f;
+  --och-pattern: rgba(196, 163, 90, 0.32);
 }
 
 .orgasmic-chat-overlay.och-theme-dark {
@@ -57,8 +57,8 @@
   --och-text: #e9edef;
   --och-card: #111b21;
   --och-line: rgba(255, 255, 255, 0.08);
-  --och-accent: var(--och-accent-set, #00a884);
-  --och-muted: #8696a0;
+  --och-accent: var(--och-accent-set, #c4a35a);
+  --och-muted: #d4c4a0;
   --och-mine: #005c4b;
   --och-theirs: #202c33;
   --och-list: #111b21;
@@ -132,8 +132,15 @@
 }
 
 #orgasmic-chat-root .och-ghost {
-  color: var(--och-accent);
-  padding: 6px 10px;
+  color: #1a1625;
+  background: #f3e6c4;
+  padding: 6px 12px;
+  font-weight: 700;
+}
+
+.orgasmic-chat-overlay.och-theme-dark .och-ghost {
+  color: #16131f;
+  background: #e8d5a3;
 }
 
 .orgasmic-chat-body {
@@ -354,19 +361,22 @@
   flex-direction: column;
   gap: 2px;
   background-color: var(--och-chat-bg);
-  background-image: radial-gradient(var(--och-pattern) 1.1px, transparent 1.1px);
-  background-size: 16px 16px;
+  background-image:
+    radial-gradient(ellipse 90% 55% at 50% -10%, rgba(196, 163, 90, 0.22), transparent 62%),
+    radial-gradient(var(--och-pattern) 1.15px, transparent 1.15px);
+  background-size: auto, 18px 18px;
 }
 
 .och-day {
   align-self: center;
   font-size: 12px;
-  color: var(--och-muted);
-  background: color-mix(in srgb, var(--och-header) 88%, transparent);
+  font-weight: 600;
+  color: #1a1625;
+  background: #f3e6c4;
   border-radius: 8px;
   padding: 5px 12px;
   margin: 8px 0;
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.18);
 }
 
 .orgasmic-chat-msg {
@@ -456,20 +466,48 @@
 .orgasmic-chat-msg .och-voice {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 2px 0 4px;
+  gap: 10px;
+  margin: 4px 0 6px;
   min-width: min(240px, 100%);
 }
 
-.orgasmic-chat-msg .och-voice audio {
-  width: 100%;
+.orgasmic-chat-msg .och-voice-play {
+  width: 36px;
   height: 36px;
+  border-radius: 50%;
+  padding: 0;
+  flex-shrink: 0;
+  background: #1a1625 !important;
+  color: #f3e6c4 !important;
+}
+
+.orgasmic-chat-msg .och-voice-play svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+  stroke: none;
+}
+
+.orgasmic-chat-msg .och-voice-track {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #1a1625 22%, transparent);
+  overflow: hidden;
+}
+
+.orgasmic-chat-msg .och-voice-track i {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: #1a1625;
 }
 
 .orgasmic-chat-msg .och-voice-dur {
   flex-shrink: 0;
-  font-size: 11px;
-  color: var(--och-muted);
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a1625;
 }
 
 .och-record {
@@ -508,18 +546,21 @@
   align-items: center;
   justify-content: flex-end;
   margin-top: 2px;
-  font-size: 11px;
-  color: var(--och-muted);
+  font-size: 12px;
+  font-weight: 600;
+  color: #3d3424;
 }
 
 .orgasmic-chat-msg .och-del {
   background: transparent;
-  color: inherit;
+  color: #3d3424;
   border: 0;
   padding: 0;
-  font-size: 11px;
-  font-weight: 600;
-  opacity: 0.7;
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 1;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .orgasmic-chat-empty,
@@ -566,7 +607,7 @@
 
 .orgasmic-chat-tools button {
   background: transparent !important;
-  color: var(--och-muted) !important;
+  color: #5c5346 !important;
   min-width: 40px;
   min-height: 40px;
   padding: 0;
@@ -630,39 +671,23 @@
   min-height: 36px;
 }
 
-.orgasmic-chat-nav a,
-a[href*="#orgasmic-chat"],
-a[data-orgasmic-chat] {
+.orgasmic-chat-nav a {
   color: inherit !important;
   background: transparent !important;
 }
 
 .orgasmic-chat-nav .och-nav-icon,
-.orgasmic-chat-nav svg,
-a[href*="#orgasmic-chat"] svg,
-a[data-orgasmic-chat] svg {
+.orgasmic-chat-nav svg {
   display: block !important;
   width: 22px !important;
   height: 22px !important;
   min-width: 22px;
   min-height: 22px;
-  fill: currentColor !important;
-  stroke: none !important;
+  fill: none !important;
+  stroke: currentColor !important;
   color: inherit !important;
   opacity: 1 !important;
   visibility: visible !important;
-}
-
-.orgasmic-chat-nav .el-icon,
-a[href*="#orgasmic-chat"] .el-icon,
-a[data-orgasmic-chat] .el-icon,
-a[href*="#orgasmic-chat"] i[class*="el-icon"] {
-  background: transparent !important;
-  border: 0 !important;
-  box-shadow: none !important;
-  width: 22px !important;
-  height: 22px !important;
-  font-size: 22px !important;
 }
 
 .orgasmic-chat-nav .och-nav-label {
