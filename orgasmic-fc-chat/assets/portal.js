@@ -52,6 +52,10 @@
   let voiceObjectUrl = '';
   let audioCtx = null;
   let voiceRate = 1;
+  let voicePlayRate = 1;
+  let voiceBuffer = null;
+  let voiceOffset = 0;
+  let voiceNodes = [];
   let bootSeq = 0;
   const MEDIA_CACHE = 'orgasmic-chat-media-v1';
   const MAX_VOICE = cfg.maxVoiceSeconds || 90;
@@ -82,9 +86,23 @@
 
   function avatarHtml(url, name, cls) {
     if (url) {
-      return '<img class="' + cls + '" src="' + escapeHtml(url) + '" alt="" />';
+      return '<img class="' + cls + '" src="' + escapeHtml(url) + '" alt="" data-och-fallback="' + initial(name) + '" />';
     }
     return '<span class="' + cls + '" aria-hidden="true">' + initial(name) + '</span>';
+  }
+
+  function bindAvatarFallback(root) {
+    (root || document).querySelectorAll('#orgasmic-chat-root img.och-avatar[data-och-fallback]').forEach((img) => {
+      if (img.getAttribute('data-och-bound')) return;
+      img.setAttribute('data-och-bound', '1');
+      img.addEventListener('error', () => {
+        const span = document.createElement('span');
+        span.className = img.className;
+        span.textContent = img.getAttribute('data-och-fallback') || '?';
+        span.setAttribute('aria-hidden', 'true');
+        img.replaceWith(span);
+      });
+    });
   }
 
   function fmtTime(iso) {
@@ -510,15 +528,27 @@
       + '</div>';
   }
 
+  function stopVoiceNodes() {
+    voiceNodes.forEach((node) => {
+      try {
+        node.onended = null;
+        if (node.stop) node.stop();
+        if (node.disconnect) node.disconnect();
+      } catch (e) {}
+    });
+    voiceNodes = [];
+    voiceSource = null;
+  }
+
   function stopVoicePlayback() {
     if (voiceRaf) {
       cancelAnimationFrame(voiceRaf);
       voiceRaf = 0;
     }
-    if (voiceSource) {
-      try { voiceSource.stop(); } catch (e) {}
-      voiceSource = null;
-    }
+    stopVoiceNodes();
+    voiceBuffer = null;
+    voiceOffset = 0;
+    voicePlayRate = 1;
     if (voiceAudio) {
       try { voiceAudio.pause(); } catch (e) {}
       if (voiceAudio.parentNode) voiceAudio.parentNode.removeChild(voiceAudio);
@@ -562,49 +592,92 @@
     audio.webkitPreservesPitch = true;
   }
 
-  function writeUtf8(view, offset, text) {
-    for (let i = 0; i < text.length; i += 1) view.setUint8(offset + i, text.charCodeAt(i));
-  }
-
-  function audioBufferToWav(buffer) {
-    const rate = buffer.sampleRate;
-    const count = buffer.length;
-    const left = buffer.getChannelData(0);
-    const right = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : null;
-    const bytes = new ArrayBuffer(44 + count * 2);
-    const view = new DataView(bytes);
-    writeUtf8(view, 0, 'RIFF');
-    view.setUint32(4, 36 + count * 2, true);
-    writeUtf8(view, 8, 'WAVE');
-    writeUtf8(view, 12, 'fmt ');
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true);
-    view.setUint16(22, 1, true);
-    view.setUint32(24, rate, true);
-    view.setUint32(28, rate * 2, true);
-    view.setUint16(32, 2, true);
-    view.setUint16(34, 16, true);
-    writeUtf8(view, 36, 'data');
-    view.setUint32(40, count * 2, true);
-    let offset = 44;
-    for (let i = 0; i < count; i += 1) {
-      const mixed = right ? (left[i] + right[i]) * 0.5 : left[i];
-      const sample = Math.max(-1, Math.min(1, mixed));
-      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
-      offset += 2;
-    }
-    return bytes;
-  }
-
-  function applyVoiceRate() {
-    if (voiceSource && voiceSource.playbackRate) voiceSource.playbackRate.value = 1;
-    if (voiceAudio) {
-      lockPitch(voiceAudio);
-      voiceAudio.playbackRate = voiceRate;
-    }
+  function paintRateButtons() {
     document.querySelectorAll('#orgasmic-chat-root [data-och-rate]').forEach((el) => {
       el.textContent = rateLabel();
     });
+  }
+
+  function currentVoicePos() {
+    const ctx = audioCtx;
+    if (!ctx || !voiceStartedAt) return voiceOffset;
+    return Math.min(voiceDuration || 0, voiceOffset + Math.max(0, ctx.currentTime - voiceStartedAt) * voicePlayRate);
+  }
+
+  function startDecodedPlayback(ctx, buffer, from, rate, onEnded) {
+    stopVoiceNodes();
+    voiceBuffer = buffer;
+    voiceDuration = buffer.duration || 0;
+    voiceOffset = Math.max(0, Math.min(voiceDuration, from || 0));
+    voicePlayRate = rate || 1;
+    if (voiceOffset >= voiceDuration - 0.02) {
+      if (onEnded) onEnded();
+      return;
+    }
+
+    if (voicePlayRate === 1) {
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      src.connect(ctx.destination);
+      src.onended = onEnded;
+      src.start(0, voiceOffset);
+      voiceSource = src;
+      voiceNodes = [src];
+      voiceStartedAt = ctx.currentTime;
+      return;
+    }
+
+    const grain = 0.09;
+    const overlap = 0.5;
+    const outHop = grain * (1 - overlap);
+    const inHop = outHop * voicePlayRate;
+    const fade = 0.016;
+    const master = ctx.createGain();
+    master.connect(ctx.destination);
+    voiceStartedAt = ctx.currentTime + 0.015;
+    let offset = voiceOffset;
+    let i = 0;
+    let last = null;
+    while (offset < voiceDuration - 0.012) {
+      const dur = Math.min(grain, voiceDuration - offset);
+      if (dur < 0.02) break;
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      src.playbackRate.value = 1;
+      const g = ctx.createGain();
+      const t = voiceStartedAt + i * outHop;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(1, t + fade);
+      g.gain.setValueAtTime(1, Math.max(t + fade, t + dur - fade));
+      g.gain.linearRampToValueAtTime(0.0001, t + dur);
+      src.connect(g);
+      g.connect(master);
+      src.start(t, offset, dur);
+      src.stop(t + dur + 0.006);
+      last = src;
+      voiceNodes.push(src);
+      offset += inHop;
+      i += 1;
+    }
+    voiceNodes.push(master);
+    voiceSource = last || master;
+    if (last) last.onended = onEnded;
+  }
+
+  function applyVoiceRate() {
+    paintRateButtons();
+    if (voiceBuffer && voiceBtn && getAudioCtx()) {
+      const btn = voiceBtn;
+      startDecodedPlayback(getAudioCtx(), voiceBuffer, currentVoicePos(), voiceRate, () => {
+        if (voiceBtn === btn) stopVoicePlayback();
+      });
+      return;
+    }
+    if (voiceAudio) {
+      lockPitch(voiceAudio);
+      voiceAudio.defaultPlaybackRate = voiceRate;
+      voiceAudio.playbackRate = voiceRate;
+    }
   }
 
   function cycleVoiceRate() {
@@ -621,12 +694,19 @@
     audio.defaultMuted = false;
     audio.volume = 1;
     audio.setAttribute('playsinline', 'true');
-    lockPitch(audio);
-    audio.playbackRate = voiceRate;
     audio.src = voiceObjectUrl;
     const root = document.getElementById('orgasmic-chat-root');
     if (root) root.appendChild(audio);
+    lockPitch(audio);
+    const apply = () => {
+      lockPitch(audio);
+      audio.defaultPlaybackRate = voiceRate;
+      audio.playbackRate = voiceRate;
+    };
+    audio.addEventListener('loadedmetadata', apply);
+    audio.addEventListener('playing', apply);
     await audio.play();
+    apply();
     voiceAudio = audio;
     voiceBtn = btn;
     btn.classList.add('is-playing');
@@ -646,7 +726,7 @@
   async function toggleVoicePlayback(btn) {
     const url = btn.getAttribute('data-och-play');
     if (!url) return;
-    if (voiceBtn === btn && (voiceSource || voiceAudio)) {
+    if (voiceBtn === btn && (voiceSource || voiceAudio || voiceNodes.length)) {
       stopVoicePlayback();
       return;
     }
@@ -668,7 +748,19 @@
       try {
         if (ctx.state === 'suspended') await ctx.resume();
         const decoded = await ctx.decodeAudioData(packed.buffer.slice(0));
-        await playViaElement(btn, audioBufferToWav(decoded), 'audio/wav');
+        voiceBtn = btn;
+        btn.classList.add('is-playing');
+        btn.setAttribute('aria-label', 'Pause');
+        btn.innerHTML = pauseIcon();
+        startDecodedPlayback(ctx, decoded, 0, voiceRate, () => {
+          if (voiceBtn === btn) stopVoicePlayback();
+        });
+        const tick = () => {
+          if (voiceBtn !== btn || (!voiceSource && !voiceNodes.length)) return;
+          paintVoiceProgress(btn, currentVoicePos(), voiceDuration);
+          voiceRaf = requestAnimationFrame(tick);
+        };
+        voiceRaf = requestAnimationFrame(tick);
         return;
       } catch (e) {}
     }
@@ -740,12 +832,14 @@
     if (stick) scroller.scrollTop = scroller.scrollHeight;
     prefetchAttachments(items);
     hydrateImages();
+    bindAvatarFallback();
   }
 
   function refreshRooms() {
     const list = $('[data-och-rooms]');
     if (!list) return;
     list.innerHTML = roomsHtml();
+    bindAvatarFallback();
   }
 
   function setSending(on) {
@@ -840,6 +934,7 @@
     if (box && state.spaceId && (!opts || opts.focus !== false)) box.focus();
     prefetchAttachments(state.messages);
     hydrateImages();
+    bindAvatarFallback();
   }
 
   function paintThread(opts) {

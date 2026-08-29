@@ -121,7 +121,7 @@ class Orgasmic_Fc_Chat_Access
         $columns = $wpdb->get_col("SHOW COLUMNS FROM {$table}");
         $columns = is_array($columns) ? $columns : [];
         $select = ['id', 'title', 'slug'];
-        foreach (['privacy', 'type', 'status', 'logo', 'logo_url', 'icon'] as $optional) {
+        foreach (['privacy', 'type', 'status', 'logo', 'logo_url', 'icon', 'cover_photo', 'featured_image', 'settings'] as $optional) {
             if (in_array($optional, $columns, true)) {
                 $select[] = $optional;
             }
@@ -140,14 +140,13 @@ class Orgasmic_Fc_Chat_Access
             if (in_array($status, ['draft', 'archived', 'deleted', 'trashed'], true)) {
                 continue;
             }
-            $logo = (string) ($row['logo'] ?? $row['logo_url'] ?? $row['icon'] ?? '');
             $out[] = [
                 'id' => (int) $row['id'],
                 'title' => (string) $row['title'],
                 'slug' => (string) ($row['slug'] ?? ''),
                 'privacy' => (string) ($row['privacy'] ?? ''),
                 'type' => $type,
-                'logo' => $this->normalize_logo($logo),
+                'logo' => $this->space_image_url($row),
             ];
         }
 
@@ -182,18 +181,91 @@ class Orgasmic_Fc_Chat_Access
         ];
     }
 
+    private function space_image_url(array $row): string
+    {
+        $candidates = [
+            $row['logo'] ?? '',
+            $row['logo_url'] ?? '',
+            $row['icon'] ?? '',
+            $row['cover_photo'] ?? '',
+            $row['featured_image'] ?? '',
+        ];
+        $settings = $row['settings'] ?? '';
+        if (is_string($settings) && $settings !== '') {
+            $decoded = json_decode($settings, true);
+            if (!is_array($decoded) && is_string($settings)) {
+                $maybe = maybe_unserialize($settings);
+                $decoded = is_array($maybe) ? $maybe : [];
+            }
+            if (is_array($decoded)) {
+                foreach (['logo', 'logo_url', 'icon', 'cover_photo', 'featured_image', 'image', 'avatar'] as $key) {
+                    if (!empty($decoded[$key])) {
+                        $candidates[] = $decoded[$key];
+                    }
+                }
+            }
+        }
+
+        foreach ($candidates as $raw) {
+            $url = $this->normalize_logo(is_array($raw) ? wp_json_encode($raw) : (string) $raw);
+            if ($url !== '') {
+                return $url;
+            }
+        }
+
+        return '';
+    }
+
     private function normalize_logo(string $logo): string
     {
         $logo = trim($logo);
-        if ($logo === '') {
+        if ($logo === '' || $logo === 'null' || $logo === '[]' || $logo === '{}') {
             return '';
         }
+
+        if ($logo[0] === '{' || $logo[0] === '[') {
+            $json = json_decode($logo, true);
+            if (is_array($json)) {
+                foreach (['url', 'src', 'logo', 'cover_photo', 'full', 'medium', 'thumbnail'] as $key) {
+                    if (!empty($json[$key]) && is_string($json[$key])) {
+                        $found = $this->normalize_logo($json[$key]);
+                        if ($found !== '') {
+                            return $found;
+                        }
+                    }
+                }
+                foreach (['id', 'attachment_id', 'image_id'] as $key) {
+                    if (!empty($json[$key]) && is_numeric($json[$key])) {
+                        $url = wp_get_attachment_image_url((int) $json[$key], 'medium');
+                        if (!$url) {
+                            $url = wp_get_attachment_image_url((int) $json[$key], 'thumbnail');
+                        }
+                        if ($url) {
+                            return esc_url_raw($url);
+                        }
+                    }
+                }
+            }
+        }
+
+        $unserialized = maybe_unserialize($logo);
+        if (is_array($unserialized)) {
+            return $this->normalize_logo((string) wp_json_encode($unserialized));
+        }
+
         if (str_starts_with($logo, 'http://') || str_starts_with($logo, 'https://') || str_starts_with($logo, '//')) {
             return esc_url_raw($logo);
         }
         if (is_numeric($logo)) {
-            $url = wp_get_attachment_image_url((int) $logo, 'thumbnail');
+            $url = wp_get_attachment_image_url((int) $logo, 'medium')
+                ?: wp_get_attachment_image_url((int) $logo, 'thumbnail');
             return $url ? esc_url_raw($url) : '';
+        }
+        if (str_starts_with($logo, '/')) {
+            return esc_url_raw(home_url($logo));
+        }
+        if (str_contains($logo, 'wp-content/uploads')) {
+            return esc_url_raw(home_url('/' . ltrim($logo, '/')));
         }
 
         return '';
