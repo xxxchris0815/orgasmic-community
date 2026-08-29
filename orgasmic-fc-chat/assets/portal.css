@@ -386,7 +386,7 @@
   border-bottom: 1px solid var(--och-line);
 }
 
-.orgasmic-chat-back {
+#orgasmic-chat-root .orgasmic-chat-back {
   display: none;
 }
 
@@ -523,7 +523,9 @@
 }
 
 .och-voice-wave i {
+  display: block;
   width: 3px;
+  min-height: 6px;
   border-radius: 99px;
   background: #d4b36a;
   opacity: 0.42;
@@ -806,11 +808,11 @@ a[href="#orgasmic-chat"] .och-nav-badge {
     padding-top: calc(10px + env(safe-area-inset-top));
   }
 
-  .orgasmic-chat-back {
+  #orgasmic-chat-root .orgasmic-chat-back {
     display: inline-flex;
   }
 
-  .orgasmic-chat-thread-close {
+  #orgasmic-chat-root .orgasmic-chat-thread-close {
     display: none;
   }
 
