@@ -555,9 +555,53 @@
     }
   }
 
+  function lockPitch(audio) {
+    if (!audio) return;
+    audio.preservesPitch = true;
+    audio.mozPreservesPitch = true;
+    audio.webkitPreservesPitch = true;
+  }
+
+  function writeUtf8(view, offset, text) {
+    for (let i = 0; i < text.length; i += 1) view.setUint8(offset + i, text.charCodeAt(i));
+  }
+
+  function audioBufferToWav(buffer) {
+    const rate = buffer.sampleRate;
+    const count = buffer.length;
+    const left = buffer.getChannelData(0);
+    const right = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : null;
+    const bytes = new ArrayBuffer(44 + count * 2);
+    const view = new DataView(bytes);
+    writeUtf8(view, 0, 'RIFF');
+    view.setUint32(4, 36 + count * 2, true);
+    writeUtf8(view, 8, 'WAVE');
+    writeUtf8(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, rate, true);
+    view.setUint32(28, rate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeUtf8(view, 36, 'data');
+    view.setUint32(40, count * 2, true);
+    let offset = 44;
+    for (let i = 0; i < count; i += 1) {
+      const mixed = right ? (left[i] + right[i]) * 0.5 : left[i];
+      const sample = Math.max(-1, Math.min(1, mixed));
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+      offset += 2;
+    }
+    return bytes;
+  }
+
   function applyVoiceRate() {
-    if (voiceSource && voiceSource.playbackRate) voiceSource.playbackRate.value = voiceRate;
-    if (voiceAudio) voiceAudio.playbackRate = voiceRate;
+    if (voiceSource && voiceSource.playbackRate) voiceSource.playbackRate.value = 1;
+    if (voiceAudio) {
+      lockPitch(voiceAudio);
+      voiceAudio.playbackRate = voiceRate;
+    }
     document.querySelectorAll('#orgasmic-chat-root [data-och-rate]').forEach((el) => {
       el.textContent = rateLabel();
     });
@@ -577,6 +621,7 @@
     audio.defaultMuted = false;
     audio.volume = 1;
     audio.setAttribute('playsinline', 'true');
+    lockPitch(audio);
     audio.playbackRate = voiceRate;
     audio.src = voiceObjectUrl;
     const root = document.getElementById('orgasmic-chat-root');
@@ -623,30 +668,7 @@
       try {
         if (ctx.state === 'suspended') await ctx.resume();
         const decoded = await ctx.decodeAudioData(packed.buffer.slice(0));
-        const src = ctx.createBufferSource();
-        const gain = ctx.createGain();
-        gain.gain.value = 1;
-        src.buffer = decoded;
-        src.playbackRate.value = voiceRate;
-        src.connect(gain);
-        gain.connect(ctx.destination);
-        voiceSource = src;
-        voiceBtn = btn;
-        voiceDuration = decoded.duration || 0;
-        voiceStartedAt = ctx.currentTime;
-        btn.classList.add('is-playing');
-        btn.setAttribute('aria-label', 'Pause');
-        btn.innerHTML = pauseIcon();
-        src.onended = () => {
-          if (voiceSource === src) stopVoicePlayback();
-        };
-        src.start();
-        const tick = () => {
-          if (voiceSource !== src) return;
-          paintVoiceProgress(btn, Math.max(0, (ctx.currentTime - voiceStartedAt) * voiceRate), voiceDuration);
-          voiceRaf = requestAnimationFrame(tick);
-        };
-        voiceRaf = requestAnimationFrame(tick);
+        await playViaElement(btn, audioBufferToWav(decoded), 'audio/wav');
         return;
       } catch (e) {}
     }
