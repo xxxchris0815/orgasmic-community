@@ -3,7 +3,7 @@ Contributors: orgasmic
 Requires at least: 6.4
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.2.2
+Stable tag: 1.2.3
 License: GPLv2 or later
 
 Turns Bunny Stream play links in FluentCommunity posts into an inline player, tracks playback, and forwards events via webhook.
@@ -28,6 +28,10 @@ Independent of the ORGASMIC Tracker.
 6. Optional: add `community.orgasmic.live` to Bunny Stream → Allowed Domains
 
 == Changelog ==
+
+= 1.2.3 =
+* Put the play URL in the post body, not the title line
+* Show the Bunny player in the composer instead of the raw link
 
 = 1.2.2 =
 * Insert the Bunny play URL back into the post composer after upload

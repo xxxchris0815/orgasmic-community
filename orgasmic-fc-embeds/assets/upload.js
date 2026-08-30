@@ -258,6 +258,52 @@
     return rect.width > 20 && rect.height > 10;
   }
 
+  function editorHint(el) {
+    if (!el) return '';
+    const parent = el.parentElement;
+    return [
+      el.getAttribute('placeholder'),
+      el.getAttribute('data-placeholder'),
+      el.getAttribute('data-placeholder-text'),
+      el.getAttribute('aria-placeholder'),
+      el.getAttribute('aria-label'),
+      el.getAttribute('name'),
+      typeof el.className === 'string' ? el.className : '',
+      parent && parent.getAttribute('data-placeholder'),
+      parent && (typeof parent.className === 'string' ? parent.className : ''),
+    ].join(' ').toLowerCase();
+  }
+
+  function isTitleEditor(el) {
+    if (!el) return false;
+    const hint = editorHint(el);
+    if (/message|body|status|content|beschreibung|teilen|share|schreib/.test(hint)) return false;
+    if (/title|titel|headline|betreff|subject/.test(hint)) return true;
+    if (el.closest && el.closest('h1, h2, h3, [class*="post_title"], [class*="PostTitle"], [class*="feed_title"]')) return true;
+    const st = window.getComputedStyle(el);
+    const rect = el.getBoundingClientRect();
+    const weight = parseInt(st.fontWeight, 10) || 0;
+    const bold = weight >= 600 || st.fontWeight === 'bold' || st.fontWeight === 'bolder';
+    return bold && rect.height > 0 && rect.height < 52;
+  }
+
+  function isBodyEditor(el) {
+    if (!el || isTitleEditor(el)) return false;
+    const hint = editorHint(el);
+    if (/title|titel|headline|betreff|subject/.test(hint) && !/status|teilen|message|body/.test(hint)) return false;
+    if (/message|body|status|content|beschreibung|teilen|share|schreib|what.?s on|beitrag|nachricht|update/.test(hint)) return true;
+    if (el.getAttribute('name') === 'message' || el.getAttribute('name') === 'body') return true;
+    const rect = el.getBoundingClientRect();
+    return rect.height >= 56;
+  }
+
+  function scoreEditor(el) {
+    if (!el) return -999;
+    if (isTitleEditor(el)) return -100;
+    if (isBodyEditor(el)) return 200 + el.getBoundingClientRect().height;
+    return el.getBoundingClientRect().height;
+  }
+
   function composerRoot(from) {
     return (from && from.closest && from.closest([
       '[class*="composer"]',
@@ -277,18 +323,25 @@
     return [...(root || document).querySelectorAll(editorSelector())].filter(isUsableEditor);
   }
 
-  function rememberEditor(from) {
-    const root = composerRoot(from);
+  function pickBodyEditor(from) {
+    const root = composerRoot(from || lastEditor);
     const list = editorsIn(root);
-    const visible = list.filter(isVisibleBox);
-    const picked = visible[0] || list[0] || findComposerEditor();
-    if (picked) lastEditor = picked;
+    const ranked = list.slice().sort((a, b) => scoreEditor(b) - scoreEditor(a));
+    const body = ranked.find((el) => scoreEditor(el) > 0 && !isTitleEditor(el));
+    return body || null;
+  }
+
+  function rememberEditor(from) {
+    const picked = pickBodyEditor(from) || findComposerEditor();
+    if (picked && !isTitleEditor(picked)) lastEditor = picked;
     return lastEditor;
   }
 
   function findComposerEditor() {
+    const body = pickBodyEditor(document.activeElement);
+    if (body) return body;
     const active = document.activeElement;
-    if (active && isUsableEditor(active) && (
+    if (active && isUsableEditor(active) && !isTitleEditor(active) && (
       active.isContentEditable
       || active.tagName === 'TEXTAREA'
       || (active.closest && active.closest('.ql-editor, .ProseMirror, .tiptap, .fcom_editor'))
@@ -297,10 +350,7 @@
         ? active
         : active.closest('.ql-editor, .ProseMirror, .tiptap, .fcom_editor');
     }
-
-    const nodes = editorsIn(document);
-    const visible = nodes.filter(isVisibleBox);
-    return visible[0] || nodes[0] || lastEditor;
+    return lastEditor && !isTitleEditor(lastEditor) ? lastEditor : null;
   }
 
   function setNativeValue(el, value) {
@@ -364,34 +414,116 @@
   }
 
   function alreadyInserted(url) {
-    return editorsIn(document).some((el) => editorContains(el, url))
-      || !!(lastEditor && editorContains(lastEditor, url));
+    const body = pickBodyEditor(lastEditor) || lastEditor;
+    return !!(body && !isTitleEditor(body) && editorContains(body, url));
+  }
+
+  function stripUrlFromEditor(el, url) {
+    if (!el || !url || !editorContains(el, url)) return;
+    if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
+      setNativeValue(el, String(el.value || '').split(url).join('').replace(/^\s+|\s+$/g, ''));
+      fireInput(el);
+      return;
+    }
+    const target = el.isContentEditable ? el : (el.closest && el.closest('[contenteditable="true"]'));
+    if (!target) return;
+    if ((target.innerText || '').trim() === url) {
+      target.innerHTML = '';
+      fireInput(target);
+      return;
+    }
+    const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    while (walker.nextNode()) {
+      if ((walker.currentNode.nodeValue || '').indexOf(url) !== -1) nodes.push(walker.currentNode);
+    }
+    nodes.forEach((node) => {
+      node.nodeValue = node.nodeValue.split(url).join('');
+    });
+    fireInput(target);
+  }
+
+  function cloakUrl(el, url) {
+    const target = el && (el.isContentEditable ? el : (el.closest && el.closest('[contenteditable="true"]')));
+    if (!target || !url) return;
+    const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    while (walker.nextNode()) {
+      if ((walker.currentNode.nodeValue || '').indexOf(url) !== -1) nodes.push(walker.currentNode);
+    }
+    nodes.forEach((node) => {
+      if (node.parentElement && node.parentElement.classList.contains('orgasmic-bunny-url-hide')) return;
+      const parts = node.nodeValue.split(url);
+      const frag = document.createDocumentFragment();
+      if (parts[0]) frag.appendChild(document.createTextNode(parts[0]));
+      const hide = document.createElement('span');
+      hide.className = 'orgasmic-bunny-url-hide';
+      hide.setAttribute('data-orgasmic-bunny-url', '1');
+      hide.textContent = url;
+      frag.appendChild(hide);
+      if (parts.slice(1).join(url)) frag.appendChild(document.createTextNode(parts.slice(1).join(url)));
+      node.parentNode.replaceChild(frag, node);
+    });
+  }
+
+  function parsePlay(url) {
+    const m = String(url || '').match(/mediadelivery\.net\/(?:embed|play)\/(\d+)\/([0-9a-f-]+)/i);
+    return m ? { library: m[1], video: m[2].toLowerCase() } : null;
+  }
+
+  function showComposerPlayer(url, near) {
+    const parsed = parsePlay(url);
+    if (!parsed) return;
+    const root = composerRoot(near || lastEditor);
+    let box = root.querySelector('[data-orgasmic-bunny-preview]');
+    if (!box) {
+      box = document.createElement('div');
+      box.className = 'orgasmic-bunny-embed orgasmic-bunny-composer';
+      box.setAttribute('data-orgasmic-bunny-preview', parsed.library + '/' + parsed.video);
+      const body = pickBodyEditor(near) || lastEditor;
+      const host = (body && (body.parentElement || body)) || root;
+      if (body && body.nextSibling) host.insertBefore(box, body.nextSibling);
+      else host.appendChild(box);
+    }
+    if (box.querySelector('iframe[src*="' + parsed.video + '"]')) return;
+    box.innerHTML = '';
+    const iframe = document.createElement('iframe');
+    iframe.src = 'https://iframe.mediadelivery.net/embed/'
+      + encodeURIComponent(parsed.library) + '/' + encodeURIComponent(parsed.video)
+      + '?autoplay=false&preload=true&responsive=true';
+    iframe.allow = 'accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen';
+    iframe.allowFullscreen = true;
+    iframe.title = 'Video';
+    box.appendChild(iframe);
+  }
+
+  function finishInsert(el, url) {
+    lastEditor = el;
+    cloakUrl(el, url);
+    showComposerPlayer(url, el);
+    [60, 200, 500].forEach((ms) => {
+      window.setTimeout(() => {
+        editorsIn(composerRoot(el)).filter(isTitleEditor).forEach((n) => stripUrlFromEditor(n, url));
+        cloakUrl(el, url);
+        showComposerPlayer(url, el);
+      }, ms);
+    });
+    return true;
   }
 
   function insertPlayUrl(url) {
     if (!url) return false;
-    if (alreadyInserted(url)) return true;
-    const roots = [];
-    if (lastEditor) roots.push(composerRoot(lastEditor));
-    roots.push(composerRoot(document.activeElement));
-    document.querySelectorAll('[class*="composer"], [class*="create_post"], .fcom_feed_form, .el-dialog').forEach((n) => {
-      if (isVisibleBox(n)) roots.push(n);
-    });
+    const root = composerRoot(lastEditor || document.activeElement);
+    editorsIn(root).filter(isTitleEditor).forEach((el) => stripUrlFromEditor(el, url));
 
-    const seen = new Set();
-    const candidates = [];
-    [lastEditor, findComposerEditor()].concat(roots.flatMap(editorsIn)).forEach((el) => {
-      if (el && !seen.has(el) && isUsableEditor(el)) {
-        seen.add(el);
-        candidates.push(el);
-      }
-    });
+    const body = pickBodyEditor(lastEditor) || pickBodyEditor(root) || findComposerEditor();
+    if (body && !isTitleEditor(body)) {
+      if (editorContains(body, url) || insertText(body, url)) return finishInsert(body, url);
+    }
 
-    for (let i = 0; i < candidates.length; i += 1) {
-      if (insertText(candidates[i], url)) {
-        lastEditor = candidates[i];
-        return true;
-      }
+    const ranked = editorsIn(root).filter((el) => !isTitleEditor(el)).sort((a, b) => scoreEditor(b) - scoreEditor(a));
+    for (let i = 0; i < ranked.length; i += 1) {
+      if (insertText(ranked[i], url)) return finishInsert(ranked[i], url);
     }
     return false;
   }
@@ -474,7 +606,9 @@
   }
 
   document.addEventListener('focusin', (ev) => {
-    if (ev.target && isUsableEditor(ev.target) && inComposerArea(ev.target)) rememberEditor(ev.target);
+    if (ev.target && isUsableEditor(ev.target) && inComposerArea(ev.target) && !isTitleEditor(ev.target)) {
+      rememberEditor(ev.target);
+    }
   }, true);
   document.addEventListener('pointerdown', interceptVideoControl, true);
   document.addEventListener('click', interceptVideoControl, true);
