@@ -654,11 +654,16 @@ a[href="#orgasmic-calendar"].has-today {
   }
 }
 
+@media (max-width: 760px) {
+  .orgasmic-cal-overlay {
+    bottom: var(--orgasmic-mobile-bar, calc(56px + env(safe-area-inset-bottom, 0px)));
+  }
+}
+
 @media (max-width: 720px) {
   .orgasmic-cal-overlay {
     -webkit-overflow-scrolling: touch;
     padding-top: env(safe-area-inset-top);
-    bottom: var(--orgasmic-mobile-bar, calc(56px + env(safe-area-inset-bottom, 0px)));
   }
 
   .orgasmic-cal {
