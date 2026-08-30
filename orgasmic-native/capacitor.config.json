@@ -1,0 +1,26 @@
+{
+  "appId": "live.orgasmic.community",
+  "appName": "ORGASMIC",
+  "webDir": "www",
+  "server": {
+    "url": "https://community.orgasmic.live",
+    "androidScheme": "https",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    },
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "backgroundColor": "#121c30"
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#121c30"
+    }
+  }
+}

@@ -1,0 +1,149 @@
+workflows:
+  android-debug:
+    name: Android Debug (testen)
+    instance_type: linux_x2
+    max_build_duration: 60
+    environment:
+      groups:
+        - firebase
+      node: 22
+      vars:
+        PACKAGE_NAME: live.orgasmic.community
+    scripts:
+      - name: Install npm packages
+        script: |
+          cd orgasmic-native
+          npm ci
+      - name: Write google-services.json
+        script: |
+          cd orgasmic-native
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          else
+            echo "GOOGLE_SERVICES_JSON fehlt — Debug baut, Push geht noch nicht."
+          fi
+      - name: Sync Capacitor
+        script: |
+          cd orgasmic-native
+          npx cap sync android
+      - name: Build debug APK
+        script: |
+          cd orgasmic-native/android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+    artifacts:
+      - orgasmic-native/android/app/build/outputs/apk/debug/*.apk
+
+  android-create-keystore:
+    name: Android Keystore einmal erzeugen
+    instance_type: linux_x2
+    max_build_duration: 20
+    environment:
+      groups:
+        - android_keystore
+    scripts:
+      - name: Generate keystore
+        script: |
+          if [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "Lege in Codemagic die Secret-Variable KEYSTORE_PASSWORD in der Gruppe android_keystore an."
+            exit 1
+          fi
+          keytool -genkeypair -v \
+            -keystore "$CM_BUILD_DIR/orgasmic-release.keystore" \
+            -storetype JKS \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -alias orgasmic \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -keypass "$KEYSTORE_PASSWORD" \
+            -dname "CN=ORGASMIC, OU=App, O=ORGASMIC, L=Berlin, ST=Berlin, C=DE"
+    artifacts:
+      - orgasmic-release.keystore
+
+  android-release:
+    name: Android Release (AAB + APK)
+    instance_type: linux_x2
+    max_build_duration: 60
+    environment:
+      android_signing:
+        - orgasmic_android
+      groups:
+        - firebase
+      node: 22
+      vars:
+        PACKAGE_NAME: live.orgasmic.community
+    scripts:
+      - name: Install npm packages
+        script: |
+          cd orgasmic-native
+          npm ci
+      - name: Write google-services.json
+        script: |
+          cd orgasmic-native
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            echo "GOOGLE_SERVICES_JSON fehlt in der Gruppe firebase."
+            exit 1
+          fi
+          printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+      - name: Sync Capacitor
+        script: |
+          cd orgasmic-native
+          npx cap sync android
+      - name: Build release AAB + APK
+        script: |
+          cd orgasmic-native/android
+          chmod +x gradlew
+          BUILD_NO="${BUILD_NUMBER:-1}"
+          ./gradlew bundleRelease assembleRelease \
+            -PversionCode="$BUILD_NO" \
+            -PversionName="1.0.$BUILD_NO"
+    artifacts:
+      - orgasmic-native/android/app/build/outputs/bundle/release/*.aab
+      - orgasmic-native/android/app/build/outputs/apk/release/*.apk
+
+  android-play:
+    name: Android zu Play (Internal)
+    instance_type: linux_x2
+    max_build_duration: 60
+    environment:
+      android_signing:
+        - orgasmic_android
+      groups:
+        - firebase
+        - google_play
+      node: 22
+      vars:
+        PACKAGE_NAME: live.orgasmic.community
+    scripts:
+      - name: Install npm packages
+        script: |
+          cd orgasmic-native
+          npm ci
+      - name: Write google-services.json
+        script: |
+          cd orgasmic-native
+          printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+      - name: Sync Capacitor
+        script: |
+          cd orgasmic-native
+          npx cap sync android
+      - name: Build AAB
+        script: |
+          cd orgasmic-native/android
+          chmod +x gradlew
+          BUILD_NO="${BUILD_NUMBER:-1}"
+          LATEST=$(google-play get-latest-build-number --package-name "$PACKAGE_NAME" || true)
+          if [ -n "$LATEST" ]; then
+            BUILD_NO=$((LATEST + 1))
+          fi
+          ./gradlew bundleRelease \
+            -PversionCode="$BUILD_NO" \
+            -PversionName="1.0.$BUILD_NO"
+    artifacts:
+      - orgasmic-native/android/app/build/outputs/bundle/release/*.aab
+    publishing:
+      google_play:
+        credentials: $GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
+        submit_as_draft: true

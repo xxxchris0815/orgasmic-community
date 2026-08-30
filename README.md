@@ -93,14 +93,17 @@ WP-Admin: **ORGASMIC App**. PHP 8.2+ für Web-Push (`openssl_pkey_derive`). Fire
 
 ZIP: [`orgasmic-fc-app-1.1.5.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.1.5.zip)
 
-### Capacitor (wenn Store-Apps kommen)
+### Capacitor / Play Store (Android zuerst)
+
+Ordner `orgasmic-native/`. Die App lädt die bestehende Community. Push über Firebase.
+
+Schritt für Schritt (Firebase, Play Console, Codemagic):  
+[`orgasmic-native/ANLEITUNG-ANDROID.md`](orgasmic-native/ANLEITUNG-ANDROID.md)
 
 ```bash
-npm create @capacitor/app
-# server.url = https://community.orgasmic.live
-npm i @capacitor/push-notifications @capacitor/camera capacitor-voice-recorder
-npx cap add android
-npx cap add ios
+cd orgasmic-native
+npm ci
+npx cap sync
 ```
 
 Die Website erkennt `window.Capacitor` selbst: Push-Token, Kamera, Sprachnachricht. Firebase-Service-Account unter **ORGASMIC App** einfügen, sonst bleiben Store-Tokens liegen und nur Browser-Push geht.

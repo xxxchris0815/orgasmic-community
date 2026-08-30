@@ -1,0 +1,14 @@
+node_modules/
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/app/google-services.json
+android/key.properties
+ios/App/Pods/
+ios/App/Podfile.lock
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+.DS_Store
