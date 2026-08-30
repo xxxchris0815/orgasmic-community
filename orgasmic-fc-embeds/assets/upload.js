@@ -664,7 +664,9 @@
         retryDelays: [0, 3000, 5000, 10000, 20000, 60000],
         removeFingerprintOnSuccess: true,
         fingerprint(current) {
-          return ['tus-bunny', creds.video_id, current.name || '', current.size || 0, current.lastModified || 0].join('-');
+          return Promise.resolve(
+            ['tus-bunny', creds.video_id, current.name || '', current.size || 0, current.lastModified || 0].join('-')
+          );
         },
         headers: {
           AuthorizationSignature: creds.signature,
