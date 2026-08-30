@@ -631,50 +631,101 @@
     });
   }
 
+  async function apiStatus(videoId) {
+    const res = await fetch(cfg.root + 'upload/status?video_id=' + encodeURIComponent(videoId), {
+      credentials: 'same-origin',
+      headers: { 'X-WP-Nonce': cfg.nonce, Accept: 'application/json' },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || 'Bunny-Status fehlgeschlagen.');
+    return data;
+  }
+
+  async function apiPush(file, videoId) {
+    const fd = new FormData();
+    fd.append('video_id', videoId);
+    fd.append('file', file, file.name || 'video.mp4');
+    const res = await fetch(cfg.root + 'upload/push', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'X-WP-Nonce': cfg.nonce, Accept: 'application/json' },
+      body: fd,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || 'Direkt-Upload zu Bunny fehlgeschlagen.');
+    return data;
+  }
+
+  function tusUpload(file, creds, tus) {
+    return new Promise((resolve, reject) => {
+      const expire = String(creds.expirationTime || creds.expire || '');
+      const upload = new tus.Upload(file, {
+        endpoint: creds.endpoint || 'https://video.bunnycdn.com/tusupload',
+        retryDelays: [0, 3000, 5000, 10000, 20000, 60000],
+        removeFingerprintOnSuccess: true,
+        fingerprint(current) {
+          return ['tus-bunny', creds.video_id, current.name || '', current.size || 0, current.lastModified || 0].join('-');
+        },
+        headers: {
+          AuthorizationSignature: creds.signature,
+          AuthorizationExpire: expire,
+          VideoId: creds.video_id,
+          LibraryId: String(creds.library_id),
+        },
+        metadata: {
+          filetype: file.type || 'video/mp4',
+          title: file.name || 'community-video',
+        },
+        onError(err) {
+          reject(err);
+        },
+        onProgress(sent, total) {
+          const pct = total ? Math.round((sent / total) * 100) : 0;
+          setStatus('Upload zu Bunny… ' + pct + '%', pct);
+        },
+        onSuccess() {
+          resolve(creds);
+        },
+      });
+      upload.start();
+    });
+  }
+
+  function videoReceived(status) {
+    return !!(status && (status.received || status.status >= 1 || (status.storageSize || 0) > 0));
+  }
+
   function uploadFile(file) {
     if (busy) return Promise.reject(new Error('Ein Upload läuft bereits.'));
+    if (!file || !file.size) return Promise.reject(new Error('Die Datei ist leer.'));
     busy = true;
     closeAttachDialogs();
     setStatus('Video wird bei Bunny angelegt…', 2);
     return apiCreate(file && file.name)
-      .then((creds) => loadTus().then((tus) => new Promise((resolve, reject) => {
+      .then((creds) => loadTus().then((tus) => {
         setStatus('Upload zu Bunny… 0%', 4);
-        const upload = new tus.Upload(file, {
-          endpoint: creds.endpoint,
-          retryDelays: [0, 3000, 5000, 10000, 20000, 60000],
-          chunkSize: 5 * 1024 * 1024,
-          headers: {
-            AuthorizationSignature: creds.signature,
-            AuthorizationExpire: String(creds.expire),
-            VideoId: creds.video_id,
-            LibraryId: creds.library_id,
-          },
-          metadata: {
-            filetype: file.type || 'video/mp4',
-            title: file.name || 'community-video',
-          },
-          onError(err) {
-            reject(err);
-          },
-          onProgress(sent, total) {
-            const pct = total ? Math.round((sent / total) * 100) : 0;
-            setStatus('Upload zu Bunny… ' + pct + '%', pct);
-          },
-          onSuccess() {
-            resolve(creds);
-          },
+        return tusUpload(file, creds, tus).then(() => creds);
+      }))
+      .then((creds) => apiStatus(creds.video_id).then((status) => ({ creds, status })).catch(() => ({ creds, status: null })))
+      .then((pair) => {
+        if (videoReceived(pair.status)) return pair.creds;
+        if (file.size > 48 * 1024 * 1024) {
+          throw new Error('Bunny hat die Datei nicht erhalten. Bitte noch einmal hochladen.');
+        }
+        setStatus('Zweiter Versuch über den Server…', 50);
+        return apiPush(file, pair.creds.video_id).then((status) => {
+          if (!videoReceived(status) && status && status.ok === false) {
+            throw new Error('Bunny hat die Datei nicht erhalten.');
+          }
+          return pair.creds;
         });
-        upload.findPreviousUploads().then((prev) => {
-          if (prev && prev.length) upload.resumeFromPreviousUpload(prev[0]);
-          upload.start();
-        }).catch(() => upload.start());
-      })))
+      })
       .then((creds) => {
-        setStatus('Link wird eingefügt…', 96);
+        setStatus('Video wird in den Beitrag gesetzt…', 96);
         return insertPlayUrlRetry(creds.play_url).then((ok) => {
           if (ok) {
-            setStatus('Video ist im Beitrag.', 100);
-            setTimeout(hideStatus, 1800);
+            setStatus('Video ist im Beitrag. Bunny verarbeitet es jetzt.', 100);
+            setTimeout(hideStatus, 2200);
           }
           return creds;
         });

@@ -35,6 +35,18 @@ class Orgasmic_Fc_Embeds_Rest
             'permission_callback' => static fn() => is_user_logged_in(),
             'callback' => [$this, 'create_upload'],
         ]);
+
+        register_rest_route('orgasmic-embeds/v1', '/upload/status', [
+            'methods' => 'GET',
+            'permission_callback' => static fn() => is_user_logged_in(),
+            'callback' => [$this, 'upload_status'],
+        ]);
+
+        register_rest_route('orgasmic-embeds/v1', '/upload/push', [
+            'methods' => 'POST',
+            'permission_callback' => static fn() => is_user_logged_in(),
+            'callback' => [$this, 'push_upload'],
+        ]);
     }
 
     public function create_upload(WP_REST_Request $request)
@@ -49,6 +61,44 @@ class Orgasmic_Fc_Embeds_Rest
             return $created;
         }
         return rest_ensure_response($created);
+    }
+
+    public function upload_status(WP_REST_Request $request)
+    {
+        $status = $this->bunny->video_status((string) $request->get_param('video_id'));
+        if (is_wp_error($status)) {
+            return $status;
+        }
+        return rest_ensure_response($status);
+    }
+
+    public function push_upload(WP_REST_Request $request)
+    {
+        $video_id = (string) $request->get_param('video_id');
+        $files = $request->get_file_params();
+        $file = $files['file'] ?? null;
+        if (!is_array($file) || empty($file['tmp_name'])) {
+            return new WP_Error('bunny', 'Keine Datei erhalten.', ['status' => 400]);
+        }
+        if (!empty($file['error'])) {
+            return new WP_Error('bunny', 'Upload-Fehler ' . (int) $file['error'] . '.', ['status' => 400]);
+        }
+
+        $max = (int) wp_max_upload_size();
+        if ($max > 0 && !empty($file['size']) && (int) $file['size'] > $max) {
+            return new WP_Error('bunny', 'Datei ist größer als das PHP-Upload-Limit.', ['status' => 413]);
+        }
+
+        $put = $this->bunny->put_file($video_id, (string) $file['tmp_name']);
+        if (is_wp_error($put)) {
+            return $put;
+        }
+
+        $status = $this->bunny->video_status($video_id);
+        if (is_wp_error($status)) {
+            return rest_ensure_response(['ok' => true, 'received' => true]);
+        }
+        return rest_ensure_response(array_merge(['ok' => true], $status));
     }
 
     public function watch(WP_REST_Request $request)
