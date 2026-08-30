@@ -43,20 +43,32 @@ Workflows in Codemagic:
 
 ## 2. Firebase-Projekt (Push)
 
+Zwei verschiedene Namen — nicht vermischen:
+
+| Was | Beispiel | Punkte? |
+| --- | --- | --- |
+| **Projekt-ID** (Firebase-Konto) | `live-orgasmic-community` | Bindestriche, **keine Punkte** — so ist das richtig |
+| **Android-Paketname** (die App) | `live.orgasmic.community` | **Punkte**, keine Bindestriche |
+
+Die Projekt-ID darfst du nicht mit Punkten anlegen. Den Android-Paketnamen **musst** du mit Punkten eintragen. Das Feld heißt beim Hinzufügen der Android-App „Android-Paketname“ / „Android package name“, nicht Projekt-ID.
+
 1. Öffne [https://console.firebase.google.com](https://console.firebase.google.com) mit **demselben Google-Konto**.
-2. **Projekt hinzufügen** → Name z. B. `orgasmic-community`.
+2. **Projekt hinzufügen** → Anzeigename z. B. `ORGASMIC`. Die erzeugte Projekt-ID darf `live-orgasmic-community` heißen.
 3. Google Analytics kannst du anlassen oder überspringen.
 4. **Projekt erstellen**.
 
 ### 2a. Android-App in Firebase
 
-1. Auf der Projektübersicht: **Android** (Icon).
-2. Android-Paketname **genau**: `live.orgasmic.community`
+1. Auf der Projektübersicht: **Android** (Icon) — nicht das Projekt umbenennen, eine **App** zum Projekt hinzufügen.
+2. Feld **Android-Paketname** **genau**: `live.orgasmic.community`  
+   (Punkte sind hier erlaubt und nötig. `live-orgasmic-community` ist **falsch** und passt nicht zur App.)
 3. App-Spitzname: `ORGASMIC Android`
 4. Debug-Signatur-SHA kannst du leer lassen.
 5. **App registrieren**.
 6. **`google-services.json` herunterladen**. Datei aufheben. Nicht ins öffentliche Git legen.
 7. Die nächsten Firebase-Schritte „ins SDK einfügen“ überspringen — Capacitor macht das.
+
+Falls schon eine Android-App mit `live-orgasmic-community` existiert: stehen lassen. **Zusätzlich** eine zweite Android-App mit Paket `live.orgasmic.community` anlegen und **deren** `google-services.json` verwenden.
 
 ### 2b. Cloud Messaging prüfen
 
