@@ -48,6 +48,7 @@ class Orgasmic_Fc_Events_Portal
             'appearance' => $settings['appearance'],
             'accent' => $settings['accent'],
             'hasToday' => $this->today_has_events(),
+            'userId' => get_current_user_id(),
         ];
         echo '<script>window.OrgasmicFcEvents = ' . wp_json_encode($data) . ';</script>';
         echo '<script src="' . esc_url(ORGASMIC_FC_EVENTS_URL . 'assets/portal.js?ver=' . rawurlencode(ORGASMIC_FC_EVENTS_VERSION)) . '" defer></script>';

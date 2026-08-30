@@ -101,6 +101,20 @@ class Orgasmic_Fc_Events_Access
 
     public function list_spaces(bool $rooms_only = true): array
     {
+        $cache_key = 'orgasmic_fc_spaces_' . ($rooms_only ? 'rooms' : 'all');
+        $cached = get_transient($cache_key);
+        if (is_array($cached)) {
+            return $cached;
+        }
+
+        $out = $this->query_spaces($rooms_only);
+        set_transient($cache_key, $out, 2 * MINUTE_IN_SECONDS);
+
+        return $out;
+    }
+
+    private function query_spaces(bool $rooms_only): array
+    {
         global $wpdb;
         $table = $this->table_if_exists($wpdb->prefix . 'fcom_spaces');
         if (!$table) {
@@ -110,7 +124,7 @@ class Orgasmic_Fc_Events_Access
         $columns = $wpdb->get_col("SHOW COLUMNS FROM {$table}");
         $columns = is_array($columns) ? $columns : [];
         $select = ['id', 'title', 'slug'];
-        foreach (['privacy', 'type', 'status', 'parent_id'] as $optional) {
+        foreach (['privacy', 'type', 'space_type', 'status', 'parent_id', 'parent_space_id'] as $optional) {
             if (in_array($optional, $columns, true)) {
                 $select[] = $optional;
             }
@@ -126,16 +140,30 @@ class Orgasmic_Fc_Events_Access
             if ($rooms_only && !$this->is_room($row)) {
                 continue;
             }
-            $out[] = [
-                'id' => (int) $row['id'],
-                'title' => (string) $row['title'],
-                'slug' => (string) ($row['slug'] ?? ''),
-                'privacy' => (string) ($row['privacy'] ?? ''),
-                'type' => (string) ($row['type'] ?? ''),
-            ];
+            $out[] = $this->present_space($row);
+        }
+
+        if ($rooms_only && $out === [] && $rows !== []) {
+            foreach ($rows as $row) {
+                if ($this->is_excluded_type($row) || $this->is_dead_status($row)) {
+                    continue;
+                }
+                $out[] = $this->present_space($row);
+            }
         }
 
         return $out;
+    }
+
+    private function present_space(array $row): array
+    {
+        return [
+            'id' => (int) $row['id'],
+            'title' => (string) $row['title'],
+            'slug' => (string) ($row['slug'] ?? ''),
+            'privacy' => (string) ($row['privacy'] ?? ''),
+            'type' => (string) ($row['type'] ?? $row['space_type'] ?? ''),
+        ];
     }
 
     public function space_titles(array $ids): array
@@ -174,31 +202,42 @@ class Orgasmic_Fc_Events_Access
         return is_array($decoded) ? array_values(array_unique(array_map('intval', $decoded))) : [];
     }
 
-    private function is_room(array $row): bool
+    private function space_type(array $row): string
     {
-        $type = strtolower((string) ($row['type'] ?? ''));
-        if (in_array($type, [
+        return strtolower((string) ($row['type'] ?? $row['space_type'] ?? ''));
+    }
+
+    private function is_excluded_type(array $row): bool
+    {
+        return in_array($this->space_type($row), [
             'course', 'courses', 'content', 'content_space',
             'space_group', 'space-group', 'group',
             'sidebar_link', 'sidebar-link', 'link',
-        ], true)) {
-            return false;
-        }
+        ], true);
+    }
 
+    private function is_dead_status(array $row): bool
+    {
         $status = strtolower((string) ($row['status'] ?? ''));
-        if (in_array($status, ['draft', 'archived', 'deleted', 'trashed'], true)) {
+        return in_array($status, ['draft', 'archived', 'deleted', 'trashed'], true);
+    }
+
+    private function is_container_title(string $title): bool
+    {
+        return (bool) preg_match('/(?:^|[\s\-–—:])+(community|training|kurs)\s*$/iu', trim($title));
+    }
+
+    private function is_room(array $row): bool
+    {
+        if ($this->is_excluded_type($row) || $this->is_dead_status($row)) {
             return false;
         }
 
-        if ((int) ($row['parent_id'] ?? 0) > 0) {
-            return false;
-        }
-
+        $parent = (int) ($row['parent_id'] ?? $row['parent_space_id'] ?? 0);
         $title = trim((string) ($row['title'] ?? ''));
-        if (preg_match('/\b(community|training|kurs)\s*$/iu', $title)) {
-            return false;
-        }
-        if (preg_match('/\s+-\s+(community|training|kurs)\b/iu', $title)) {
+
+        // Only hide top-level Community/Training/Kurs folders — rooms are usually their children.
+        if ($parent === 0 && $this->is_container_title($title)) {
             return false;
         }
 

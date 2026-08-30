@@ -39,6 +39,10 @@
   padding: 28px 20px 80px;
 }
 
+.oc-sync {
+  opacity: 0.7;
+}
+
 .orgasmic-cal-list-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;

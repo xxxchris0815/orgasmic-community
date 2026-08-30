@@ -9,10 +9,10 @@ Moved from `evolution-api` (`Extras/orgasmic-community`).
 | Plugin | Version | Aufgabe |
 | --- | --- | --- |
 | `orgasmic-fc-tracker/` | **1.2.1** | Engagement-Tracker, Dashboard, Evolution-Webhook |
-| `orgasmic-fc-events/` | **1.0.8** | Kalender im Portal (RSVP, Zoom, Event-Kommentare, MN-Layout) |
+| `orgasmic-fc-events/` | **1.0.9** | Kalender im Portal (RSVP, Zoom, Event-Kommentare, Cache, MN-Layout) |
 | `orgasmic-fc-embeds/` | **1.2.1** | Bunny-Player, nativer Composer-Upload, Autoplay, Wiedergabe-Tracking + Webhook |
 | `orgasmic-fc-chat/` | **1.1.9** | Space-Chat (Mighty-Networks-Layout, Bild + Sprache, Offline-Cache) |
-| `orgasmic-fc-app/` | **1.1.4** | PWA, Web Push, Prefs im Profilmenü, Capacitor-Token-API + optional Firebase |
+| `orgasmic-fc-app/` | **1.1.5** | PWA, Web Push, Prefs im Profilmenü, Capacitor-Token-API + optional Firebase |
 
 ## ORGASMIC Community Kalender
 
@@ -20,7 +20,8 @@ Plugin-Ordner: `orgasmic-fc-events/`
 
 Eventkalender **im FluentCommunity-Portal**:
 
-- Sichtbarkeit über Spaces (Outer Circle, Live Community, Inner Circle, …)
+- Sichtbarkeit über Räume (Kinder von Community/Training, keine Kurse/Gruppen-Links)
+- Overlay öffnet sofort aus dem Cache, Events werden im Hintergrund nachgeladen
 - RSVP (dabei / vielleicht / kann nicht), Teilnehmerliste, optional Kapazität
 - Zoom Server-to-Server: Sub-Account per E-Mail wählen, Meeting wird automatisch angelegt
 - Optionaler Post in den Activity Stream (im passenden Space, nicht öffentlich bei geheimen Kreisen)
@@ -32,7 +33,7 @@ Im Portal: Menüpunkt **Kalender** bzw. `#orgasmic-calendar`.
 
 WP-Admin: **ORGASMIC Kalender → Einstellungen** (Zoom, Untertitel, Erscheinungsbild, Akzentfarbe).
 
-ZIP: [`orgasmic-fc-events-1.0.8.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-events-1.0.8.zip)
+ZIP: [`orgasmic-fc-events-1.0.9.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-events-1.0.9.zip)
 
 ## ORGASMIC FluentCommunity Tracker
 
@@ -89,7 +90,7 @@ Push geht nur an Mitglieder des jeweiligen Spaces. Chat-Text ist standardmäßig
 
 WP-Admin: **ORGASMIC App**. PHP 8.2+ für Web-Push (`openssl_pkey_derive`). Firebase-JSON nur für Store-Apps.
 
-ZIP: [`orgasmic-fc-app-1.1.4.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.1.4.zip)
+ZIP: [`orgasmic-fc-app-1.1.5.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.1.5.zip)
 
 ### Capacitor (wenn Store-Apps kommen)
 

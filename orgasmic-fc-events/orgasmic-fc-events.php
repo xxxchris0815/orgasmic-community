@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ORGASMIC Community Kalender
  * Description: Event calendar inside FluentCommunity with space-based visibility, RSVP, Zoom Server-to-Server meetings, activity-stream sharing, reminders, and REST API.
- * Version: 1.0.8
+ * Version: 1.0.9
  * Requires at least: 6.4
  * Requires PHP: 8.1
  * Author: ORGASMIC
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('ORGASMIC_FC_EVENTS_VERSION', '1.0.8');
+define('ORGASMIC_FC_EVENTS_VERSION', '1.0.9');
 define('ORGASMIC_FC_EVENTS_FILE', __FILE__);
 define('ORGASMIC_FC_EVENTS_PATH', plugin_dir_path(__FILE__));
 define('ORGASMIC_FC_EVENTS_URL', plugin_dir_url(__FILE__));

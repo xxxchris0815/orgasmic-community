@@ -15,7 +15,13 @@
     zoomUsers: [],
     error: '',
     saving: false,
+    loading: false,
   };
+
+  const CACHE_BOOT = 'orgasmic-cal-boot:';
+  const CACHE_EVENTS = 'orgasmic-cal-events:';
+  const CACHE_STORE = 'orgasmic-cal-v1';
+  let refreshPromise = null;
 
   function $(sel, root) {
     return (root || document).querySelector(sel);
@@ -256,6 +262,52 @@
     return data;
   }
 
+  function cacheUid() {
+    return String((state.bootstrap && state.bootstrap.user && state.bootstrap.user.id) || cfg.userId || 0);
+  }
+
+  function cacheGet(key) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function cacheSet(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) {
+      /* quota */
+    }
+  }
+
+  function hydrateFromCache() {
+    const uid = cacheUid();
+    const boot = cacheGet(CACHE_BOOT + uid);
+    const events = cacheGet(CACHE_EVENTS + uid);
+    if (boot && typeof boot === 'object') state.bootstrap = boot;
+    if (events && Array.isArray(events.items)) state.events = events.items;
+  }
+
+  function persistCache() {
+    const uid = cacheUid();
+    if (state.bootstrap) cacheSet(CACHE_BOOT + uid, state.bootstrap);
+    cacheSet(CACHE_EVENTS + uid, { items: state.events, at: Date.now() });
+    if (!('caches' in window)) return;
+    caches.open(CACHE_STORE).then((cache) => {
+      const body = JSON.stringify({
+        bootstrap: state.bootstrap,
+        events: state.events,
+        at: Date.now(),
+      });
+      return cache.put(new Request(String(cfg.root || '/') + 'offline-snapshot'), new Response(body, {
+        headers: { 'Content-Type': 'application/json' },
+      }));
+    }).catch(() => {});
+  }
+
   function hashEvent() {
     const hash = location.hash || '';
     const neuDated = hash.match(/^#orgasmic-event-new-(\d{4}-\d{2}-\d{2})$/);
@@ -348,27 +400,71 @@
     }[c]));
   }
 
-  async function bootFromHash() {
-    const route = hashEvent();
-    if (!route) {
-      closeOverlay();
-      return;
-    }
-    openOverlay();
-    await ensureBootstrap();
+  function renderRoute(route) {
     updateNavIndicator();
     if (route.view === 'list') return renderList();
     if (route.view === 'detail') return renderDetail(route.id);
     if (route.view === 'form') return renderForm(route.id, route.date);
   }
 
-  async function ensureBootstrap() {
-    if (!state.bootstrap) {
-      state.bootstrap = await api('bootstrap');
+  let bootToken = 0;
+
+  async function bootFromHash() {
+    const route = hashEvent();
+    if (!route) {
+      closeOverlay();
+      return;
     }
-    if (!state.events.length) {
-      const data = await api('events');
-      state.events = data.items || [];
+    const token = ++bootToken;
+    hydrateFromCache();
+    if (!state.events.length) state.loading = true;
+    openOverlay();
+    renderRoute(route);
+    try {
+      await refreshData();
+    } catch (e) {
+      state.error = e && e.message ? e.message : 'Kalender konnte nicht geladen werden.';
+    }
+    if (token !== bootToken) return;
+    const next = hashEvent();
+    if (!next) return;
+    if (next.view === 'list') {
+      renderList();
+      return;
+    }
+    if (next.view === 'form') {
+      fillRooms();
+    }
+  }
+
+  function refreshData() {
+    if (refreshPromise) return refreshPromise;
+    state.loading = true;
+    refreshPromise = Promise.all([
+      api('bootstrap'),
+      api('events'),
+    ]).then(([boot, data]) => {
+      state.bootstrap = boot;
+      state.events = (data && data.items) || [];
+      state.error = '';
+      persistCache();
+      updateNavIndicator();
+      return boot;
+    }).finally(() => {
+      state.loading = false;
+      refreshPromise = null;
+    });
+    return refreshPromise;
+  }
+
+  function prefetch() {
+    hydrateFromCache();
+    updateNavIndicator();
+    const run = () => refreshData().catch(() => {});
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(run, { timeout: 1200 });
+    } else {
+      setTimeout(run, 280);
     }
   }
 
@@ -383,6 +479,7 @@
       + '<button type="button" class="oc-close" data-oc-close>Schließen</button>'
       + '</div></header>'
       + (state.error ? '<p class="oc-sub">' + escapeHtml(state.error) + '</p>' : '')
+      + (state.loading ? '<p class="oc-sub oc-sync">Aktualisiere…</p>' : '')
       + inner
       + '</div></div>';
   }
@@ -530,7 +627,9 @@
     const shown = ordered.filter((ev) => !state.selectedDay || isEventOnDay(ev, state.selectedDay));
     const cards = shown.map(eventCardHtml).join('')
       || '<div class="orgasmic-cal-empty">'
-      + (state.selectedDay ? 'Keine Events an diesem Tag.' : 'Noch keine Events in deinen Kreisen.')
+      + (state.loading && !state.events.length
+        ? 'Termine werden geladen…'
+        : (state.selectedDay ? 'Keine Events an diesem Tag.' : 'Noch keine Events in deinen Kreisen.'))
       + '</div>';
 
     mount(root, shell(
@@ -593,10 +692,22 @@
 
   async function renderDetail(id) {
     const root = document.getElementById('orgasmic-cal-root');
+    const cached = (state.events || []).find((ev) => String(ev.id) === String(id));
+    if (cached) {
+      state.event = cached;
+      mount(root, shell(
+        '<p><a class="oc-btn oc-ghost" href="#orgasmic-calendar">← Alle Events</a></p>'
+        + '<article class="orgasmic-cal-detail"><h2>' + escapeHtml(cached.title) + todayBadge(cached) + '</h2>'
+        + '<p>' + escapeHtml(fmtDate(cached.starts_at, cached.timezone)) + '</p>'
+        + (cached.excerpt ? '<p class="oc-sub">' + escapeHtml(cached.excerpt) + '</p>' : '')
+        + '<p class="oc-sub oc-sync">Details werden geladen…</p></article>'
+      ));
+    }
     state.error = '';
     try {
       state.event = await api('events/' + id);
     } catch (e) {
+      if (cached) return;
       state.error = e.message;
       mount(root, shell(''));
       return;
@@ -605,7 +716,7 @@
     const hero = ev.image_url ? '<img src="' + escapeHtml(ev.image_url) + '" alt="">' : '';
     const rsvp = ['going', 'maybe', 'declined'].map((s) => {
       const labels = { going: 'Ich bin dabei', maybe: 'Vielleicht', declined: 'Kann nicht' };
-      return '<button type="button" data-rsvp="' + s + '"' + (ev.rsvp.mine === s ? ' class="is-on"' : '') + '>' + labels[s] + '</button>';
+      return '<button type="button" data-rsvp="' + s + '"' + (ev.rsvp && ev.rsvp.mine === s ? ' class="is-on"' : '') + '>' + labels[s] + '</button>';
     }).join('');
     const people = (ev.attendees || []).map((p) => '<figure><img src="' + escapeHtml(p.avatar || '') + '" alt=""><figcaption>' + escapeHtml(p.display_name) + '<br>' + (p.status === 'going' ? 'dabei' : 'vielleicht') + '</figcaption></figure>').join('');
     const join = ev.join_url ? '<a class="oc-btn" href="' + escapeHtml(ev.join_url) + '" target="_blank" rel="noopener">Zoom öffnen</a>' : '<p class="oc-sub">Der Zoom-Link erscheint, sobald du „Ich bin dabei“ wählst.</p>';
@@ -621,7 +732,7 @@
       + '<p>' + escapeHtml(fmtDate(ev.starts_at, ev.timezone)) + (ev.ends_at ? ' – ' + escapeHtml(fmtDate(ev.ends_at, ev.timezone)) : '') + '</p>'
       + '<div class="orgasmic-cal-desc">' + (ev.description_html || '') + '</div>'
       + (ev.rsvp_enabled ? '<div class="orgasmic-cal-rsvp">' + rsvp + '</div>' : '')
-      + '<p class="oc-sub">' + (ev.rsvp.counts.going || 0) + ' Zusagen' + (ev.rsvp_capacity ? ' / ' + ev.rsvp_capacity : '') + ', ' + (ev.rsvp.counts.maybe || 0) + ' vielleicht</p>'
+      + '<p class="oc-sub">' + ((ev.rsvp && ev.rsvp.counts && ev.rsvp.counts.going) || 0) + ' Zusagen' + (ev.rsvp_capacity ? ' / ' + ev.rsvp_capacity : '') + ', ' + ((ev.rsvp && ev.rsvp.counts && ev.rsvp.counts.maybe) || 0) + ' vielleicht</p>'
       + join + ' ' + manage
       + '<h3>Wer nimmt teil</h3><div class="orgasmic-cal-people">' + (people || '<p class="oc-sub">Noch niemand hat zugesagt.</p>') + '</div>'
       + '</article>'
@@ -662,9 +773,29 @@
         if (!confirm('Event wirklich löschen?')) return;
         await api('events/' + id, { method: 'DELETE' });
         state.events = [];
+        persistCache();
         location.hash = '#orgasmic-calendar';
       };
     }
+  }
+
+  function roomChecksHtml(ev) {
+    const selected = (ev && (ev.space_ids || (ev.spaces || []).map((x) => x.id))) || [];
+    return ((state.bootstrap && state.bootstrap.spaces) || []).map((s) => {
+      const checked = selected.map(String).indexOf(String(s.id)) !== -1;
+      return '<label class="oc-room">'
+        + '<input type="checkbox" name="space_ids" value="' + s.id + '"' + (checked ? ' checked' : '') + '>'
+        + '<span class="oc-room-tick" aria-hidden="true"></span>'
+        + '<span class="oc-room-name">' + escapeHtml(s.title) + '</span>'
+        + '</label>';
+    }).join('');
+  }
+
+  function fillRooms() {
+    const box = document.querySelector('[data-oc-rooms]');
+    if (!box || box.querySelector('input[name="space_ids"]')) return;
+    const html = roomChecksHtml(state.event || {});
+    box.innerHTML = '<p class="oc-rooms-label">Räume</p>' + (html || '<p class="oc-sub">Keine Räume gefunden.</p>');
   }
 
   function addHoursToParts(dateStr, timeStr, hours) {
@@ -703,14 +834,7 @@
       ? zonedParts(ev.ends_at, ev.timezone || tz)
       : defaultEnd;
 
-    const rooms = ((state.bootstrap && state.bootstrap.spaces) || []).map((s) => {
-      const checked = (ev.space_ids || (ev.spaces || []).map((x) => x.id) || []).map(String).indexOf(String(s.id)) !== -1;
-      return '<label class="oc-room">'
-        + '<input type="checkbox" name="space_ids" value="' + s.id + '"' + (checked ? ' checked' : '') + '>'
-        + '<span class="oc-room-tick" aria-hidden="true"></span>'
-        + '<span class="oc-room-name">' + escapeHtml(s.title) + '</span>'
-        + '</label>';
-    }).join('');
+    const rooms = roomChecksHtml(ev);
     const zoomOpts = ['<option value="">— Zoom-Account wählen —</option>'].concat(
       state.zoomUsers.map((u) => '<option value="' + escapeHtml(u.email) + '"' + (ev.zoom_user_email === u.email ? ' selected' : '') + '>' + escapeHtml(u.display_name + ' · ' + u.email) + '</option>')
     ).join('');
@@ -731,7 +855,7 @@
       + '<label>Sichtbar für<select name="visibility"><option value="spaces"' + (ev.visibility !== 'all' ? ' selected' : '') + '>Gewählte Räume</option><option value="all"' + (ev.visibility === 'all' ? ' selected' : '') + '>Alle Mitglieder</option></select></label>'
       + '<div class="oc-rooms" data-oc-rooms>'
       + '<p class="oc-rooms-label">Räume</p>'
-      + (rooms || '<p class="oc-sub">Keine Räume gefunden.</p>')
+      + (rooms || '<p class="oc-sub">' + (state.loading ? 'Räume werden geladen…' : 'Keine Räume gefunden.') + '</p>')
       + '</div>'
       + '<label>Ort<select name="location_type"><option value="zoom">Zoom Meeting anlegen</option><option value="url"' + (ev.location_type === 'url' ? ' selected' : '') + '>Eigener Link</option><option value="none"' + (ev.location_type === 'none' ? ' selected' : '') + '>Kein Link</option></select></label>'
       + '<label>Zoom Sub-Account (E-Mail)<select name="zoom_user_email">' + zoomOpts + '</select></label>'
@@ -814,6 +938,7 @@
           alert('Event gespeichert, aber der Activity Stream hat nicht übernommen: ' + saved.feed_share_error);
         }
         state.events = [];
+        persistCache();
         location.hash = '#orgasmic-event-' + saved.id;
       } catch (err) {
         alert(err.message);
@@ -827,8 +952,20 @@
     e.preventDefault();
     const href = a.getAttribute('href') || '#orgasmic-calendar';
     const hash = href.indexOf('#') >= 0 ? href.slice(href.indexOf('#')) : '#orgasmic-calendar';
+    hydrateFromCache();
+    if (!state.events.length) state.loading = true;
+    openOverlay();
+    if (hash === '#orgasmic-calendar') renderList();
     if (location.hash !== hash) location.hash = hash;
     else bootFromHash();
+  }
+
+  function start() {
+    watchNavIcons();
+    hydrateFromCache();
+    updateNavIndicator();
+    if (hashEvent()) bootFromHash();
+    else prefetch();
   }
 
   document.addEventListener('click', intercept);
@@ -837,14 +974,8 @@
   window.addEventListener('orientationchange', applyMobileBarInset);
   applyMobileBarInset();
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      watchNavIcons();
-      updateNavIndicator();
-      bootFromHash();
-    });
+    document.addEventListener('DOMContentLoaded', start);
   } else {
-    watchNavIcons();
-    updateNavIndicator();
-    bootFromHash();
+    start();
   }
 })();

@@ -1,4 +1,5 @@
-const CACHE = 'orgasmic-app-v2';
+const CACHE = 'orgasmic-app-v3';
+const API_CACHE = 'orgasmic-api-v1';
 const PRECACHE = [
   '/orgasmic-manifest.json',
 ];
@@ -11,7 +12,7 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== API_CACHE && k !== 'orgasmic-cal-v1' && k !== 'orgasmic-chat-media-v1').map((k) => caches.delete(k)))).then(() => self.clients.claim())
   );
 });
 
@@ -20,6 +21,10 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+  if (url.pathname.indexOf('/wp-json/orgasmic-events/') === 0 || url.pathname.indexOf('/wp-json/orgasmic-chat/') === 0) {
+    event.respondWith(networkFirst(req, API_CACHE));
+    return;
+  }
   if (url.pathname.indexOf('/wp-json/') === 0) return;
 
   const dest = req.destination;
@@ -71,6 +76,16 @@ self.addEventListener('notificationclick', (event) => {
     })
   );
 });
+
+function networkFirst(req, cacheName) {
+  return fetch(req).then((res) => {
+    if (res && res.ok) {
+      const copy = res.clone();
+      caches.open(cacheName).then((cache) => cache.put(req, copy));
+    }
+    return res;
+  }).catch(() => caches.match(req).then((cached) => cached || Promise.reject(new Error('offline'))));
+}
 
 function cacheFirst(req) {
   return caches.match(req).then((cached) => {

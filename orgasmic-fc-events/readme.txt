@@ -1,12 +1,16 @@
 === ORGASMIC Community Kalender ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.0.8
+Stable tag: 1.0.9
 License: GPLv2 or later
 
 Event calendar for FluentCommunity with space visibility, RSVP, Zoom S2S, feed sharing, reminders, and REST API.
 
 == Changelog ==
+
+= 1.0.9 =
+* Room picker lists actual rooms again (children of Community/Training, not empty)
+* Calendar overlay opens immediately from cache; events refresh in the background
 
 = 1.0.8 =
 * Close the calendar when opening an event discussion in the space
