@@ -9,7 +9,7 @@ Moved from `evolution-api` (`Extras/orgasmic-community`).
 | Plugin | Version | Aufgabe |
 | --- | --- | --- |
 | `orgasmic-fc-tracker/` | **1.2.1** | Engagement-Tracker, Dashboard, Evolution-Webhook |
-| `orgasmic-fc-events/` | **1.0.7** | Kalender im Portal (RSVP, Zoom, Event-Kommentare, MN-Layout) |
+| `orgasmic-fc-events/` | **1.0.8** | Kalender im Portal (RSVP, Zoom, Event-Kommentare, MN-Layout) |
 | `orgasmic-fc-embeds/` | **1.2.0** | Bunny-Player, Composer-Upload, Autoplay, Wiedergabe-Tracking + Webhook |
 | `orgasmic-fc-chat/` | **1.1.9** | Space-Chat (Mighty-Networks-Layout, Bild + Sprache, Offline-Cache) |
 | `orgasmic-fc-app/` | **1.1.4** | PWA, Web Push, Prefs im Profilmenü, Capacitor-Token-API + optional Firebase |
@@ -32,7 +32,7 @@ Im Portal: Menüpunkt **Kalender** bzw. `#orgasmic-calendar`.
 
 WP-Admin: **ORGASMIC Kalender → Einstellungen** (Zoom, Untertitel, Erscheinungsbild, Akzentfarbe).
 
-ZIP: [`orgasmic-fc-events-1.0.7.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-events-1.0.7.zip)
+ZIP: [`orgasmic-fc-events-1.0.8.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-events-1.0.8.zip)
 
 ## ORGASMIC FluentCommunity Tracker
 

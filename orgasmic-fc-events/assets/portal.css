@@ -451,7 +451,7 @@ a[href="#orgasmic-calendar"].has-today {
   gap: 12px;
 }
 
-.orgasmic-cal-form input,
+.orgasmic-cal-form input:not([type="checkbox"]):not([type="radio"]),
 .orgasmic-cal-form select,
 .orgasmic-cal-form textarea,
 .orgasmic-cal-form .oc-editor {
@@ -477,6 +477,75 @@ a[href="#orgasmic-calendar"].has-today {
   display: grid;
   gap: 6px;
   font-size: 13px;
+}
+
+.orgasmic-cal-form .oc-rooms {
+  display: grid;
+  gap: 8px;
+}
+
+.orgasmic-cal-form .oc-rooms-label {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.orgasmic-cal-form label.oc-room {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--oc-line);
+  border-radius: 14px;
+  background: var(--oc-card);
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.orgasmic-cal-form label.oc-room:hover {
+  border-color: color-mix(in srgb, var(--oc-accent, #409eff) 45%, var(--oc-line));
+}
+
+.orgasmic-cal-form label.oc-room:has(input:checked) {
+  border-color: var(--oc-accent, #409eff);
+  background: color-mix(in srgb, var(--oc-accent, #409eff) 10%, var(--oc-card));
+}
+
+.orgasmic-cal-form label.oc-room input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.orgasmic-cal-form .oc-room-tick {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  border: 1.5px solid var(--oc-line);
+  background: var(--oc-card);
+  box-sizing: border-box;
+}
+
+.orgasmic-cal-form label.oc-room:has(input:checked) .oc-room-tick {
+  border-color: var(--oc-accent, #409eff);
+  background: var(--oc-accent, #409eff);
+  box-shadow: inset 0 0 0 3px var(--oc-card);
+}
+
+.orgasmic-cal-form .oc-room-name {
+  line-height: 1.3;
+}
+
+.orgasmic-cal-form label:has(input[type="checkbox"]:not([name="space_ids"])) {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  grid-template-columns: none;
 }
 
 .orgasmic-cal-form .oc-row {
@@ -774,7 +843,7 @@ a[href="#orgasmic-calendar"].has-today {
     min-height: 120px;
   }
 
-  .orgasmic-cal-form input,
+  .orgasmic-cal-form input:not([type="checkbox"]):not([type="radio"]),
   .orgasmic-cal-form select,
   .orgasmic-cal-form textarea,
   .orgasmic-cal-form .oc-editor {

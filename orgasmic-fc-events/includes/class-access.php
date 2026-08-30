@@ -99,7 +99,7 @@ class Orgasmic_Fc_Events_Access
         return (bool) array_intersect($required, $owned);
     }
 
-    public function list_spaces(): array
+    public function list_spaces(bool $rooms_only = true): array
     {
         global $wpdb;
         $table = $this->table_if_exists($wpdb->prefix . 'fcom_spaces');
@@ -107,15 +107,23 @@ class Orgasmic_Fc_Events_Access
             return [];
         }
 
+        $columns = $wpdb->get_col("SHOW COLUMNS FROM {$table}");
+        $columns = is_array($columns) ? $columns : [];
+        $select = ['id', 'title', 'slug'];
+        foreach (['privacy', 'type', 'status', 'parent_id'] as $optional) {
+            if (in_array($optional, $columns, true)) {
+                $select[] = $optional;
+            }
+        }
+
         $rows = $wpdb->get_results(
-            "SELECT id, title, slug, privacy, type, status FROM {$table} ORDER BY title ASC",
+            'SELECT ' . implode(', ', $select) . " FROM {$table} ORDER BY title ASC",
             ARRAY_A
         ) ?: [];
 
         $out = [];
         foreach ($rows as $row) {
-            $type = (string) ($row['type'] ?? '');
-            if (in_array($type, ['course', 'courses'], true)) {
+            if ($rooms_only && !$this->is_room($row)) {
                 continue;
             }
             $out[] = [
@@ -123,7 +131,7 @@ class Orgasmic_Fc_Events_Access
                 'title' => (string) $row['title'],
                 'slug' => (string) ($row['slug'] ?? ''),
                 'privacy' => (string) ($row['privacy'] ?? ''),
-                'type' => $type,
+                'type' => (string) ($row['type'] ?? ''),
             ];
         }
 
@@ -136,7 +144,7 @@ class Orgasmic_Fc_Events_Access
             return [];
         }
 
-        $spaces = $this->list_spaces();
+        $spaces = $this->list_spaces(false);
         $map = [];
         foreach ($spaces as $space) {
             $map[$space['id']] = $space;
@@ -164,6 +172,37 @@ class Orgasmic_Fc_Events_Access
         }
         $decoded = json_decode($value, true);
         return is_array($decoded) ? array_values(array_unique(array_map('intval', $decoded))) : [];
+    }
+
+    private function is_room(array $row): bool
+    {
+        $type = strtolower((string) ($row['type'] ?? ''));
+        if (in_array($type, [
+            'course', 'courses', 'content', 'content_space',
+            'space_group', 'space-group', 'group',
+            'sidebar_link', 'sidebar-link', 'link',
+        ], true)) {
+            return false;
+        }
+
+        $status = strtolower((string) ($row['status'] ?? ''));
+        if (in_array($status, ['draft', 'archived', 'deleted', 'trashed'], true)) {
+            return false;
+        }
+
+        if ((int) ($row['parent_id'] ?? 0) > 0) {
+            return false;
+        }
+
+        $title = trim((string) ($row['title'] ?? ''));
+        if (preg_match('/\b(community|training|kurs)\s*$/iu', $title)) {
+            return false;
+        }
+        if (preg_match('/\s+-\s+(community|training|kurs)\b/iu', $title)) {
+            return false;
+        }
+
+        return true;
     }
 
     private function table_if_exists(string $table): ?string

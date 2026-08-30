@@ -399,6 +399,10 @@
       if (e.target.closest('[data-oc-close]')) {
         e.preventDefault();
         closeOverlay();
+        return;
+      }
+      if (e.target.closest('[data-oc-leave]')) {
+        closeOverlay();
       }
     });
   }
@@ -487,7 +491,7 @@
         + '</form>'
       : '';
     const more = d.permalink
-      ? '<p class="oc-discuss-more"><a href="' + escapeHtml(d.permalink) + '">Im Kreis öffnen</a></p>'
+      ? '<p class="oc-discuss-more"><a href="' + escapeHtml(d.permalink) + '" data-oc-leave="1">Im Kreis öffnen</a></p>'
       : '';
     return '<section class="orgasmic-cal-discuss" id="oc-discuss">'
       + '<header><h3>Unterhaltung</h3><span>' + (d.count || 0) + ' Kommentare</span></header>'
@@ -699,9 +703,13 @@
       ? zonedParts(ev.ends_at, ev.timezone || tz)
       : defaultEnd;
 
-    const spaces = ((state.bootstrap && state.bootstrap.spaces) || []).map((s) => {
+    const rooms = ((state.bootstrap && state.bootstrap.spaces) || []).map((s) => {
       const checked = (ev.space_ids || (ev.spaces || []).map((x) => x.id) || []).map(String).indexOf(String(s.id)) !== -1;
-      return '<label><input type="checkbox" name="space_ids" value="' + s.id + '"' + (checked ? ' checked' : '') + '> ' + escapeHtml(s.title) + '</label>';
+      return '<label class="oc-room">'
+        + '<input type="checkbox" name="space_ids" value="' + s.id + '"' + (checked ? ' checked' : '') + '>'
+        + '<span class="oc-room-tick" aria-hidden="true"></span>'
+        + '<span class="oc-room-name">' + escapeHtml(s.title) + '</span>'
+        + '</label>';
     }).join('');
     const zoomOpts = ['<option value="">— Zoom-Account wählen —</option>'].concat(
       state.zoomUsers.map((u) => '<option value="' + escapeHtml(u.email) + '"' + (ev.zoom_user_email === u.email ? ' selected' : '') + '>' + escapeHtml(u.display_name + ' · ' + u.email) + '</option>')
@@ -720,8 +728,11 @@
       + '<label>Zeitzone<input name="timezone" value="' + escapeHtml(ev.timezone || tz) + '"></label>'
       + '<label>Beschreibung<div id="oc-desc" class="oc-editor" contenteditable="true">' + (ev.description_html || '') + '</div></label>'
       + '<label>Titelbild<input type="file" name="image" accept="image/*"></label>'
-      + '<label>Sichtbar für<select name="visibility"><option value="spaces"' + (ev.visibility !== 'all' ? ' selected' : '') + '>Gewählte Spaces / Kreise</option><option value="all"' + (ev.visibility === 'all' ? ' selected' : '') + '>Alle Mitglieder</option></select></label>'
-      + '<fieldset><legend>Spaces</legend>' + spaces + '</fieldset>'
+      + '<label>Sichtbar für<select name="visibility"><option value="spaces"' + (ev.visibility !== 'all' ? ' selected' : '') + '>Gewählte Räume</option><option value="all"' + (ev.visibility === 'all' ? ' selected' : '') + '>Alle Mitglieder</option></select></label>'
+      + '<div class="oc-rooms" data-oc-rooms>'
+      + '<p class="oc-rooms-label">Räume</p>'
+      + (rooms || '<p class="oc-sub">Keine Räume gefunden.</p>')
+      + '</div>'
       + '<label>Ort<select name="location_type"><option value="zoom">Zoom Meeting anlegen</option><option value="url"' + (ev.location_type === 'url' ? ' selected' : '') + '>Eigener Link</option><option value="none"' + (ev.location_type === 'none' ? ' selected' : '') + '>Kein Link</option></select></label>'
       + '<label>Zoom Sub-Account (E-Mail)<select name="zoom_user_email">' + zoomOpts + '</select></label>'
       + '<label>Oder Zoom-/Meeting-Link manuell<input name="zoom_join_url" value="' + escapeHtml(ev.join_url || ev.external_url || '') + '"></label>'
@@ -748,6 +759,13 @@
       if (!endDate.value || endDate.value === startParts.date) endDate.value = startDate.value;
     });
     startTime.addEventListener('change', syncEnd);
+    const vis = root.querySelector('[name="visibility"]');
+    const roomsBox = root.querySelector('[data-oc-rooms]');
+    const syncRooms = () => {
+      if (roomsBox) roomsBox.hidden = !!(vis && vis.value === 'all');
+    };
+    if (vis) vis.addEventListener('change', syncRooms);
+    syncRooms();
 
     $('#oc-form').onsubmit = async (e) => {
       e.preventDefault();
