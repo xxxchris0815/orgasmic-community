@@ -74,6 +74,19 @@ class Orgasmic_Fc_Events_Rest
             'callback' => [$this, 'upload_image'],
         ]);
 
+        register_rest_route($ns, '/events/(?P<id>\d+)/comments', [
+            [
+                'methods' => 'GET',
+                'permission_callback' => [$this, 'can_read'],
+                'callback' => [$this, 'list_comments'],
+            ],
+            [
+                'methods' => 'POST',
+                'permission_callback' => [$this, 'can_read'],
+                'callback' => [$this, 'add_comment'],
+            ],
+        ]);
+
         register_rest_route($ns, '/zoom/users', [
             'methods' => 'GET',
             'permission_callback' => [$this, 'can_write'],
@@ -297,6 +310,63 @@ class Orgasmic_Fc_Events_Rest
         return rest_ensure_response($this->present($this->repo->find((int) $event['id']), get_current_user_id(), true, true));
     }
 
+    public function list_comments(WP_REST_Request $request)
+    {
+        $event = $this->repo->find((int) $request['id']);
+        if (!$event) {
+            return new WP_Error('not_found', 'Event nicht gefunden.', ['status' => 404]);
+        }
+
+        $user_id = get_current_user_id();
+        if (!$this->can_write($request) && !$this->access->can_view_event($event, $user_id)) {
+            return new WP_Error('forbidden', 'Kein Zugriff auf dieses Event.', ['status' => 403]);
+        }
+
+        return rest_ensure_response($this->feed->discussion($event, $this->access, $user_id));
+    }
+
+    public function add_comment(WP_REST_Request $request)
+    {
+        $user_id = get_current_user_id();
+        if (!$user_id) {
+            return new WP_Error('auth', 'Bitte einloggen.', ['status' => 401]);
+        }
+
+        $event = $this->repo->find((int) $request['id']);
+        if (!$event || !$this->access->can_view_event($event, $user_id)) {
+            return new WP_Error('forbidden', 'Kein Zugriff.', ['status' => 403]);
+        }
+
+        $params = $request->get_json_params();
+        if (!is_array($params)) {
+            $params = $request->get_params();
+        }
+        $message = trim((string) ($params['message'] ?? ''));
+        if ($message === '') {
+            return new WP_Error('invalid', 'Bitte einen Kommentar schreiben.', ['status' => 400]);
+        }
+
+        $ensured = $this->feed->ensure_discussion($event, $this->access, $user_id);
+        if ($ensured['primary'] <= 0) {
+            return new WP_Error('feed', $ensured['error'] !== '' ? $ensured['error'] : 'Unterhaltung konnte nicht geöffnet werden.', ['status' => 400]);
+        }
+
+        $existing_ids = $this->access->decode_ids($event['feed_ids'] ?? '[]');
+        if ($ensured['ids'] !== [] && $existing_ids === []) {
+            $this->repo->update((int) $event['id'], ['feed_ids' => $ensured['ids'], 'share_to_feed' => 1]);
+            $event = $this->repo->find((int) $event['id']) ?: $event;
+        }
+
+        $saved = $this->feed->add_comment((int) $ensured['primary'], $user_id, $message);
+        if (is_wp_error($saved)) {
+            return $saved;
+        }
+
+        do_action('orgasmic_fc/event/comment', $event, $user_id, $saved);
+
+        return rest_ensure_response($this->feed->discussion($event, $this->access, $user_id));
+    }
+
     public function zoom_users()
     {
         if (!$this->zoom->configured()) {
@@ -400,14 +470,15 @@ class Orgasmic_Fc_Events_Rest
             $item['description_html'] = wp_kses_post((string) $event['description']);
             $item['attendees'] = $this->repo->attendees((int) $event['id'], $is_manager);
             $item['reminder_minutes'] = json_decode((string) $event['reminder_minutes'], true) ?: [];
+            $item['feed_ids'] = $this->access->decode_ids($event['feed_ids'] ?? '[]');
+            $item['share_to_feed'] = (bool) $event['share_to_feed'];
+            $item['discussion'] = $this->feed->discussion($event, $this->access, $user_id);
             if ($is_manager) {
                 $item['zoom_user_email'] = $event['zoom_user_email'];
                 $item['zoom_meeting_id'] = $event['zoom_meeting_id'];
                 $item['zoom_start_url'] = $event['zoom_start_url'];
                 $item['external_url'] = $event['external_url'];
                 $item['space_ids'] = $space_ids;
-                $item['share_to_feed'] = (bool) $event['share_to_feed'];
-                $item['feed_ids'] = $this->access->decode_ids($event['feed_ids'] ?? '[]');
             }
         }
 

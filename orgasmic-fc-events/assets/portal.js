@@ -8,6 +8,7 @@
   let state = {
     view: 'list',
     month: new Date(),
+    selectedDay: null,
     events: [],
     event: null,
     bootstrap: null,
@@ -135,6 +136,31 @@
     return '';
   }
 
+  const MONTH_SHORT = ['JAN', 'FEB', 'MÄR', 'APR', 'MAI', 'JUN', 'JUL', 'AUG', 'SEP', 'OKT', 'NOV', 'DEZ'];
+
+  function dateBlock(iso, tz) {
+    const parts = zonedParts(iso, tz);
+    const bits = (parts.date || '').split('-');
+    if (bits.length !== 3) return { day: '', month: '' };
+    return {
+      day: String(parseInt(bits[2], 10)),
+      month: MONTH_SHORT[parseInt(bits[1], 10) - 1] || '',
+    };
+  }
+
+  function friendlyWhen(iso, tz) {
+    try {
+      return new Intl.DateTimeFormat('de-DE', {
+        weekday: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: tz || undefined,
+      }).format(new Date(iso));
+    } catch (e) {
+      return fmtDate(iso, tz);
+    }
+  }
+
   function solidBackground() {
     let el = document.body;
     while (el) {
@@ -244,9 +270,44 @@
     return null;
   }
 
+  function applyMobileBarInset() {
+    let height = 0;
+    if (window.matchMedia('(max-width: 760px)').matches) {
+      const skip = '#orgasmic-chat-root, #orgasmic-cal-root, #orgasmic-app-prefs';
+      const selectors = [
+        '.fcom_mobile_menu',
+        '.fcom-mobile-menu',
+        '.fcom_mobile_nav',
+        '.fcom-mobile-nav',
+        '.fluent_community_mobile_menu',
+        '[class*="mobile_menu"]',
+        '[class*="mobile-menu"]',
+        '[class*="bottom-nav"]',
+        '[class*="bottom_nav"]',
+      ];
+      const seen = new Set();
+      selectors.forEach((sel) => {
+        document.querySelectorAll(sel).forEach((el) => {
+          if (el.closest(skip) || seen.has(el)) return;
+          const st = getComputedStyle(el);
+          if (st.display === 'none' || st.visibility === 'hidden') return;
+          if (st.position !== 'fixed' && st.position !== 'sticky') return;
+          const r = el.getBoundingClientRect();
+          if (r.height >= 46 && r.height <= 96 && r.width >= window.innerWidth * 0.55 && r.bottom >= window.innerHeight - 8) {
+            seen.add(el);
+            height = Math.max(height, Math.ceil(r.height));
+          }
+        });
+      });
+      if (!height) height = 56;
+    }
+    document.documentElement.style.setProperty('--orgasmic-mobile-bar', height + 'px');
+  }
+
   function openOverlay() {
     const root = document.getElementById('orgasmic-cal-root');
     if (!root) return;
+    applyMobileBarInset();
     root.hidden = false;
     document.body.style.overflow = 'hidden';
   }
@@ -383,6 +444,58 @@
     return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
   }
 
+  function eventCardHtml(ev) {
+    const block = dateBlock(ev.starts_at, ev.timezone);
+    const img = ev.image_url
+      ? '<img src="' + escapeHtml(ev.image_url) + '" alt="">'
+      : '<div class="orgasmic-cal-cover"></div>';
+    const going = ev.rsvp && ev.rsvp.counts ? (ev.rsvp.counts.going || 0) : 0;
+    const mine = ev.rsvp && ev.rsvp.mine;
+    const chip = mine === 'going' ? '<span class="oc-rsvp-chip">Du bist dabei</span>' : '';
+    return '<a class="orgasmic-cal-card' + (isEventToday(ev) ? ' oc-today-card' : '') + '" href="#orgasmic-event-' + ev.id + '">'
+      + img
+      + '<div class="oc-dateblock"><strong>' + escapeHtml(block.day) + '</strong><span>' + escapeHtml(block.month) + '</span></div>'
+      + '<div class="oc-body">'
+      + '<div class="orgasmic-cal-card-top"><h3>' + escapeHtml(ev.title) + todayBadge(ev) + '</h3>' + chip + '</div>'
+      + '<div class="orgasmic-cal-meta">' + escapeHtml(friendlyWhen(ev.starts_at, ev.timezone)) + '</div>'
+      + '<div class="orgasmic-cal-spaces">' + spacesHtml(ev.spaces) + '</div>'
+      + (ev.excerpt ? '<p class="oc-sub">' + escapeHtml(ev.excerpt) + '</p>' : '')
+      + '<p class="oc-sub">' + going + (going === 1 ? ' Person sagt zu' : ' sagen zu') + '</p>'
+      + '</div></a>';
+  }
+
+  function commentHtml(c) {
+    return '<article class="oc-comment">'
+      + '<img class="oc-comment-avatar" src="' + escapeHtml(c.avatar || '') + '" alt="">'
+      + '<div class="oc-comment-main">'
+      + '<div class="oc-comment-meta"><strong>' + escapeHtml(c.display_name || 'Mitglied') + '</strong>'
+      + '<time>' + escapeHtml(c.when || '') + '</time></div>'
+      + '<div class="oc-comment-body">' + (c.message_html || escapeHtml(c.message || '')) + '</div>'
+      + '</div></article>';
+  }
+
+  function discussHtml(ev) {
+    const d = ev.discussion || { comments: [], count: 0, can_comment: false, permalink: '' };
+    const comments = (d.comments || []).map(commentHtml).join('');
+    const empty = comments
+      ? ''
+      : '<div class="oc-discuss-empty"><p>Starte die Unterhaltung zu diesem Event — so wie bei einem Beitrag im Kreis.</p></div>';
+    const form = d.can_comment
+      ? '<form class="oc-discuss-form" data-oc-comment>'
+        + '<textarea name="message" rows="2" required placeholder="Schreib einen Kommentar…"></textarea>'
+        + '<button type="submit">Kommentieren</button>'
+        + '</form>'
+      : '';
+    const more = d.permalink
+      ? '<p class="oc-discuss-more"><a href="' + escapeHtml(d.permalink) + '">Im Kreis öffnen</a></p>'
+      : '';
+    return '<section class="orgasmic-cal-discuss" id="oc-discuss">'
+      + '<header><h3>Unterhaltung</h3><span>' + (d.count || 0) + ' Kommentare</span></header>'
+      + '<div class="oc-comments">' + comments + empty + '</div>'
+      + form + more
+      + '</section>';
+  }
+
   async function renderList() {
     const root = document.getElementById('orgasmic-cal-root');
     const m = state.month;
@@ -393,13 +506,14 @@
       const classes = ['oc-day'];
       if (c.mute) classes.push('oc-mute');
       if (c.today) classes.push('oc-today');
-      if (c.live || c.todays.some(isEventToday)) classes.push('oc-has-live');
-      if (canManage && !c.mute) classes.push('oc-clickable');
-      grid += '<div class="' + classes.join(' ') + '"'
+      if (state.selectedDay === c.key) classes.push('oc-selected');
+      if (c.live || c.todays.length) classes.push('oc-has-live');
+      classes.push('oc-clickable');
+      grid += '<div class="' + classes.join(' ') + '" data-oc-day="' + c.key + '"'
         + (canManage && !c.mute ? ' data-oc-new="' + c.key + '"' : '')
         + '>'
         + '<div class="oc-num">' + c.day + '</div>'
-        + c.todays.map((ev) => '<a class="oc-pill' + (isHappeningNow(ev) || isEventToday(ev) ? ' oc-live' : '') + '" href="#orgasmic-event-' + ev.id + '">' + escapeHtml(ev.title) + '</a>').join('')
+        + (c.todays.length ? '<span class="oc-dot' + (c.live ? ' oc-live' : '') + '"></span>' : '')
         + '</div>';
     });
 
@@ -409,29 +523,32 @@
       if (aToday !== bToday) return aToday - bToday;
       return String(a.starts_at).localeCompare(String(b.starts_at));
     });
-
-    const cards = ordered.map((ev) => {
-      const img = ev.image_url
-        ? '<img src="' + escapeHtml(ev.image_url) + '" alt="">'
-        : '<div class="orgasmic-cal-cover"></div>';
-      return '<a class="orgasmic-cal-card' + (isEventToday(ev) ? ' oc-today-card' : '') + '" href="#orgasmic-event-' + ev.id + '">'
-        + img
-        + '<div class="oc-body"><div class="orgasmic-cal-meta">' + escapeHtml(fmtDate(ev.starts_at, ev.timezone)) + '</div>'
-        + '<h3>' + escapeHtml(ev.title) + todayBadge(ev) + '</h3>'
-        + '<div class="orgasmic-cal-spaces">' + spacesHtml(ev.spaces) + '</div>'
-        + '<p class="oc-sub">' + escapeHtml(ev.excerpt || '') + '</p>'
-        + '<p class="oc-sub">' + (ev.rsvp.counts.going || 0) + ' dabei</p>'
-        + '</div></a>';
-    }).join('') || '<div class="orgasmic-cal-empty">Noch keine Events in deinen Kreisen.</div>';
+    const shown = ordered.filter((ev) => !state.selectedDay || isEventOnDay(ev, state.selectedDay));
+    const cards = shown.map(eventCardHtml).join('')
+      || '<div class="orgasmic-cal-empty">'
+      + (state.selectedDay ? 'Keine Events an diesem Tag.' : 'Noch keine Events in deinen Kreisen.')
+      + '</div>';
 
     mount(root, shell(
-      '<div class="orgasmic-cal-month">'
+      '<div class="orgasmic-cal-list-layout">'
+      + '<div class="orgasmic-cal-list-main">'
+      + '<div class="orgasmic-cal-list-head"><h2>Events</h2>'
+      + (state.selectedDay ? '<button type="button" class="oc-ghost" data-oc-clear-day>Alle Tage</button>' : '')
+      + '</div>'
+      + '<div class="orgasmic-cal-list">' + cards + '</div>'
+      + '</div>'
+      + '<aside class="orgasmic-cal-widget">'
+      + '<div class="orgasmic-cal-month">'
       + '<button type="button" class="oc-ghost" data-oc-prev>←</button>'
       + '<strong>' + MONTHS[m.getMonth()] + ' ' + m.getFullYear() + '</strong>'
       + '<button type="button" class="oc-ghost" data-oc-next>→</button>'
       + '</div>'
-      + '<div class="orgasmic-cal-grid">' + grid + '</div>'
-      + '<div class="orgasmic-cal-list">' + cards + '</div>'
+      + '<div class="orgasmic-cal-grid oc-widget-grid">' + grid + '</div>'
+      + '<div class="orgasmic-cal-widget-bar">'
+      + '<button type="button" class="oc-ghost" data-oc-today>Heute</button>'
+      + '</div>'
+      + '</aside>'
+      + '</div>'
     ));
     root.querySelector('[data-oc-prev]').onclick = () => {
       state.month = new Date(m.getFullYear(), m.getMonth() - 1, 1);
@@ -441,10 +558,31 @@
       state.month = new Date(m.getFullYear(), m.getMonth() + 1, 1);
       renderList();
     };
-    root.querySelectorAll('[data-oc-new]').forEach((el) => {
+    const todayBtn = root.querySelector('[data-oc-today]');
+    if (todayBtn) {
+      todayBtn.onclick = () => {
+        const now = new Date();
+        state.month = new Date(now.getFullYear(), now.getMonth(), 1);
+        state.selectedDay = ymdLocal(now);
+        renderList();
+      };
+    }
+    const clearBtn = root.querySelector('[data-oc-clear-day]');
+    if (clearBtn) {
+      clearBtn.onclick = () => {
+        state.selectedDay = null;
+        renderList();
+      };
+    }
+    root.querySelectorAll('[data-oc-day]').forEach((el) => {
       el.addEventListener('click', (e) => {
-        if (e.target.closest('a')) return;
-        location.hash = '#orgasmic-event-new-' + el.getAttribute('data-oc-new');
+        if (e.detail > 1 && canManage && el.getAttribute('data-oc-new')) {
+          location.hash = '#orgasmic-event-new-' + el.getAttribute('data-oc-new');
+          return;
+        }
+        const key = el.getAttribute('data-oc-day');
+        state.selectedDay = state.selectedDay === key ? null : key;
+        renderList();
       });
     });
   }
@@ -471,6 +609,7 @@
 
     mount(root, shell(
       '<p><a class="oc-btn oc-ghost" href="#orgasmic-calendar">← Alle Events</a></p>'
+      + '<div class="orgasmic-cal-detail-layout">'
       + '<article class="orgasmic-cal-detail">'
       + '<div class="oc-hero">' + hero + '</div>'
       + '<div class="orgasmic-cal-spaces">' + spacesHtml(ev.spaces) + '</div>'
@@ -482,7 +621,27 @@
       + join + ' ' + manage
       + '<h3>Wer nimmt teil</h3><div class="orgasmic-cal-people">' + (people || '<p class="oc-sub">Noch niemand hat zugesagt.</p>') + '</div>'
       + '</article>'
+      + discussHtml(ev)
+      + '</div>'
     ));
+    const commentForm = root.querySelector('[data-oc-comment]');
+    if (commentForm) {
+      commentForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const box = commentForm.querySelector('[name="message"]');
+        const message = (box && box.value || '').trim();
+        if (!message) return;
+        const btn = commentForm.querySelector('button[type="submit"]');
+        if (btn) btn.disabled = true;
+        try {
+          ev.discussion = await api('events/' + id + '/comments', { method: 'POST', body: JSON.stringify({ message }) });
+          renderDetail(id);
+        } catch (err) {
+          alert(err.message);
+          if (btn) btn.disabled = false;
+        }
+      };
+    }
     root.querySelectorAll('[data-rsvp]').forEach((btn) => {
       btn.onclick = async () => {
         try {
@@ -656,6 +815,9 @@
 
   document.addEventListener('click', intercept);
   window.addEventListener('hashchange', bootFromHash);
+  window.addEventListener('resize', applyMobileBarInset);
+  window.addEventListener('orientationchange', applyMobileBarInset);
+  applyMobileBarInset();
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       watchNavIcons();

@@ -418,9 +418,44 @@
     return null;
   }
 
+  function applyMobileBarInset() {
+    let height = 0;
+    if (window.matchMedia('(max-width: 760px)').matches) {
+      const skip = '#orgasmic-chat-root, #orgasmic-cal-root, #orgasmic-app-prefs';
+      const selectors = [
+        '.fcom_mobile_menu',
+        '.fcom-mobile-menu',
+        '.fcom_mobile_nav',
+        '.fcom-mobile-nav',
+        '.fluent_community_mobile_menu',
+        '[class*="mobile_menu"]',
+        '[class*="mobile-menu"]',
+        '[class*="bottom-nav"]',
+        '[class*="bottom_nav"]',
+      ];
+      const seen = new Set();
+      selectors.forEach((sel) => {
+        document.querySelectorAll(sel).forEach((el) => {
+          if (el.closest(skip) || seen.has(el)) return;
+          const st = getComputedStyle(el);
+          if (st.display === 'none' || st.visibility === 'hidden') return;
+          if (st.position !== 'fixed' && st.position !== 'sticky') return;
+          const r = el.getBoundingClientRect();
+          if (r.height >= 46 && r.height <= 96 && r.width >= window.innerWidth * 0.55 && r.bottom >= window.innerHeight - 8) {
+            seen.add(el);
+            height = Math.max(height, Math.ceil(r.height));
+          }
+        });
+      });
+      if (!height) height = 56;
+    }
+    document.documentElement.style.setProperty('--orgasmic-mobile-bar', height + 'px');
+  }
+
   function openOverlay() {
     const root = document.getElementById('orgasmic-chat-root');
     if (!root) return;
+    applyMobileBarInset();
     root.hidden = false;
     document.body.style.overflow = 'hidden';
     document.documentElement.style.overflow = 'hidden';
@@ -1565,6 +1600,9 @@
 
   updateNavBadge(cfg.unread || 0);
   watchNavIcons();
+  applyMobileBarInset();
+  window.addEventListener('resize', applyMobileBarInset);
+  window.addEventListener('orientationchange', applyMobileBarInset);
   pollUnread();
   if (hashRoute()) bootFromHash();
 })();

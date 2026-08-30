@@ -1,12 +1,15 @@
 === ORGASMIC App ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.1.3
+Stable tag: 1.1.4
 License: GPLv2 or later
 
 PWA, offline cache, and Web Push for chat, posts, comments, and calendar events.
 
 == Changelog ==
+
+= 1.1.4 =
+* Notification settings live in the profile dropdown (no extra bell icons)
 
 = 1.1.3 =
 * Service worker also caches chat uploads (images and audio)

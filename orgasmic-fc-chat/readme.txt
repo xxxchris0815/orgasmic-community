@@ -1,12 +1,15 @@
 === ORGASMIC Chat ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.1.8
+Stable tag: 1.1.9
 License: GPLv2 or later
 
 Space chat for FluentCommunity. One room per space, members only, header icon with unread badge, REST API.
 
 == Changelog ==
+
+= 1.1.9 =
+* Mobile chat overlay leaves the FluentCommunity bottom bar visible
 
 = 1.1.8 =
 * Faster voice playback actually speeds up and keeps pitch

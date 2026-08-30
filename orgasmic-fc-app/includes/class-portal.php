@@ -14,8 +14,9 @@ class Orgasmic_Fc_App_Portal
         add_action('fluent_community/headless/head', [$this, 'head']);
         add_action('fluent_community/portal_footer', [$this, 'boot']);
         add_action('fluent_community/headless/footer', [$this, 'boot']);
-        add_action('fluent_community/before_header_menu_items', [$this, 'header_item'], 9, 2);
-        add_filter('fluent_community/mobile_menu', [$this, 'mobile_menu'], 19, 1);
+        add_filter('fluent_community/menu_groups', [$this, 'menu_groups'], 20);
+        add_filter('fluent_community/menu_items_api_response', [$this, 'menu_groups'], 20);
+        add_filter('fluent_community/profile_view_data', [$this, 'profile_view_data'], 20, 2);
     }
 
     public function head(): void
@@ -42,7 +43,7 @@ class Orgasmic_Fc_App_Portal
         $data = [
             'root' => esc_url_raw(rest_url('orgasmic-app/v1/')),
             'nonce' => wp_create_nonce('wp_rest'),
-            'navIcon' => $this->icon_svg(),
+            'navIcon' => $this->icon_svg(false),
             'sw' => esc_url_raw(home_url('/orgasmic-sw.js')),
             'prefs' => Orgasmic_Fc_App_Install::prefs_for(get_current_user_id()),
         ];
@@ -64,36 +65,63 @@ class Orgasmic_Fc_App_Portal
         echo '</form></div></div></div>';
     }
 
-    public function header_item($auth, $context = null): void
+    public function menu_groups($groups)
     {
-        if (!$auth && !is_user_logged_in()) {
-            return;
+        if (!is_array($groups)) {
+            return $groups;
         }
-        echo '<li class="top_menu_item fcom_icon_link orgasmic-app-nav">';
-        echo '<a href="#orgasmic-notify" data-orgasmic-notify="1" aria-label="Benachrichtigungen" title="Benachrichtigungen">';
-        echo $this->icon_svg(false);
-        echo '<span class="oa-nav-label">Benachrichtigungen</span>';
-        echo '</a></li>';
+        if (empty($groups['profileDropdownItems']) || !is_array($groups['profileDropdownItems'])) {
+            $groups['profileDropdownItems'] = [];
+        }
+
+        foreach ($groups['profileDropdownItems'] as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $slug = (string) ($item['slug'] ?? '');
+            $permalink = (string) ($item['permalink'] ?? $item['url'] ?? '');
+            if ($slug === 'orgasmic-notify' || str_contains($permalink, '#orgasmic-notify')) {
+                return $groups;
+            }
+        }
+
+        $groups['profileDropdownItems'][] = $this->profile_item();
+        return $groups;
     }
 
-    public function mobile_menu($items)
+    public function profile_view_data($data, $xprofile = null)
     {
-        if (!is_array($items)) {
-            return $items;
+        if (!is_array($data)) {
+            return $data;
         }
-        $items[] = $this->menu_entry();
-        return $items;
+        if (empty($data['profile_nav_actions']) || !is_array($data['profile_nav_actions'])) {
+            $data['profile_nav_actions'] = [];
+        }
+        foreach ($data['profile_nav_actions'] as $item) {
+            if (is_array($item) && (($item['css_class'] ?? '') === 'oa-profile-notify' || str_contains((string) ($item['url'] ?? ''), '#orgasmic-notify'))) {
+                return $data;
+            }
+        }
+        $data['profile_nav_actions'][] = [
+            'css_class' => 'oa-profile-notify',
+            'title' => __('Benachrichtigungen', 'orgasmic-fc-app'),
+            'svg_icon' => $this->icon_svg(false),
+            'url' => '#orgasmic-notify',
+        ];
+        return $data;
     }
 
-    private function menu_entry(): array
+    private function profile_item(): array
     {
+        $icon = $this->icon_svg(false);
         return [
-            'title' => 'Benachrichtigungen',
-            'name' => 'Benachrichtigungen',
+            'title' => __('Benachrichtigungen', 'orgasmic-fc-app'),
+            'name' => __('Benachrichtigungen', 'orgasmic-fc-app'),
             'permalink' => '#orgasmic-notify',
+            'url' => '#orgasmic-notify',
             'slug' => 'orgasmic-notify',
-            'icon_svg' => $this->icon_svg(),
-            'svg_icon' => $this->icon_svg(),
+            'icon_svg' => $icon,
+            'svg_icon' => $icon,
             'is_custom' => true,
         ];
     }

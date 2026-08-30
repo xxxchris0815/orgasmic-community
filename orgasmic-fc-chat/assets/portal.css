@@ -1,6 +1,7 @@
 #orgasmic-chat-root {
   position: fixed;
   inset: 0;
+  bottom: var(--orgasmic-mobile-bar, 0px);
   z-index: 99991;
   overflow: hidden !important;
 }
@@ -784,6 +785,15 @@ a[href="#orgasmic-chat"] .och-nav-badge {
 }
 
 @media (max-width: 760px) {
+  #orgasmic-chat-root {
+    bottom: var(--orgasmic-mobile-bar, calc(56px + env(safe-area-inset-bottom, 0px)));
+    height: auto;
+  }
+
+  .orgasmic-chat-composer {
+    padding-bottom: 14px;
+  }
+
   .orgasmic-chat-body {
     grid-template-columns: 1fr;
   }

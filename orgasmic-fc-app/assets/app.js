@@ -81,7 +81,7 @@
   function paintNavIcons() {
     const svg = cfg.navIcon;
     if (!svg) return;
-    document.querySelectorAll('.orgasmic-app-nav a, a[data-orgasmic-notify], a[href*="#orgasmic-notify"]').forEach((host) => {
+    document.querySelectorAll('.orgasmic-app-nav a, a[data-orgasmic-notify], a[href*="#orgasmic-notify"], .oa-profile-notify').forEach((host) => {
       host.querySelectorAll('.el-icon, i[class*="el-icon"]').forEach((node) => {
         if (!node.querySelector('path, rect, circle')) node.remove();
       });
@@ -92,18 +92,52 @@
     });
   }
 
+  function looksLikeProfileMenu(el) {
+    const text = (el.textContent || '').replace(/\s+/g, ' ');
+    return /Abmelden|Sign out|Logout|Lesezeichen|Bookmarks/i.test(text)
+      && el.querySelectorAll('a, button').length >= 2;
+  }
+
+  function injectProfileNotify() {
+    const menus = [];
+    document.querySelectorAll('[class*="dropdown"], [class*="profile"], [role="menu"]').forEach((el) => {
+      if (looksLikeProfileMenu(el)) menus.push(el);
+    });
+    menus.forEach((menu) => {
+      if (menu.querySelector('[data-orgasmic-notify], a[href="#orgasmic-notify"], .oa-profile-notify')) return;
+      const links = Array.from(menu.querySelectorAll('a, button'));
+      const logout = links.find((node) => /Abmelden|Sign out|Logout/i.test(node.textContent || ''));
+      const row = logout && (logout.closest('li') || logout);
+      const item = document.createElement(row && row.tagName === 'LI' ? 'li' : 'div');
+      item.className = 'oa-profile-notify-item';
+      item.innerHTML = '<a href="#orgasmic-notify" data-orgasmic-notify="1" class="oa-profile-notify">'
+        + (cfg.navIcon || '')
+        + '<span>Benachrichtigungen</span></a>';
+      if (row && row.parentElement) {
+        row.parentElement.insertBefore(item, row);
+      } else {
+        menu.appendChild(item);
+      }
+    });
+  }
+
   function watchNavIcons() {
     let scheduled = 0;
     const run = () => {
       scheduled = 0;
       paintNavIcons();
+      injectProfileNotify();
     };
     const schedule = () => {
       if (scheduled) return;
       scheduled = requestAnimationFrame(run);
     };
     paintNavIcons();
-    [200, 800, 2000].forEach((ms) => setTimeout(paintNavIcons, ms));
+    injectProfileNotify();
+    [200, 800, 2000].forEach((ms) => {
+      setTimeout(paintNavIcons, ms);
+      setTimeout(injectProfileNotify, ms);
+    });
     if (typeof MutationObserver === 'undefined' || !document.body) return;
     const obs = new MutationObserver(schedule);
     obs.observe(document.body, { childList: true, subtree: true });
@@ -161,6 +195,13 @@
   });
 
   document.addEventListener('click', async (ev) => {
+    const notifyLink = ev.target.closest('a[href*="#orgasmic-notify"], [data-orgasmic-notify], .oa-profile-notify');
+    if (notifyLink) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      openPrefs();
+      return;
+    }
     if (ev.target.closest('[data-oa-prefs-close]') || ev.target.closest('.orgasmic-app-prefs-overlay') === ev.target) {
       ev.preventDefault();
       closePrefs();
