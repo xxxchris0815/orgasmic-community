@@ -10,7 +10,7 @@ Moved from `evolution-api` (`Extras/orgasmic-community`).
 | --- | --- | --- |
 | `orgasmic-fc-tracker/` | **1.2.1** | Engagement-Tracker, Dashboard, Evolution-Webhook |
 | `orgasmic-fc-events/` | **1.0.7** | Kalender im Portal (RSVP, Zoom, Event-Kommentare, MN-Layout) |
-| `orgasmic-fc-embeds/` | **1.1.1** | Bunny-Player, Autoplay-Setting, Wiedergabe-Tracking + Webhook |
+| `orgasmic-fc-embeds/` | **1.2.0** | Bunny-Player, Composer-Upload, Autoplay, Wiedergabe-Tracking + Webhook |
 | `orgasmic-fc-chat/` | **1.1.9** | Space-Chat (Mighty-Networks-Layout, Bild + Sprache, Offline-Cache) |
 | `orgasmic-fc-app/` | **1.1.4** | PWA, Web Push, Prefs im Profilmenü, Capacitor-Token-API + optional Firebase |
 
@@ -47,12 +47,13 @@ ZIP: [`orgasmic-fc-tracker-1.2.1.zip`](https://github.com/xxxchris0815/orgasmic-
 
 Plugin-Ordner: `orgasmic-fc-embeds/`
 
+- Videos aus dem Beitrags-Uploader gehen zu Bunny Stream; der Player-Link landet automatisch im Beitrag
 - `player.mediadelivery.net/play/...` wird im Feed als eingebetteter Player angezeigt
 - Autoplay ein/aus unter **ORGASMIC Bunny → Einstellungen**
 - Tracking: wer spielt welches Video, Position in Sekunden, max. gesehen
 - Webhook: `video.play`, `video.pause`, `video.progress` (alle 15s), `video.ended`, `video.seeked`
 
-ZIP: [`orgasmic-fc-embeds-1.1.1.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-embeds-1.1.1.zip)
+ZIP: [`orgasmic-fc-embeds-1.2.0.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-embeds-1.2.0.zip)
 
 Falls der iframe leer bleibt: in Bunny Stream → Allowed Domains `community.orgasmic.live` eintragen.
 

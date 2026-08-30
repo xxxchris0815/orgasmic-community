@@ -21,3 +21,50 @@
 .orgasmic-bunny-embed + .orgasmic-bunny-embed {
   display: none !important;
 }
+
+#orgasmic-bunny-upload {
+  position: fixed;
+  right: 16px;
+  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  z-index: 100010;
+  max-width: min(360px, calc(100vw - 24px));
+}
+
+#orgasmic-bunny-upload[hidden] {
+  display: none !important;
+}
+
+#orgasmic-bunny-upload .obu-card {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--el-bg-color, #fff);
+  color: inherit;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+  border: 1px solid var(--el-border-color, rgba(15, 23, 42, 0.12));
+}
+
+#orgasmic-bunny-upload .obu-title {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+#orgasmic-bunny-upload .obu-status {
+  margin: 0 0 8px;
+  font-size: 13px;
+  opacity: 0.78;
+}
+
+#orgasmic-bunny-upload .obu-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+}
+
+#orgasmic-bunny-upload .obu-bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--el-color-primary, #c4a35a);
+}

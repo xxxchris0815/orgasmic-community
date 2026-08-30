@@ -12,7 +12,8 @@ class Orgasmic_Fc_Embeds_Rest
 
     public function __construct(
         private Orgasmic_Fc_Embeds_Store $store,
-        private Orgasmic_Fc_Embeds_Webhook $webhook
+        private Orgasmic_Fc_Embeds_Webhook $webhook,
+        private Orgasmic_Fc_Embeds_Bunny $bunny
     ) {
     }
 
@@ -28,6 +29,26 @@ class Orgasmic_Fc_Embeds_Rest
             'permission_callback' => static fn() => is_user_logged_in(),
             'callback' => [$this, 'watch'],
         ]);
+
+        register_rest_route('orgasmic-embeds/v1', '/upload/create', [
+            'methods' => 'POST',
+            'permission_callback' => static fn() => is_user_logged_in(),
+            'callback' => [$this, 'create_upload'],
+        ]);
+    }
+
+    public function create_upload(WP_REST_Request $request)
+    {
+        $params = $request->get_json_params();
+        if (!is_array($params)) {
+            $params = $request->get_params();
+        }
+        $title = sanitize_text_field((string) ($params['title'] ?? ''));
+        $created = $this->bunny->create_upload($title);
+        if (is_wp_error($created)) {
+            return $created;
+        }
+        return rest_ensure_response($created);
     }
 
     public function watch(WP_REST_Request $request)

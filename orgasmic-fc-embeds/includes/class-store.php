@@ -9,6 +9,9 @@ if (!defined('ABSPATH')) {
 class Orgasmic_Fc_Embeds_Store
 {
     public const OPTION_AUTOPLAY = 'orgasmic_fc_embeds_autoplay';
+    public const OPTION_LIBRARY_ID = 'orgasmic_fc_embeds_library_id';
+    public const OPTION_API_KEY = 'orgasmic_fc_embeds_api_key';
+    public const OPTION_COLLECTION_ID = 'orgasmic_fc_embeds_collection_id';
     public const OPTION_WEBHOOK_URL = 'orgasmic_fc_embeds_webhook_url';
     public const OPTION_WEBHOOK_SECRET = 'orgasmic_fc_embeds_webhook_secret';
     public const OPTION_INCLUDE_PII = 'orgasmic_fc_embeds_include_pii';
@@ -70,6 +73,26 @@ class Orgasmic_Fc_Embeds_Store
     public function autoplay(): bool
     {
         return (bool) get_option(self::OPTION_AUTOPLAY, '1');
+    }
+
+    public function library_id(): string
+    {
+        return preg_replace('/[^0-9]/', '', (string) get_option(self::OPTION_LIBRARY_ID, '')) ?: '';
+    }
+
+    public function api_key(): string
+    {
+        return trim((string) get_option(self::OPTION_API_KEY, ''));
+    }
+
+    public function collection_id(): string
+    {
+        return sanitize_text_field((string) get_option(self::OPTION_COLLECTION_ID, ''));
+    }
+
+    public function upload_configured(): bool
+    {
+        return $this->library_id() !== '' && $this->api_key() !== '';
     }
 
     public function insert(array $row): int

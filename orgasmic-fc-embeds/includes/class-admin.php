@@ -56,6 +56,24 @@ class Orgasmic_Fc_Embeds_Admin
             'type' => 'boolean',
             'sanitize_callback' => 'rest_sanitize_boolean',
         ]);
+        register_setting('orgasmic_fc_embeds', Orgasmic_Fc_Embeds_Store::OPTION_LIBRARY_ID, [
+            'type' => 'string',
+            'sanitize_callback' => static fn($value) => preg_replace('/[^0-9]/', '', (string) $value) ?: '',
+        ]);
+        register_setting('orgasmic_fc_embeds', Orgasmic_Fc_Embeds_Store::OPTION_API_KEY, [
+            'type' => 'string',
+            'sanitize_callback' => static function ($value) {
+                $value = trim((string) $value);
+                if ($value === '') {
+                    return (string) get_option(Orgasmic_Fc_Embeds_Store::OPTION_API_KEY, '');
+                }
+                return sanitize_text_field($value);
+            },
+        ]);
+        register_setting('orgasmic_fc_embeds', Orgasmic_Fc_Embeds_Store::OPTION_COLLECTION_ID, [
+            'type' => 'string',
+            'sanitize_callback' => 'sanitize_text_field',
+        ]);
         register_setting('orgasmic_fc_embeds', Orgasmic_Fc_Embeds_Store::OPTION_WEBHOOK_URL, [
             'type' => 'string',
             'sanitize_callback' => 'esc_url_raw',
@@ -136,6 +154,21 @@ class Orgasmic_Fc_Embeds_Admin
         echo '<form method="post" action="options.php">';
         settings_fields('orgasmic_fc_embeds');
         echo '<table class="form-table" role="presentation">';
+        echo '<tr><th>Bunny Library-ID</th><td><input type="text" class="regular-text" name="'
+            . esc_attr(Orgasmic_Fc_Embeds_Store::OPTION_LIBRARY_ID) . '" value="'
+            . esc_attr($this->store->library_id()) . '" placeholder="z. B. 123456" />';
+        echo '<p class="description">Stream → deine Library. Steht in der URL und unter API.</p></td></tr>';
+
+        echo '<tr><th>Bunny Stream API-Key</th><td><input type="password" class="regular-text" name="'
+            . esc_attr(Orgasmic_Fc_Embeds_Store::OPTION_API_KEY) . '" value="" autocomplete="new-password" placeholder="'
+            . ($this->store->api_key() !== '' ? 'Gesetzt — leer lassen zum Behalten' : 'Library-API-Key') . '" />';
+        echo '<p class="description">Stream → Library → API. Wird nur serverseitig genutzt (nicht im Browser).</p></td></tr>';
+
+        echo '<tr><th>Collection (optional)</th><td><input type="text" class="regular-text" name="'
+            . esc_attr(Orgasmic_Fc_Embeds_Store::OPTION_COLLECTION_ID) . '" value="'
+            . esc_attr($this->store->collection_id()) . '" placeholder="Collection-GUID" />';
+        echo '<p class="description">Neue Community-Videos landen in dieser Collection.</p></td></tr>';
+
         echo '<tr><th>Autoplay</th><td>';
         echo '<input type="hidden" name="' . esc_attr(Orgasmic_Fc_Embeds_Store::OPTION_AUTOPLAY) . '" value="0" />';
         echo '<label><input type="checkbox" name="' . esc_attr(Orgasmic_Fc_Embeds_Store::OPTION_AUTOPLAY) . '" value="1" '
