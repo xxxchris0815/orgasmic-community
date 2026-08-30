@@ -20,7 +20,7 @@ class Orgasmic_Fc_Embeds_Bunny
         $library = $this->store->library_id();
         $key = $this->store->api_key();
         if ($library === '' || $key === '') {
-            return new WP_Error('bunny', 'Bunny Stream ist nicht konfiguriert (Library-ID und API-Key).', ['status' => 400]);
+            return new WP_Error('bunny', 'Video-Upload ist nicht konfiguriert.', ['status' => 400]);
         }
 
         $title = sanitize_text_field($title);
@@ -45,19 +45,14 @@ class Orgasmic_Fc_Embeds_Bunny
         ]);
 
         if (is_wp_error($response)) {
-            return new WP_Error('bunny', $response->get_error_message(), ['status' => 502]);
+            return new WP_Error('bunny', 'Das Video konnte nicht angelegt werden.', ['status' => 502]);
         }
 
         $code = (int) wp_remote_retrieve_response_code($response);
         $data = json_decode((string) wp_remote_retrieve_body($response), true);
         $guid = is_array($data) ? (string) ($data['guid'] ?? '') : '';
         if ($code >= 300 || $guid === '') {
-            $message = is_array($data) ? (string) ($data['message'] ?? $data['ErrorMessage'] ?? '') : '';
-            return new WP_Error(
-                'bunny',
-                $message !== '' ? $message : 'Bunny konnte das Video nicht anlegen (HTTP ' . $code . ').',
-                ['status' => 502]
-            );
+            return new WP_Error('bunny', 'Das Video konnte nicht angelegt werden.', ['status' => 502]);
         }
 
         $expire = time() + DAY_IN_SECONDS;
@@ -98,13 +93,13 @@ class Orgasmic_Fc_Embeds_Bunny
             ]
         );
         if (is_wp_error($response)) {
-            return new WP_Error('bunny', $response->get_error_message(), ['status' => 502]);
+            return new WP_Error('bunny', 'Video-Status fehlgeschlagen.', ['status' => 502]);
         }
 
         $code = (int) wp_remote_retrieve_response_code($response);
         $data = json_decode((string) wp_remote_retrieve_body($response), true);
         if ($code >= 300 || !is_array($data)) {
-            return new WP_Error('bunny', 'Bunny-Status fehlgeschlagen (HTTP ' . $code . ').', ['status' => 502]);
+            return new WP_Error('bunny', 'Video-Status fehlgeschlagen.', ['status' => 502]);
         }
 
         return [
@@ -157,10 +152,10 @@ class Orgasmic_Fc_Embeds_Bunny
             curl_close($curl);
             fclose($handle);
             if ($error !== '') {
-                return new WP_Error('bunny', $error, ['status' => 502]);
+                return new WP_Error('bunny', 'Video-Upload fehlgeschlagen.', ['status' => 502]);
             }
             if ($code >= 300) {
-                return new WP_Error('bunny', 'Bunny PUT fehlgeschlagen (HTTP ' . $code . '). ' . substr((string) $body, 0, 180), ['status' => 502]);
+                return new WP_Error('bunny', 'Video-Upload fehlgeschlagen.', ['status' => 502]);
             }
             return true;
         }
@@ -177,11 +172,11 @@ class Orgasmic_Fc_Embeds_Bunny
             'body' => file_get_contents($path),
         ]);
         if (is_wp_error($response)) {
-            return $response;
+            return new WP_Error('bunny', 'Video-Upload fehlgeschlagen.', ['status' => 502]);
         }
         $code = (int) wp_remote_retrieve_response_code($response);
         if ($code >= 300) {
-            return new WP_Error('bunny', 'Bunny PUT fehlgeschlagen (HTTP ' . $code . ').', ['status' => 502]);
+            return new WP_Error('bunny', 'Video-Upload fehlgeschlagen.', ['status' => 502]);
         }
         return true;
     }

@@ -3,7 +3,7 @@
  * Plugin Name: ORGASMIC Bunny Embeds
  * Plugin URI: https://community.orgasmic.live
  * Description: Embeds Bunny Stream videos in FluentCommunity, tracks playback, and forwards watch events via webhook.
- * Version: 1.2.7
+ * Version: 1.2.8
  * Requires at least: 6.4
  * Requires PHP: 8.1
  * Author: ORGASMIC
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('ORGASMIC_FC_EMBEDS_VERSION', '1.2.7');
+define('ORGASMIC_FC_EMBEDS_VERSION', '1.2.8');
 define('ORGASMIC_FC_EMBEDS_FILE', __FILE__);
 define('ORGASMIC_FC_EMBEDS_PATH', plugin_dir_path(__FILE__));
 define('ORGASMIC_FC_EMBEDS_URL', plugin_dir_url(__FILE__));

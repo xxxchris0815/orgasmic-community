@@ -197,13 +197,25 @@
     return document.getElementById('orgasmic-bunny-upload');
   }
 
+  function userFacing(text, fallback) {
+    const raw = String(text || '').trim();
+    const clean = String(fallback || '').trim();
+    if (!raw || /bunny|tus|mediadelivery|bunnycdn|fingerprint/i.test(raw)) {
+      if (clean && !/bunny|tus|mediadelivery|bunnycdn|fingerprint/i.test(clean)) {
+        return clean;
+      }
+      return 'Upload fehlgeschlagen.';
+    }
+    return raw;
+  }
+
   function setStatus(text, pct) {
     const root = panel();
     if (!root) return;
     root.hidden = false;
     const status = root.querySelector('[data-obu-status]');
     const bar = root.querySelector('[data-obu-bar]');
-    if (status) status.textContent = text;
+    if (status) status.textContent = userFacing(text, 'Wird hochgeladen…');
     if (bar) bar.style.width = Math.max(0, Math.min(100, pct || 0)) + '%';
   }
 
@@ -218,8 +230,8 @@
     tusReady = new Promise((resolve, reject) => {
       const script = document.createElement('script');
       script.src = cfg.tus;
-      script.onload = () => (window.tus ? resolve(window.tus) : reject(new Error('TUS nicht geladen')));
-      script.onerror = () => reject(new Error('TUS-Skript fehlgeschlagen'));
+      script.onload = () => (window.tus ? resolve(window.tus) : reject(new Error('Video-Upload nicht bereit')));
+      script.onerror = () => reject(new Error('Video-Upload nicht bereit'));
       document.head.appendChild(script);
     });
     return tusReady;
@@ -237,7 +249,7 @@
       body: JSON.stringify({ title: title || '' }),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.message || 'Bunny-Upload konnte nicht gestartet werden.');
+    if (!res.ok) throw new Error(userFacing(data.message, 'Video-Upload konnte nicht gestartet werden.'));
     return data;
   }
 
@@ -623,7 +635,7 @@
           window.clearInterval(timer);
           if (!ok) {
             try { navigator.clipboard.writeText(url); } catch (e) {}
-            setStatus('Video hochgeladen. Link: ' + url, 100);
+            setStatus('Video hochgeladen.', 100);
           }
           resolve(ok);
         }
@@ -637,7 +649,7 @@
       headers: { 'X-WP-Nonce': cfg.nonce, Accept: 'application/json' },
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.message || 'Bunny-Status fehlgeschlagen.');
+    if (!res.ok) throw new Error(userFacing(data.message, 'Video-Status fehlgeschlagen.'));
     return data;
   }
 
@@ -663,7 +675,7 @@
       body: fd,
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.message || 'Direkt-Upload zu Bunny fehlgeschlagen.');
+    if (!res.ok) throw new Error(userFacing(data.message, 'Video-Upload fehlgeschlagen.'));
     return data;
   }
 
@@ -684,7 +696,7 @@
         if (!ev.lengthComputable) return;
         const sent = offset + ev.loaded;
         const pct = total ? Math.min(99, Math.round((sent / total) * 100)) : 0;
-        setStatus('Upload über die App… ' + pct + '%', pct);
+        setStatus('Video wird hochgeladen… ' + pct + '%', pct);
       };
       xhr.onload = () => {
         let data = {};
@@ -693,10 +705,10 @@
           resolve(data);
           return;
         }
-        reject(new Error(data.message || ('Upload-Abschnitt fehlgeschlagen (HTTP ' + xhr.status + ').')));
+        reject(new Error(userFacing(data.message, 'Upload-Abschnitt fehlgeschlagen (HTTP ' + xhr.status + ').')));
       };
-      xhr.onerror = () => reject(new Error('Netzwerkfehler beim App-Upload.'));
-      xhr.ontimeout = () => reject(new Error('App-Upload ist abgelaufen.'));
+      xhr.onerror = () => reject(new Error('Netzwerkfehler beim Video-Upload.'));
+      xhr.ontimeout = () => reject(new Error('Video-Upload ist abgelaufen.'));
       xhr.send(fd);
     });
   }
@@ -706,7 +718,7 @@
     const chunkSize = 1024 * 1024;
     let offset = 0;
     let last = {};
-    setStatus('Upload über die App… 0%', 4);
+    setStatus('Video wird hochgeladen… 0%', 4);
     while (offset < total) {
       const end = Math.min(offset + chunkSize, total);
       const blob = file.slice(offset, end);
@@ -725,7 +737,7 @@
       last = data || {};
       offset = end;
       const pct = Math.min(99, Math.round((offset / total) * 100));
-      setStatus(offset >= total ? 'Bunny übernimmt die Datei…' : ('Upload über die App… ' + pct + '%'), pct);
+      setStatus(offset >= total ? 'Video wird verarbeitet…' : ('Video wird hochgeladen… ' + pct + '%'), pct);
     }
     return last;
   }
@@ -769,7 +781,7 @@
             window.clearTimeout(stall);
           }
           const pct = total ? Math.round((sent / total) * 100) : 0;
-          setStatus('Upload zu Bunny… ' + pct + '%', pct);
+          setStatus('Video wird hochgeladen… ' + pct + '%', pct);
         },
         onSuccess() {
           window.clearTimeout(stall);
@@ -790,7 +802,7 @@
     }
     return loadTus()
       .then((tus) => {
-        setStatus('Upload zu Bunny… 0%', 4);
+        setStatus('Video wird hochgeladen… 0%', 4);
         return tusUpload(file, creds, tus);
       })
       .then(() => creds)
@@ -799,7 +811,7 @@
         if (msg !== 'TUS_STALL' && !/tus|network|failed|abort|CORS|PATCH/i.test(msg)) {
           throw err;
         }
-        setStatus('Wechsel auf App-Upload…', 8);
+        setStatus('Zweiter Upload-Versuch…', 8);
         return originUpload(file, creds.video_id).then(() => creds);
       });
   }
@@ -812,19 +824,19 @@
     }
     busy = true;
     closeAttachDialogs();
-    setStatus('Video wird bei Bunny angelegt…', 2);
+    setStatus('Video wird vorbereitet…', 2);
     return apiCreate(file && file.name)
       .then((creds) => sendBytes(file, creds))
       .then((creds) => apiStatus(creds.video_id).then((status) => ({ creds, status })).catch(() => ({ creds, status: null })))
       .then((pair) => {
         if (videoReceived(pair.status)) return pair.creds;
         if (preferOriginUpload() || file.size > 48 * 1024 * 1024) {
-          throw new Error('Bunny hat die Datei nicht erhalten. Bitte noch einmal hochladen.');
+          throw new Error('Das Video ist nicht angekommen. Bitte noch einmal hochladen.');
         }
-        setStatus('Zweiter Versuch über den Server…', 50);
+        setStatus('Zweiter Upload-Versuch…', 50);
         return apiPush(file, pair.creds.video_id).then((status) => {
           if (!videoReceived(status) && status && status.ok === false) {
-            throw new Error('Bunny hat die Datei nicht erhalten.');
+            throw new Error('Das Video ist nicht angekommen.');
           }
           return pair.creds;
         });
@@ -833,14 +845,14 @@
         setStatus('Video wird in den Beitrag gesetzt…', 96);
         return insertPlayUrlRetry(creds.play_url).then((ok) => {
           if (ok) {
-            setStatus('Video ist im Beitrag. Bunny verarbeitet es jetzt.', 100);
+            setStatus('Video ist im Beitrag und wird jetzt verarbeitet.', 100);
             setTimeout(hideStatus, 2200);
           }
           return creds;
         });
       })
       .catch((err) => {
-        setStatus(err && err.message ? err.message : 'Upload fehlgeschlagen.', 0);
+        setStatus(userFacing(err && err.message, 'Upload fehlgeschlagen.'), 0);
         setTimeout(hideStatus, 4000);
         throw err;
       })
