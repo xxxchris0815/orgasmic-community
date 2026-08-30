@@ -20,6 +20,10 @@ class Orgasmic_Fc_Embeds_Rest
     public function register(): void
     {
         add_action('rest_api_init', [$this, 'routes']);
+        add_action('wp_ajax_orgasmic_fc_upload_create', [$this, 'ajax_create']);
+        add_action('wp_ajax_orgasmic_fc_upload_status', [$this, 'ajax_status']);
+        add_action('wp_ajax_orgasmic_fc_upload_push', [$this, 'ajax_push']);
+        add_action('wp_ajax_orgasmic_fc_upload_chunk', [$this, 'ajax_chunk']);
     }
 
     public function routes(): void
@@ -165,6 +169,89 @@ class Orgasmic_Fc_Embeds_Rest
         return $this->status_response($video_id);
     }
 
+    public function ajax_create(): void
+    {
+        if (!$this->ajax_ready()) {
+            return;
+        }
+        $request = new WP_REST_Request('POST', '/orgasmic-embeds/v1/upload/create');
+        $request->set_param('title', sanitize_text_field((string) wp_unslash($_POST['title'] ?? '')));
+        $this->send_ajax($this->create_upload($request));
+    }
+
+    public function ajax_status(): void
+    {
+        if (!$this->ajax_ready()) {
+            return;
+        }
+        $request = new WP_REST_Request('GET', '/orgasmic-embeds/v1/upload/status');
+        $request->set_param('video_id', sanitize_text_field((string) wp_unslash($_POST['video_id'] ?? '')));
+        $this->send_ajax($this->upload_status($request));
+    }
+
+    public function ajax_push(): void
+    {
+        if (!$this->ajax_ready()) {
+            return;
+        }
+        $request = new WP_REST_Request('POST', '/orgasmic-embeds/v1/upload/push');
+        $request->set_param('video_id', sanitize_text_field((string) wp_unslash($_POST['video_id'] ?? '')));
+        if (!empty($_FILES)) {
+            $request->set_file_params($_FILES);
+        }
+        $this->send_ajax($this->push_upload($request));
+    }
+
+    public function ajax_chunk(): void
+    {
+        if (!$this->ajax_ready()) {
+            return;
+        }
+        $request = new WP_REST_Request('POST', '/orgasmic-embeds/v1/upload/chunk');
+        $request->set_param('video_id', sanitize_text_field((string) wp_unslash($_POST['video_id'] ?? '')));
+        $request->set_param('offset', (int) ($_POST['offset'] ?? 0));
+        $request->set_param('total', (int) ($_POST['total'] ?? 0));
+        if (!empty($_FILES)) {
+            $request->set_file_params($_FILES);
+        }
+        $this->send_ajax($this->chunk_upload($request));
+    }
+
+    private function ajax_ready(): bool
+    {
+        if (!is_user_logged_in()) {
+            status_header(403);
+            wp_send_json(['message' => 'Bitte neu anmelden.']);
+            return false;
+        }
+        $nonce = (string) ($_POST['nonce'] ?? $_REQUEST['_wpnonce'] ?? '');
+        if (!wp_verify_nonce($nonce, 'orgasmic_fc_upload')) {
+            status_header(403);
+            wp_send_json(['message' => 'Bitte die Seite neu laden.']);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @param WP_REST_Response|WP_Error|array<string, mixed> $result
+     */
+    private function send_ajax($result): void
+    {
+        if (is_wp_error($result)) {
+            $data = $result->get_error_data();
+            $status = is_array($data) ? (int) ($data['status'] ?? 400) : 400;
+            status_header($status > 0 ? $status : 400);
+            wp_send_json([
+                'code' => $result->get_error_code(),
+                'message' => $result->get_error_message(),
+            ]);
+        }
+        $payload = $result instanceof WP_REST_Response ? $result->get_data() : $result;
+        wp_send_json($payload);
+    }
+
     private function sanitize_video_id(string $video_id): string
     {
         return strtolower(preg_replace('/[^0-9a-f-]/', '', $video_id) ?: '');
@@ -180,7 +267,11 @@ class Orgasmic_Fc_Embeds_Rest
         }
 
         $body = $request->get_body();
-        return is_string($body) ? $body : '';
+        if (is_string($body) && $body !== '') {
+            return $body;
+        }
+        $raw = file_get_contents('php://input');
+        return is_string($raw) ? $raw : '';
     }
 
     private function status_response(string $video_id): WP_REST_Response

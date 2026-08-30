@@ -110,7 +110,9 @@ class Orgasmic_Fc_Bunny_Embeds
 
         $data = [
             'root' => esc_url_raw(rest_url('orgasmic-embeds/v1/')),
+            'ajax' => esc_url_raw(admin_url('admin-ajax.php')),
             'nonce' => wp_create_nonce('wp_rest'),
+            'ajaxNonce' => wp_create_nonce('orgasmic_fc_upload'),
             'autoplay' => $this->store->autoplay(),
             'loggedIn' => is_user_logged_in(),
             'uploadEnabled' => is_user_logged_in() && $this->store->upload_configured(),

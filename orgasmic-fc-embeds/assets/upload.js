@@ -237,20 +237,62 @@
     return tusReady;
   }
 
-  async function apiCreate(title) {
-    const res = await fetch(cfg.root + 'upload/create', {
+  function ajaxUrl() {
+    return cfg.ajax || '/wp-admin/admin-ajax.php';
+  }
+
+  function readAsBuffer(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('Datei konnte nicht gelesen werden.'));
+      reader.readAsArrayBuffer(blob);
+    });
+  }
+
+  async function parseReply(res, fallback) {
+    const data = await res.json().catch(() => ({}));
+    const payload = data && data.success === true && data.data ? data.data : data;
+    if (!res.ok) throw new Error(userFacing(payload && payload.message, fallback));
+    return payload;
+  }
+
+  async function restJson(path, body, fallback) {
+    const res = await fetch(cfg.root + path, {
       method: 'POST',
-      credentials: 'same-origin',
+      credentials: 'include',
       headers: {
         'X-WP-Nonce': cfg.nonce,
         Accept: 'application/json',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ title: title || '' }),
+      body: JSON.stringify(body || {}),
     });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(userFacing(data.message, 'Video-Upload konnte nicht gestartet werden.'));
-    return data;
+    return parseReply(res, fallback);
+  }
+
+  async function ajaxForm(action, fields, fileField, blob, filename, fallback) {
+    const fd = new FormData();
+    fd.append('action', action);
+    fd.append('nonce', cfg.ajaxNonce || '');
+    Object.keys(fields || {}).forEach((key) => fd.append(key, String(fields[key] ?? '')));
+    if (fileField && blob) fd.append(fileField, blob, filename || 'video.mp4');
+    const res = await fetch(ajaxUrl(), {
+      method: 'POST',
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+      body: fd,
+    });
+    return parseReply(res, fallback);
+  }
+
+  async function apiCreate(title) {
+    try {
+      return await restJson('upload/create', { title: title || '' }, 'Video-Upload konnte nicht gestartet werden.');
+    } catch (err) {
+      if (!cfg.ajaxNonce) throw err;
+      return ajaxForm('orgasmic_fc_upload_create', { title: title || '' }, null, null, '', 'Video-Upload konnte nicht gestartet werden.');
+    }
   }
 
   function editorSelector() {
@@ -644,13 +686,16 @@
   }
 
   async function apiStatus(videoId) {
-    const res = await fetch(cfg.root + 'upload/status?video_id=' + encodeURIComponent(videoId), {
-      credentials: 'same-origin',
-      headers: { 'X-WP-Nonce': cfg.nonce, Accept: 'application/json' },
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(userFacing(data.message, 'Video-Status fehlgeschlagen.'));
-    return data;
+    try {
+      const res = await fetch(cfg.root + 'upload/status?video_id=' + encodeURIComponent(videoId), {
+        credentials: 'include',
+        headers: { 'X-WP-Nonce': cfg.nonce, Accept: 'application/json' },
+      });
+      return await parseReply(res, 'Video-Status fehlgeschlagen.');
+    } catch (err) {
+      if (!cfg.ajaxNonce) throw err;
+      return ajaxForm('orgasmic_fc_upload_status', { video_id: videoId }, null, null, '', 'Video-Status fehlgeschlagen.');
+    }
   }
 
   function preferOriginUpload() {
@@ -665,57 +710,74 @@
   }
 
   async function apiPush(file, videoId) {
-    const fd = new FormData();
-    fd.append('video_id', videoId);
-    fd.append('file', file, file.name || 'video.mp4');
-    const res = await fetch(cfg.root + 'upload/push', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'X-WP-Nonce': cfg.nonce, Accept: 'application/json' },
-      body: fd,
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(userFacing(data.message, 'Video-Upload fehlgeschlagen.'));
-    return data;
-  }
-
-  function sendChunk(blob, videoId, offset, total, name) {
-    return new Promise((resolve, reject) => {
+    const body = new Blob([await readAsBuffer(file)], { type: file.type || 'application/octet-stream' });
+    try {
       const fd = new FormData();
       fd.append('video_id', videoId);
-      fd.append('offset', String(offset));
-      fd.append('total', String(total));
-      fd.append('chunk', blob, name || 'chunk.bin');
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', cfg.root + 'upload/chunk');
-      xhr.withCredentials = true;
-      xhr.timeout = 10 * 60 * 1000;
-      xhr.setRequestHeader('X-WP-Nonce', cfg.nonce);
-      xhr.setRequestHeader('Accept', 'application/json');
-      xhr.upload.onprogress = (ev) => {
-        if (!ev.lengthComputable) return;
-        const sent = offset + ev.loaded;
-        const pct = total ? Math.min(99, Math.round((sent / total) * 100)) : 0;
-        setStatus('Video wird hochgeladen… ' + pct + '%', pct);
-      };
-      xhr.onload = () => {
-        let data = {};
-        try { data = JSON.parse(xhr.responseText || '{}'); } catch (e) { data = {}; }
-        if (xhr.status >= 200 && xhr.status < 300) {
-          resolve(data);
-          return;
-        }
-        reject(new Error(userFacing(data.message, 'Upload-Abschnitt fehlgeschlagen (HTTP ' + xhr.status + ').')));
-      };
-      xhr.onerror = () => reject(new Error('Netzwerkfehler beim Video-Upload.'));
-      xhr.ontimeout = () => reject(new Error('Video-Upload ist abgelaufen.'));
-      xhr.send(fd);
+      fd.append('file', body, file.name || 'video.mp4');
+      const res = await fetch(cfg.root + 'upload/push?_wpnonce=' + encodeURIComponent(cfg.nonce), {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'X-WP-Nonce': cfg.nonce, Accept: 'application/json' },
+        body: fd,
+      });
+      return await parseReply(res, 'Video-Upload fehlgeschlagen.');
+    } catch (err) {
+      if (!cfg.ajaxNonce) throw err;
+      return ajaxForm('orgasmic_fc_upload_push', { video_id: videoId }, 'file', body, file.name || 'video.mp4', 'Video-Upload fehlgeschlagen.');
+    }
+  }
+
+  async function sendChunkAjax(buffer, videoId, offset, total, name) {
+    const body = new Blob([buffer], { type: 'application/octet-stream' });
+    return ajaxForm(
+      'orgasmic_fc_upload_chunk',
+      { video_id: videoId, offset: offset, total: total },
+      'chunk',
+      body,
+      name || 'chunk.bin',
+      'Video-Upload fehlgeschlagen.'
+    );
+  }
+
+  async function sendChunkRest(buffer, videoId, offset, total) {
+    const url = cfg.root + 'upload/chunk?video_id=' + encodeURIComponent(videoId)
+      + '&offset=' + encodeURIComponent(String(offset))
+      + '&total=' + encodeURIComponent(String(total))
+      + '&_wpnonce=' + encodeURIComponent(cfg.nonce);
+    const res = await fetch(url, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'X-WP-Nonce': cfg.nonce,
+        Accept: 'application/json',
+        'Content-Type': 'application/octet-stream',
+      },
+      body: buffer,
     });
+    return parseReply(res, 'Video-Upload fehlgeschlagen.');
+  }
+
+  async function sendChunk(blob, videoId, offset, total, name) {
+    const buffer = await readAsBuffer(blob);
+    if (preferOriginUpload() && cfg.ajaxNonce) {
+      try {
+        return await sendChunkAjax(buffer, videoId, offset, total, name);
+      } catch (err) {
+        return sendChunkRest(buffer, videoId, offset, total);
+      }
+    }
+    try {
+      return await sendChunkRest(buffer, videoId, offset, total);
+    } catch (err) {
+      if (!cfg.ajaxNonce) throw err;
+      return sendChunkAjax(buffer, videoId, offset, total, name);
+    }
   }
 
   async function originUpload(file, videoId) {
     const total = file.size;
-    const chunkSize = 1024 * 1024;
+    const chunkSize = preferOriginUpload() ? 256 * 1024 : 1024 * 1024;
     let offset = 0;
     let last = {};
     setStatus('Video wird hochgeladen… 0%', 4);
@@ -731,7 +793,7 @@
         } catch (err) {
           attempt += 1;
           if (attempt >= 3) throw err;
-          await new Promise((resolve) => setTimeout(resolve, 600 * attempt));
+          await new Promise((resolve) => setTimeout(resolve, 700 * attempt));
         }
       }
       last = data || {};
@@ -798,7 +860,13 @@
 
   function sendBytes(file, creds) {
     if (preferOriginUpload()) {
-      return originUpload(file, creds.video_id).then(() => creds);
+      return originUpload(file, creds.video_id)
+        .catch((err) => {
+          if (file.size > 32 * 1024 * 1024) throw err;
+          setStatus('Zweiter Upload-Versuch…', 8);
+          return apiPush(file, creds.video_id);
+        })
+        .then(() => creds);
     }
     return loadTus()
       .then((tus) => {
