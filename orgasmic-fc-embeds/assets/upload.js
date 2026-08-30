@@ -4,7 +4,8 @@
 
   const VIDEO_RE = /\.(mp4|m4v|mov|webm|avi|mkv|mpeg|mpg|3gp)$/i;
   const SKIP = '#orgasmic-chat-root, #orgasmic-cal-root, #orgasmic-app-prefs, #orgasmic-bunny-upload';
-  const DIALOG_RE = /Attach Media|Medium anhängen|Ein Video für diesen Beitrag|Füge hier die URL zum Einbetten|OEmbed|HTML Code/i;
+  const DIALOG_RE = /Ein Video für diesen Beitrag|Füge hier die URL zum Einbetten|Add a video for this post|Paste the embed URL/i;
+  const DIALOG_TITLE_RE = /^(Attach Media|Medium anhängen|Medium hinzufügen|Medien anhängen)$/i;
   const VIDEO_LABEL_RE = /^(video|video hinzufügen|add video|embed video|oembed)$/i;
   const VIDEO_HINT_RE = /video-camera|videocam|el-icon-video|icon-video|media-video|oembed|film-outline|camcorder/i;
   const SKIP_LABEL_RE = /einbetten|html code|youtube|vimeo|wistia|kommentar|comment|like|teilen|share/i;
@@ -13,6 +14,7 @@
   let tusReady = null;
   let picking = false;
   let pickerArmed = false;
+  let lastEditor = null;
 
   function fileInput() {
     let input = document.getElementById('orgasmic-bunny-file');
@@ -92,23 +94,23 @@
 
   function isAttachDialog(el) {
     if (!el || el.nodeType !== 1) return false;
-    return DIALOG_RE.test(el.textContent || '');
+    const title = ((el.querySelector('.el-dialog__title, .el-drawer__title, [class*="dialog__title"]') || {}).textContent || '').replace(/\s+/g, ' ').trim();
+    if (DIALOG_TITLE_RE.test(title)) return true;
+    const body = el.querySelector('.el-dialog__body, .el-drawer__body') || el;
+    return DIALOG_RE.test(body.textContent || '');
   }
 
   function closeAttachDialogs() {
-    document.querySelectorAll('.el-dialog, .el-overlay-dialog, .el-dialog__wrapper, .el-overlay, [role="dialog"]').forEach((el) => {
+    document.querySelectorAll('.el-dialog, [role="dialog"]').forEach((el) => {
       if (!isAttachDialog(el)) return;
       const close = el.querySelector('.el-dialog__headerbtn, .el-dialog__close, [aria-label="Close"], [aria-label="close"], [aria-label="Schließen"]');
       if (close) close.click();
-      const overlay = el.closest('.el-overlay, .el-dialog__wrapper, .el-overlay-dialog') || el;
-      overlay.style.setProperty('display', 'none', 'important');
-      overlay.setAttribute('hidden', 'hidden');
+      el.style.setProperty('display', 'none', 'important');
     });
-    document.body.classList.remove('el-popup-parent--hidden');
-    document.body.style.removeProperty('overflow');
   }
 
   function pickFile() {
+    rememberEditor(document.activeElement);
     closeAttachDialogs();
     picking = true;
     const input = fileInput();
@@ -141,6 +143,7 @@
     if (typeof ev.stopImmediatePropagation === 'function') {
       ev.stopImmediatePropagation();
     }
+    rememberEditor(control);
     if (ev.type === 'pointerdown' || !pickerArmed) {
       pickerArmed = true;
       pickFile();
@@ -171,6 +174,7 @@
       }
       pickerArmed = true;
       picking = true;
+      rememberEditor(btn);
       window.setTimeout(closeAttachDialogs, 0);
       window.setTimeout(closeAttachDialogs, 80);
       window.setTimeout(() => {
@@ -236,66 +240,179 @@
     return data;
   }
 
+  function editorSelector() {
+    return 'textarea, .el-textarea__inner, [contenteditable="true"], .ql-editor, .ProseMirror, .tiptap, .fcom_editor, [name="message"], [name="body"]';
+  }
+
+  function isUsableEditor(el) {
+    if (!el || inSkip(el) || el.id === 'orgasmic-bunny-file') return false;
+    if (el.closest && el.closest('#orgasmic-bunny-upload')) return false;
+    return true;
+  }
+
+  function isVisibleBox(el) {
+    if (!el) return false;
+    const st = window.getComputedStyle(el);
+    if (st.display === 'none' || st.visibility === 'hidden') return false;
+    const rect = el.getBoundingClientRect();
+    return rect.width > 20 && rect.height > 10;
+  }
+
+  function composerRoot(from) {
+    return (from && from.closest && from.closest([
+      '[class*="composer"]',
+      '[class*="Composer"]',
+      '[class*="create_post"]',
+      '[class*="CreatePost"]',
+      '[class*="feed_form"]',
+      '[class*="FeedForm"]',
+      '.fcom_feed_form',
+      '.fcom-feed-form',
+      'form',
+      '.el-dialog',
+    ].join(','))) || document.body;
+  }
+
+  function editorsIn(root) {
+    return [...(root || document).querySelectorAll(editorSelector())].filter(isUsableEditor);
+  }
+
+  function rememberEditor(from) {
+    const root = composerRoot(from);
+    const list = editorsIn(root);
+    const visible = list.filter(isVisibleBox);
+    const picked = visible[0] || list[0] || findComposerEditor();
+    if (picked) lastEditor = picked;
+    return lastEditor;
+  }
+
   function findComposerEditor() {
     const active = document.activeElement;
-    if (active && !inSkip(active) && (
+    if (active && isUsableEditor(active) && (
       active.isContentEditable
       || active.tagName === 'TEXTAREA'
-      || (active.closest && active.closest('.ql-editor, .ProseMirror, .fcom_editor'))
+      || (active.closest && active.closest('.ql-editor, .ProseMirror, .tiptap, .fcom_editor'))
     )) {
       return active.isContentEditable || active.tagName === 'TEXTAREA'
         ? active
-        : active.closest('.ql-editor, .ProseMirror, .fcom_editor');
+        : active.closest('.ql-editor, .ProseMirror, .tiptap, .fcom_editor');
     }
 
-    const nodes = document.querySelectorAll('textarea, [contenteditable="true"], .ql-editor, .ProseMirror, .fcom_editor');
-    for (let i = 0; i < nodes.length; i += 1) {
-      const el = nodes[i];
-      if (inSkip(el)) continue;
-      const rect = el.getBoundingClientRect();
-      if (rect.width > 40 && rect.height > 20) return el;
+    const nodes = editorsIn(document);
+    const visible = nodes.filter(isVisibleBox);
+    return visible[0] || nodes[0] || lastEditor;
+  }
+
+  function setNativeValue(el, value) {
+    const proto = el.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+    const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+    if (desc && desc.set) desc.set.call(el, value);
+    else el.value = value;
+  }
+
+  function fireInput(el) {
+    try {
+      el.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertText' }));
+    } catch (e) {
+      el.dispatchEvent(new Event('input', { bubbles: true }));
     }
-    return null;
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    el.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+  }
+
+  function editorContains(el, text) {
+    if (!el) return false;
+    const hay = (el.value || el.innerText || el.textContent || '');
+    return hay.indexOf(text) !== -1;
   }
 
   function insertText(el, text) {
     if (!el) return false;
-    const chunk = (el.value || el.textContent || '').trim() === '' ? text : '\n\n' + text;
+    const current = (el.value != null && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT'))
+      ? el.value
+      : (el.innerText || el.textContent || '');
+    const chunk = String(current || '').trim() === '' ? text : '\n\n' + text;
     if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
-      const start = typeof el.selectionStart === 'number' ? el.selectionStart : el.value.length;
+      const start = typeof el.selectionStart === 'number' ? el.selectionStart : String(el.value || '').length;
       const end = typeof el.selectionEnd === 'number' ? el.selectionEnd : start;
-      const before = el.value.slice(0, start);
-      const after = el.value.slice(end);
+      const before = String(el.value || '').slice(0, start);
+      const after = String(el.value || '').slice(end);
       const sep = before && !/\n$/.test(before) ? '\n\n' : '';
-      el.value = before + sep + text + (after && !/^\n/.test(after) ? '\n' : '') + after;
-      el.dispatchEvent(new InputEvent('input', { bubbles: true }));
-      el.dispatchEvent(new Event('change', { bubbles: true }));
-      return true;
+      setNativeValue(el, before + sep + text + (after && !/^\n/.test(after) ? '\n' : '') + after);
+      try { el.focus(); } catch (e) {}
+      fireInput(el);
+      return editorContains(el, text);
     }
-    if (el.isContentEditable) {
-      el.focus();
+    if (el.isContentEditable || (el.closest && el.closest('[contenteditable="true"]'))) {
+      const target = el.isContentEditable ? el : el.closest('[contenteditable="true"]');
+      try { target.focus(); } catch (e) {}
+      let ok = false;
       try {
-        document.execCommand('insertHTML', false, '<p><a href="' + text + '">' + text + '</a></p>');
+        ok = document.execCommand('insertText', false, chunk);
       } catch (e) {
-        try {
-          document.execCommand('insertText', false, chunk);
-        } catch (err) {
-          el.appendChild(document.createTextNode(chunk));
-        }
+        ok = false;
       }
-      el.dispatchEvent(new InputEvent('input', { bubbles: true }));
-      return true;
+      if (!ok && !editorContains(target, text)) {
+        const p = document.createElement('p');
+        p.textContent = text;
+        target.appendChild(p);
+      }
+      fireInput(target);
+      return editorContains(target, text) || editorContains(el, text);
     }
     return false;
   }
 
+  function alreadyInserted(url) {
+    return editorsIn(document).some((el) => editorContains(el, url))
+      || !!(lastEditor && editorContains(lastEditor, url));
+  }
+
   function insertPlayUrl(url) {
-    if (insertText(findComposerEditor(), url)) return true;
-    try {
-      navigator.clipboard.writeText(url);
-    } catch (e) {}
-    window.prompt('Player-Link in den Beitrag einfügen:', url);
+    if (!url) return false;
+    if (alreadyInserted(url)) return true;
+    const roots = [];
+    if (lastEditor) roots.push(composerRoot(lastEditor));
+    roots.push(composerRoot(document.activeElement));
+    document.querySelectorAll('[class*="composer"], [class*="create_post"], .fcom_feed_form, .el-dialog').forEach((n) => {
+      if (isVisibleBox(n)) roots.push(n);
+    });
+
+    const seen = new Set();
+    const candidates = [];
+    [lastEditor, findComposerEditor()].concat(roots.flatMap(editorsIn)).forEach((el) => {
+      if (el && !seen.has(el) && isUsableEditor(el)) {
+        seen.add(el);
+        candidates.push(el);
+      }
+    });
+
+    for (let i = 0; i < candidates.length; i += 1) {
+      if (insertText(candidates[i], url)) {
+        lastEditor = candidates[i];
+        return true;
+      }
+    }
     return false;
+  }
+
+  function insertPlayUrlRetry(url) {
+    if (insertPlayUrl(url)) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      let tries = 0;
+      const timer = window.setInterval(() => {
+        tries += 1;
+        const ok = insertPlayUrl(url);
+        if (ok || tries >= 8) {
+          window.clearInterval(timer);
+          if (!ok) {
+            try { navigator.clipboard.writeText(url); } catch (e) {}
+            setStatus('Video hochgeladen. Link: ' + url, 100);
+          }
+          resolve(ok);
+        }
+      }, 180);
+    });
   }
 
   function uploadFile(file) {
@@ -337,10 +454,14 @@
         }).catch(() => upload.start());
       })))
       .then((creds) => {
-        setStatus('Video ist im Beitrag.', 100);
-        insertPlayUrl(creds.play_url);
-        setTimeout(hideStatus, 1600);
-        return creds;
+        setStatus('Link wird eingefügt…', 96);
+        return insertPlayUrlRetry(creds.play_url).then((ok) => {
+          if (ok) {
+            setStatus('Video ist im Beitrag.', 100);
+            setTimeout(hideStatus, 1800);
+          }
+          return creds;
+        });
       })
       .catch((err) => {
         setStatus(err && err.message ? err.message : 'Upload fehlgeschlagen.', 0);
@@ -352,6 +473,9 @@
       });
   }
 
+  document.addEventListener('focusin', (ev) => {
+    if (ev.target && isUsableEditor(ev.target) && inComposerArea(ev.target)) rememberEditor(ev.target);
+  }, true);
   document.addEventListener('pointerdown', interceptVideoControl, true);
   document.addEventListener('click', interceptVideoControl, true);
 
