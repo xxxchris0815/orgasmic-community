@@ -4,30 +4,34 @@
 
   const VIDEO_RE = /\.(mp4|m4v|mov|webm|avi|mkv|mpeg|mpg|3gp)$/i;
   const SKIP = '#orgasmic-chat-root, #orgasmic-cal-root, #orgasmic-app-prefs, #orgasmic-bunny-upload';
-  const COMPOSER = [
-    '[contenteditable="true"]',
-    'textarea',
-    '.ql-editor',
-    '.ProseMirror',
-    '.fcom_editor',
-    '[class*="composer"]',
-    '[class*="Composer"]',
-    '[class*="create_post"]',
-    '[class*="CreatePost"]',
-    '[class*="feed_form"]',
-    '[class*="FeedForm"]',
-    '[class*="new_post"]',
-    '[class*="editor_wrap"]',
-    '.el-dialog',
-    '.el-drawer',
-    '[class*="media"]',
-    '[class*="Media"]',
-    '[class*="upload"]',
-    '[class*="Upload"]',
-  ].join(',');
+  const DIALOG_RE = /Attach Media|Medium anhängen|Ein Video für diesen Beitrag|Füge hier die URL zum Einbetten|OEmbed|HTML Code/i;
+  const VIDEO_LABEL_RE = /^(video|video hinzufügen|add video|embed video|oembed)$/i;
+  const VIDEO_HINT_RE = /video-camera|videocam|el-icon-video|icon-video|media-video|oembed|film-outline|camcorder/i;
+  const SKIP_LABEL_RE = /einbetten|html code|youtube|vimeo|wistia|kommentar|comment|like|teilen|share/i;
 
   let busy = false;
   let tusReady = null;
+  let picking = false;
+  let pickerArmed = false;
+
+  function fileInput() {
+    let input = document.getElementById('orgasmic-bunny-file');
+    if (input) return input;
+    input = document.createElement('input');
+    input.id = 'orgasmic-bunny-file';
+    input.type = 'file';
+    input.accept = 'video/*,.mp4,.m4v,.mov,.webm,.avi,.mkv';
+    input.setAttribute('data-orgasmic-bunny-file', '1');
+    input.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;';
+    input.addEventListener('change', () => {
+      const file = input.files && input.files[0];
+      input.value = '';
+      picking = false;
+      if (file && isVideoFile(file)) uploadFile(file).catch(() => {});
+    });
+    document.body.appendChild(input);
+    return input;
+  }
 
   function isVideoFile(file) {
     if (!file || typeof file !== 'object') return false;
@@ -40,15 +44,148 @@
     return !!(node && node.closest && node.closest(SKIP));
   }
 
-  function inComposer(node) {
-    return !!(node && node.closest && node.closest(COMPOSER));
+  function inComposerArea(el) {
+    return !!(el && el.closest && (
+      el.closest('[class*="composer"]') ||
+      el.closest('[class*="Composer"]') ||
+      el.closest('[class*="editor"]') ||
+      el.closest('[class*="Editor"]') ||
+      el.closest('[class*="create_post"]') ||
+      el.closest('[class*="CreatePost"]') ||
+      el.closest('[class*="feed_form"]') ||
+      el.closest('.fcom_feed_form') ||
+      el.closest('.fcom-feed-form') ||
+      el.closest('.el-dialog') ||
+      el.closest('.el-overlay') ||
+      el.closest('[class*="toolbar"]')
+    ));
   }
 
-  function isFcUploadUrl(url) {
-    const u = String(url || '');
-    return /\/fluent-player\/video-upload\b/.test(u)
-      || /\/feeds\/media-upload\b/.test(u)
-      || /\/fluent-community\/v\d+\/.*media/.test(u);
+  function isControl(el) {
+    if (!el || !el.matches) return false;
+    if (el.matches('button, [role="button"], .el-button, a.el-button, .el-dropdown-item, a')) return true;
+    const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+    return VIDEO_LABEL_RE.test(text) && el.childElementCount <= 6;
+  }
+
+  function looksLikeVideoControl(el) {
+    if (!el || el.nodeType !== 1 || inSkip(el) || !isControl(el)) return false;
+    if (el.id === 'orgasmic-bunny-file' || el.closest('#orgasmic-bunny-upload')) return false;
+    if (!inComposerArea(el)) return false;
+    const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+    if (text.length > 48) return false;
+    const aria = (el.getAttribute('aria-label') || el.getAttribute('title') || el.getAttribute('data-original-title') || '').trim();
+    const cls = (typeof el.className === 'string' ? el.className : '') + ' ' + [...el.querySelectorAll('i, svg, [class]')].slice(0, 8).map((n) => n.className || '').join(' ');
+    const hay = (text + ' ' + aria + ' ' + cls).replace(/\s+/g, ' ');
+    if (SKIP_LABEL_RE.test(hay)) return false;
+    return VIDEO_LABEL_RE.test(text) || VIDEO_LABEL_RE.test(aria) || VIDEO_HINT_RE.test(hay);
+  }
+
+  function findVideoControl(from) {
+    let node = from;
+    while (node && node !== document.body && node.nodeType === 1) {
+      if (looksLikeVideoControl(node)) return node;
+      node = node.parentElement;
+    }
+    return null;
+  }
+
+  function isAttachDialog(el) {
+    if (!el || el.nodeType !== 1) return false;
+    return DIALOG_RE.test(el.textContent || '');
+  }
+
+  function closeAttachDialogs() {
+    document.querySelectorAll('.el-dialog, .el-overlay-dialog, .el-dialog__wrapper, .el-overlay, [role="dialog"]').forEach((el) => {
+      if (!isAttachDialog(el)) return;
+      const close = el.querySelector('.el-dialog__headerbtn, .el-dialog__close, [aria-label="Close"], [aria-label="close"], [aria-label="Schließen"]');
+      if (close) close.click();
+      const overlay = el.closest('.el-overlay, .el-dialog__wrapper, .el-overlay-dialog') || el;
+      overlay.style.setProperty('display', 'none', 'important');
+      overlay.setAttribute('hidden', 'hidden');
+    });
+    document.body.classList.remove('el-popup-parent--hidden');
+    document.body.style.removeProperty('overflow');
+  }
+
+  function pickFile() {
+    closeAttachDialogs();
+    picking = true;
+    const input = fileInput();
+    try {
+      if (typeof input.showPicker === 'function') {
+        input.showPicker();
+      } else {
+        input.click();
+      }
+    } catch (e) {
+      try {
+        input.click();
+      } catch (err) {
+        picking = false;
+      }
+    }
+    window.setTimeout(() => {
+      picking = false;
+    }, 4000);
+  }
+
+  function interceptVideoControl(ev) {
+    if (ev.target && ev.target.closest && ev.target.closest('[data-orgasmic-bunny-overlay]')) {
+      return;
+    }
+    const control = findVideoControl(ev.target);
+    if (!control) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (typeof ev.stopImmediatePropagation === 'function') {
+      ev.stopImmediatePropagation();
+    }
+    if (ev.type === 'pointerdown' || !pickerArmed) {
+      pickerArmed = true;
+      pickFile();
+      window.setTimeout(() => {
+        pickerArmed = false;
+      }, 1200);
+    }
+    window.setTimeout(closeAttachDialogs, 0);
+    window.setTimeout(closeAttachDialogs, 80);
+    window.setTimeout(closeAttachDialogs, 250);
+  }
+
+  function overlayNativePicker(btn) {
+    if (!btn || btn.querySelector('[data-orgasmic-bunny-overlay]')) return;
+    const style = window.getComputedStyle(btn);
+    if (style.position === 'static') {
+      btn.style.position = 'relative';
+    }
+    const label = document.createElement('label');
+    label.setAttribute('for', 'orgasmic-bunny-file');
+    label.setAttribute('data-orgasmic-bunny-overlay', '1');
+    label.setAttribute('aria-label', 'Video hochladen');
+    label.style.cssText = 'position:absolute;inset:0;z-index:6;margin:0;cursor:pointer;background:transparent;';
+    label.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      if (typeof ev.stopImmediatePropagation === 'function') {
+        ev.stopImmediatePropagation();
+      }
+      pickerArmed = true;
+      picking = true;
+      window.setTimeout(closeAttachDialogs, 0);
+      window.setTimeout(closeAttachDialogs, 80);
+      window.setTimeout(() => {
+        pickerArmed = false;
+        picking = false;
+      }, 4000);
+    }, true);
+    btn.appendChild(label);
+  }
+
+  function bindToolbarOverlays() {
+    fileInput();
+    document.querySelectorAll('button, [role="button"], .el-button, a.el-button, .el-dropdown-item').forEach((el) => {
+      if (looksLikeVideoControl(el)) overlayNativePicker(el);
+    });
   }
 
   function panel() {
@@ -131,51 +268,40 @@
       const after = el.value.slice(end);
       const sep = before && !/\n$/.test(before) ? '\n\n' : '';
       el.value = before + sep + text + (after && !/^\n/.test(after) ? '\n' : '') + after;
-      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new InputEvent('input', { bubbles: true }));
       el.dispatchEvent(new Event('change', { bubbles: true }));
       return true;
     }
     if (el.isContentEditable) {
       el.focus();
       try {
-        document.execCommand('insertText', false, chunk);
+        document.execCommand('insertHTML', false, '<p><a href="' + text + '">' + text + '</a></p>');
       } catch (e) {
-        el.appendChild(document.createTextNode(chunk));
+        try {
+          document.execCommand('insertText', false, chunk);
+        } catch (err) {
+          el.appendChild(document.createTextNode(chunk));
+        }
       }
-      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new InputEvent('input', { bubbles: true }));
       return true;
     }
     return false;
   }
 
   function insertPlayUrl(url) {
-    if (insertText(findComposerEditor(), url)) return;
+    if (insertText(findComposerEditor(), url)) return true;
     try {
       navigator.clipboard.writeText(url);
     } catch (e) {}
     window.prompt('Player-Link in den Beitrag einfügen:', url);
-  }
-
-  function successPayload(file, creds) {
-    return {
-      media: {
-        media_id: 0,
-        url: creds.play_url,
-        media_key: creds.video_id,
-        type: 'link',
-        html: '',
-        settings: {
-          src: creds.play_url,
-          title: file && file.name ? file.name : 'Video',
-          provider: 'bunny',
-        },
-      },
-    };
+    return false;
   }
 
   function uploadFile(file) {
     if (busy) return Promise.reject(new Error('Ein Upload läuft bereits.'));
     busy = true;
+    closeAttachDialogs();
     setStatus('Video wird bei Bunny angelegt…', 2);
     return apiCreate(file && file.name)
       .then((creds) => loadTus().then((tus) => new Promise((resolve, reject) => {
@@ -211,9 +337,9 @@
         }).catch(() => upload.start());
       })))
       .then((creds) => {
-        setStatus('Link wird eingefügt…', 100);
+        setStatus('Video ist im Beitrag.', 100);
         insertPlayUrl(creds.play_url);
-        setTimeout(hideStatus, 1200);
+        setTimeout(hideStatus, 1600);
         return creds;
       })
       .catch((err) => {
@@ -226,92 +352,30 @@
       });
   }
 
-  function takeVideoFromFormData(body) {
-    if (!(body instanceof FormData)) return null;
-    const keys = ['file', 'video', 'media', 'upload'];
-    for (let i = 0; i < keys.length; i += 1) {
-      const value = body.get(keys[i]);
-      if (isVideoFile(value)) return value;
-    }
-    if (typeof body.entries === 'function') {
-      const entries = Array.from(body.entries());
-      for (let i = 0; i < entries.length; i += 1) {
-        if (isVideoFile(entries[i][1])) return entries[i][1];
-      }
-    }
-    return null;
-  }
-
-  document.addEventListener('change', (ev) => {
-    const input = ev.target && ev.target.closest ? ev.target.closest('input[type="file"]') : null;
-    if (!input || inSkip(input)) return;
-    const files = Array.from(input.files || []).filter(isVideoFile);
-    if (!files.length) return;
-    if (!inComposer(input) && input.accept && String(input.accept).indexOf('video') === -1) return;
-    ev.preventDefault();
-    ev.stopImmediatePropagation();
-    input.value = '';
-    uploadFile(files[0]).catch(() => {});
-  }, true);
+  document.addEventListener('pointerdown', interceptVideoControl, true);
+  document.addEventListener('click', interceptVideoControl, true);
 
   document.addEventListener('drop', (ev) => {
     if (!ev.dataTransfer || !ev.dataTransfer.files || !ev.dataTransfer.files.length) return;
     const target = ev.target;
-    if (inSkip(target) || !inComposer(target)) return;
+    if (inSkip(target)) return;
     const files = Array.from(ev.dataTransfer.files).filter(isVideoFile);
     if (!files.length) return;
     ev.preventDefault();
     ev.stopImmediatePropagation();
+    closeAttachDialogs();
     uploadFile(files[0]).catch(() => {});
   }, true);
 
-  const origFetch = window.fetch;
-  window.fetch = function (input, init) {
-    const url = typeof input === 'string' ? input : (input && input.url) || '';
-    const body = init && init.body;
-    if (isFcUploadUrl(url) && body) {
-      const file = takeVideoFromFormData(body);
-      if (file) {
-        return uploadFile(file).then((creds) => new Response(JSON.stringify(successPayload(file, creds)), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        })).catch((err) => new Response(JSON.stringify({ message: err.message || 'Upload fehlgeschlagen' }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' },
-        }));
-      }
-    }
-    return origFetch.apply(this, arguments);
-  };
-
-  const xhrOpen = XMLHttpRequest.prototype.open;
-  const xhrSend = XMLHttpRequest.prototype.send;
-  XMLHttpRequest.prototype.open = function (method, url) {
-    this._obuUrl = url;
-    return xhrOpen.apply(this, arguments);
-  };
-  XMLHttpRequest.prototype.send = function (body) {
-    const file = isFcUploadUrl(this._obuUrl) ? takeVideoFromFormData(body) : null;
-    if (!file) return xhrSend.apply(this, arguments);
-    const xhr = this;
-    uploadFile(file).then((creds) => {
-      const payload = JSON.stringify(successPayload(file, creds));
-      try {
-        Object.defineProperty(xhr, 'status', { configurable: true, value: 200 });
-        Object.defineProperty(xhr, 'readyState', { configurable: true, value: 4 });
-        Object.defineProperty(xhr, 'responseText', { configurable: true, value: payload });
-        Object.defineProperty(xhr, 'response', { configurable: true, value: JSON.parse(payload) });
-      } catch (e) {}
-      if (typeof xhr.onreadystatechange === 'function') xhr.onreadystatechange();
-      if (typeof xhr.onload === 'function') xhr.onload();
-      xhr.dispatchEvent(new Event('load'));
-    }).catch((err) => {
-      try {
-        Object.defineProperty(xhr, 'status', { configurable: true, value: 400 });
-        Object.defineProperty(xhr, 'responseText', { configurable: true, value: JSON.stringify({ message: err.message }) });
-      } catch (e) {}
-      if (typeof xhr.onerror === 'function') xhr.onerror();
-      xhr.dispatchEvent(new Event('error'));
+  if (typeof MutationObserver !== 'undefined') {
+    const obs = new MutationObserver(() => {
+      const open = [...document.querySelectorAll('.el-dialog, [role="dialog"]')].some(isAttachDialog);
+      if (open) closeAttachDialogs();
+      bindToolbarOverlays();
     });
-  };
+    if (document.body) obs.observe(document.body, { childList: true, subtree: true });
+  }
+
+  fileInput();
+  bindToolbarOverlays();
 })();

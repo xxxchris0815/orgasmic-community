@@ -18,6 +18,45 @@ class Orgasmic_Fc_Bunny_Embeds
         add_action('fluent_community/headless/head', [$this, 'assets']);
         add_action('fluent_community/portal_footer', [$this, 'boot']);
         add_action('fluent_community/headless/footer', [$this, 'boot']);
+        add_filter('pre_oembed_result', [$this, 'oembed_result'], 10, 3);
+        add_filter('embed_oembed_html', [$this, 'oembed_html'], 10, 4);
+    }
+
+    /**
+     * @param string|false $result
+     * @param mixed        $args
+     */
+    public function oembed_result($result, string $url, $args)
+    {
+        $html = $this->iframe_html($url);
+        return $html !== null ? $html : $result;
+    }
+
+    /**
+     * @param mixed $cached
+     * @param mixed $attr
+     */
+    public function oembed_html($cached, string $url, $attr, int $post_id)
+    {
+        $html = $this->iframe_html($url);
+        return $html !== null ? $html : $cached;
+    }
+
+    private function iframe_html(string $url): ?string
+    {
+        if (!preg_match('#https?://(?:iframe|player)\.mediadelivery\.net/(?:embed|play)/(\d+)/([0-9a-f-]+)#i', $url, $match)) {
+            return null;
+        }
+
+        $library = $match[1];
+        $video = strtolower($match[2]);
+        $autoplay = $this->store->autoplay() ? 'true' : 'false';
+        $src = 'https://iframe.mediadelivery.net/embed/' . rawurlencode($library) . '/' . rawurlencode($video)
+            . '?autoplay=' . $autoplay . '&preload=true&responsive=true&playerjs=true';
+
+        return '<div class="orgasmic-bunny-embed" data-orgasmic-bunny="' . esc_attr($library . '/' . $video) . '">'
+            . '<iframe src="' . esc_url($src) . '" allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen loading="lazy" title="Video"></iframe>'
+            . '</div>';
     }
 
     public function assets(): void

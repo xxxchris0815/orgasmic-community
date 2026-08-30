@@ -3,20 +3,10 @@
   const COMPOSER_SEL = [
     '[contenteditable="true"]',
     'textarea',
-    'input',
+    'input:not([type="hidden"])',
     '.ql-editor',
     '.ProseMirror',
     '.fcom_editor',
-    '[class*="composer"]',
-    '[class*="Composer"]',
-    '[class*="create_post"]',
-    '[class*="CreatePost"]',
-    '[class*="feed_form"]',
-    '[class*="FeedForm"]',
-    '[class*="new_post"]',
-    '[class*="editor_wrap"]',
-    '.el-dialog',
-    '.el-drawer',
   ].join(',');
   const CARD_SEL = [
     '.fcom_url_preview',
@@ -36,7 +26,10 @@
   }
 
   function inComposer(node) {
-    return !!(node && node.closest && node.closest(COMPOSER_SEL));
+    if (!node || !node.closest) return false;
+    if (node.closest(COMPOSER_SEL)) return true;
+    const dialog = node.closest('.el-dialog, .el-drawer');
+    return !!(dialog && /Attach Media|Ein Video|OEmbed|HTML Code/i.test(dialog.textContent || ''));
   }
 
   function hide(node) {
@@ -85,11 +78,10 @@
   }
 
   function embedSrc(library, video, autoplay) {
-    return 'https://player.mediadelivery.net/embed/'
+    return 'https://iframe.mediadelivery.net/embed/'
       + encodeURIComponent(library) + '/' + encodeURIComponent(video)
       + '?autoplay=' + (autoplay ? 'true' : 'false')
-      + '&preload=true&responsive=true&playerjs=true&oid='
-      + Math.random().toString(36).slice(2, 10);
+      + '&preload=true&responsive=true&playerjs=true';
   }
 
   function iframeEl(library, video, autoplay) {
@@ -162,7 +154,38 @@
     collapse();
   }
 
+  function enhanceLooseUrls() {
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        if (!node || !node.nodeValue || !RE.test(node.nodeValue)) return NodeFilter.FILTER_REJECT;
+        const el = node.parentElement;
+        if (!el || inComposer(el) || el.closest('.orgasmic-bunny-embed, script, style, textarea, input')) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    });
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach((textNode) => {
+      const parsed = parseHref(textNode.nodeValue);
+      if (!parsed) return;
+      const el = textNode.parentElement;
+      if (!el) return;
+      const block = el.closest('p, div, li, article, section') || el;
+      if (findPlayer(cluster(block), parsed.video)) {
+        hide(el);
+        return;
+      }
+      place(block, parsed);
+      if (/^\s*https?:\/\/\S+\s*$/.test(textNode.nodeValue || '')) {
+        hide(el);
+      }
+    });
+  }
+
   function enhance() {
+    if (!document.body) return;
     collapse();
     const seen = new Set();
 
@@ -189,6 +212,7 @@
       place(node, parsed);
     });
 
+    enhanceLooseUrls();
     collapse();
   }
 
