@@ -130,12 +130,57 @@ class Orgasmic_Fc_Embeds_Store
     {
         global $wpdb;
         $days = (int) get_option(self::OPTION_RETENTION_DAYS, 90);
-        if ($days < 1) {
+        if ($days >= 1) {
+            $wpdb->query($wpdb->prepare(
+                'DELETE FROM ' . self::table_name() . ' WHERE occurred_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL %d DAY)',
+                $days
+            ));
+        }
+        $this->cleanup_chunks();
+    }
+
+    public function chunk_dir(): string
+    {
+        $upload = wp_upload_dir();
+        $dir = trailingslashit((string) ($upload['basedir'] ?? '')) . 'orgasmic-bunny-tmp';
+        if ($dir === 'orgasmic-bunny-tmp') {
+            return '';
+        }
+        if (!is_dir($dir) && !wp_mkdir_p($dir)) {
+            return '';
+        }
+        if (!is_file($dir . '/index.php')) {
+            file_put_contents($dir . '/index.php', "<?php\n");
+        }
+        if (!is_file($dir . '/.htaccess')) {
+            file_put_contents($dir . '/.htaccess', "Deny from all\n");
+        }
+
+        return $dir;
+    }
+
+    public function chunk_path(string $video_id, int $user_id): string
+    {
+        $dir = $this->chunk_dir();
+        $video_id = strtolower(preg_replace('/[^0-9a-f-]/', '', $video_id) ?: '');
+        if ($dir === '' || $video_id === '' || $user_id < 1) {
+            return '';
+        }
+        $name = hash_hmac('sha256', $user_id . '|' . $video_id, wp_salt('auth'));
+
+        return $dir . '/' . $name . '.part';
+    }
+
+    public function cleanup_chunks(): void
+    {
+        $dir = $this->chunk_dir();
+        if ($dir === '') {
             return;
         }
-        $wpdb->query($wpdb->prepare(
-            'DELETE FROM ' . self::table_name() . ' WHERE occurred_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL %d DAY)',
-            $days
-        ));
+        foreach (glob($dir . '/*.part') ?: [] as $file) {
+            if (is_file($file) && filemtime($file) < time() - DAY_IN_SECONDS) {
+                @unlink($file);
+            }
+        }
     }
 }

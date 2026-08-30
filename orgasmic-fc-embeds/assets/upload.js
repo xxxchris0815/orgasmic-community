@@ -641,6 +641,17 @@
     return data;
   }
 
+  function preferOriginUpload() {
+    if (window.Capacitor || window.capacitor || window.CapacitorWebView) return true;
+    if (navigator.standalone) return true;
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+    if (window.matchMedia && window.matchMedia('(display-mode: fullscreen)').matches) return true;
+    const ua = String(navigator.userAgent || '');
+    if (/wv\)|WebView|PWABuilder|pwabuilder|Capacitor/i.test(ua)) return true;
+    if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 920) return true;
+    return false;
+  }
+
   async function apiPush(file, videoId) {
     const fd = new FormData();
     fd.append('video_id', videoId);
@@ -656,10 +667,80 @@
     return data;
   }
 
+  function sendChunk(blob, videoId, offset, total, name) {
+    return new Promise((resolve, reject) => {
+      const fd = new FormData();
+      fd.append('video_id', videoId);
+      fd.append('offset', String(offset));
+      fd.append('total', String(total));
+      fd.append('chunk', blob, name || 'chunk.bin');
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', cfg.root + 'upload/chunk');
+      xhr.withCredentials = true;
+      xhr.timeout = 10 * 60 * 1000;
+      xhr.setRequestHeader('X-WP-Nonce', cfg.nonce);
+      xhr.setRequestHeader('Accept', 'application/json');
+      xhr.upload.onprogress = (ev) => {
+        if (!ev.lengthComputable) return;
+        const sent = offset + ev.loaded;
+        const pct = total ? Math.min(99, Math.round((sent / total) * 100)) : 0;
+        setStatus('Upload über die App… ' + pct + '%', pct);
+      };
+      xhr.onload = () => {
+        let data = {};
+        try { data = JSON.parse(xhr.responseText || '{}'); } catch (e) { data = {}; }
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(data);
+          return;
+        }
+        reject(new Error(data.message || ('Upload-Abschnitt fehlgeschlagen (HTTP ' + xhr.status + ').')));
+      };
+      xhr.onerror = () => reject(new Error('Netzwerkfehler beim App-Upload.'));
+      xhr.ontimeout = () => reject(new Error('App-Upload ist abgelaufen.'));
+      xhr.send(fd);
+    });
+  }
+
+  async function originUpload(file, videoId) {
+    const total = file.size;
+    const chunkSize = 1024 * 1024;
+    let offset = 0;
+    let last = {};
+    setStatus('Upload über die App… 0%', 4);
+    while (offset < total) {
+      const end = Math.min(offset + chunkSize, total);
+      const blob = file.slice(offset, end);
+      let attempt = 0;
+      let data = null;
+      while (attempt < 3) {
+        try {
+          data = await sendChunk(blob, videoId, offset, total, file.name || 'video.mp4');
+          break;
+        } catch (err) {
+          attempt += 1;
+          if (attempt >= 3) throw err;
+          await new Promise((resolve) => setTimeout(resolve, 600 * attempt));
+        }
+      }
+      last = data || {};
+      offset = end;
+      const pct = Math.min(99, Math.round((offset / total) * 100));
+      setStatus(offset >= total ? 'Bunny übernimmt die Datei…' : ('Upload über die App… ' + pct + '%'), pct);
+    }
+    return last;
+  }
+
   function tusUpload(file, creds, tus) {
     return new Promise((resolve, reject) => {
       const expire = String(creds.expirationTime || creds.expire || '');
-      const upload = new tus.Upload(file, {
+      let progressed = false;
+      let upload = null;
+      const stall = window.setTimeout(() => {
+        if (progressed) return;
+        try { if (upload) upload.abort(true); } catch (e) {}
+        reject(new Error('TUS_STALL'));
+      }, 8000);
+      upload = new tus.Upload(file, {
         endpoint: creds.endpoint || 'https://video.bunnycdn.com/tusupload',
         retryDelays: [0, 3000, 5000, 10000, 20000, 60000],
         removeFingerprintOnSuccess: true,
@@ -679,13 +760,19 @@
           title: file.name || 'community-video',
         },
         onError(err) {
+          window.clearTimeout(stall);
           reject(err);
         },
         onProgress(sent, total) {
+          if (sent > 0) {
+            progressed = true;
+            window.clearTimeout(stall);
+          }
           const pct = total ? Math.round((sent / total) * 100) : 0;
           setStatus('Upload zu Bunny… ' + pct + '%', pct);
         },
         onSuccess() {
+          window.clearTimeout(stall);
           resolve(creds);
         },
       });
@@ -694,24 +781,44 @@
   }
 
   function videoReceived(status) {
-    return !!(status && (status.received || status.status >= 1 || (status.storageSize || 0) > 0));
+    return !!(status && (status.received || status.done || status.status >= 1 || (status.storageSize || 0) > 0));
+  }
+
+  function sendBytes(file, creds) {
+    if (preferOriginUpload()) {
+      return originUpload(file, creds.video_id).then(() => creds);
+    }
+    return loadTus()
+      .then((tus) => {
+        setStatus('Upload zu Bunny… 0%', 4);
+        return tusUpload(file, creds, tus);
+      })
+      .then(() => creds)
+      .catch((err) => {
+        const msg = String(err && err.message ? err.message : err || '');
+        if (msg !== 'TUS_STALL' && !/tus|network|failed|abort|CORS|PATCH/i.test(msg)) {
+          throw err;
+        }
+        setStatus('Wechsel auf App-Upload…', 8);
+        return originUpload(file, creds.video_id).then(() => creds);
+      });
   }
 
   function uploadFile(file) {
     if (busy) return Promise.reject(new Error('Ein Upload läuft bereits.'));
     if (!file || !file.size) return Promise.reject(new Error('Die Datei ist leer.'));
+    if (file.size > 512 * 1024 * 1024) {
+      return Promise.reject(new Error('Video ist größer als 512 MB.'));
+    }
     busy = true;
     closeAttachDialogs();
     setStatus('Video wird bei Bunny angelegt…', 2);
     return apiCreate(file && file.name)
-      .then((creds) => loadTus().then((tus) => {
-        setStatus('Upload zu Bunny… 0%', 4);
-        return tusUpload(file, creds, tus).then(() => creds);
-      }))
+      .then((creds) => sendBytes(file, creds))
       .then((creds) => apiStatus(creds.video_id).then((status) => ({ creds, status })).catch(() => ({ creds, status: null })))
       .then((pair) => {
         if (videoReceived(pair.status)) return pair.creds;
-        if (file.size > 48 * 1024 * 1024) {
+        if (preferOriginUpload() || file.size > 48 * 1024 * 1024) {
           throw new Error('Bunny hat die Datei nicht erhalten. Bitte noch einmal hochladen.');
         }
         setStatus('Zweiter Versuch über den Server…', 50);

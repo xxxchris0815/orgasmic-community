@@ -47,6 +47,12 @@ class Orgasmic_Fc_Embeds_Rest
             'permission_callback' => static fn() => is_user_logged_in(),
             'callback' => [$this, 'push_upload'],
         ]);
+
+        register_rest_route('orgasmic-embeds/v1', '/upload/chunk', [
+            'methods' => 'POST',
+            'permission_callback' => static fn() => is_user_logged_in(),
+            'callback' => [$this, 'chunk_upload'],
+        ]);
     }
 
     public function create_upload(WP_REST_Request $request)
@@ -94,11 +100,97 @@ class Orgasmic_Fc_Embeds_Rest
             return $put;
         }
 
+        return $this->status_response($video_id);
+    }
+
+    public function chunk_upload(WP_REST_Request $request)
+    {
+        $video_id = $this->sanitize_video_id((string) $request->get_param('video_id'));
+        $offset = (int) $request->get_param('offset');
+        $total = (int) $request->get_param('total');
+        if ($video_id === '' || $offset < 0 || $total < 1 || $offset >= $total) {
+            return new WP_Error('bunny', 'Ungültiger Upload-Abschnitt.', ['status' => 400]);
+        }
+        if ($total > 512 * 1024 * 1024) {
+            return new WP_Error('bunny', 'Video ist größer als 512 MB.', ['status' => 413]);
+        }
+
+        $chunk = $this->chunk_bytes($request);
+        $length = strlen($chunk);
+        if ($length < 1) {
+            return new WP_Error('bunny', 'Leerer Upload-Abschnitt.', ['status' => 400]);
+        }
+        if ($offset + $length > $total) {
+            return new WP_Error('bunny', 'Upload-Abschnitt passt nicht zur Dateigröße.', ['status' => 400]);
+        }
+
+        $path = $this->store->chunk_path($video_id, get_current_user_id());
+        if ($path === '') {
+            return new WP_Error('bunny', 'Temporärer Upload-Ordner fehlt.', ['status' => 500]);
+        }
+        if ($offset > 0 && (!is_file($path) || (int) filesize($path) < $offset)) {
+            return new WP_Error('bunny', 'Upload-Abschnitt außerhalb der Reihenfolge.', ['status' => 409]);
+        }
+
+        $handle = fopen($path, $offset === 0 ? 'wb' : 'c+b');
+        if ($handle === false) {
+            return new WP_Error('bunny', 'Temporäre Datei konnte nicht geschrieben werden.', ['status' => 500]);
+        }
+        if (fseek($handle, $offset) !== 0 || fwrite($handle, $chunk) !== $length) {
+            fclose($handle);
+            return new WP_Error('bunny', 'Temporäre Datei konnte nicht geschrieben werden.', ['status' => 500]);
+        }
+        fclose($handle);
+
+        $written = $offset + $length;
+        if ($written < $total) {
+            return rest_ensure_response([
+                'ok' => true,
+                'done' => false,
+                'written' => $written,
+                'total' => $total,
+            ]);
+        }
+
+        if (function_exists('set_time_limit')) {
+            set_time_limit(600);
+        }
+
+        $put = $this->bunny->put_file($video_id, $path);
+        @unlink($path);
+        if (is_wp_error($put)) {
+            return $put;
+        }
+
+        return $this->status_response($video_id);
+    }
+
+    private function sanitize_video_id(string $video_id): string
+    {
+        return strtolower(preg_replace('/[^0-9a-f-]/', '', $video_id) ?: '');
+    }
+
+    private function chunk_bytes(WP_REST_Request $request): string
+    {
+        $files = $request->get_file_params();
+        $file = $files['chunk'] ?? $files['file'] ?? null;
+        if (is_array($file) && !empty($file['tmp_name']) && is_readable((string) $file['tmp_name'])) {
+            $bytes = file_get_contents((string) $file['tmp_name']);
+            return $bytes !== false ? $bytes : '';
+        }
+
+        $body = $request->get_body();
+        return is_string($body) ? $body : '';
+    }
+
+    private function status_response(string $video_id): WP_REST_Response
+    {
         $status = $this->bunny->video_status($video_id);
         if (is_wp_error($status)) {
             return rest_ensure_response(['ok' => true, 'received' => true]);
         }
-        return rest_ensure_response(array_merge(['ok' => true], $status));
+
+        return rest_ensure_response(array_merge(['ok' => true, 'done' => true], $status));
     }
 
     public function watch(WP_REST_Request $request)
