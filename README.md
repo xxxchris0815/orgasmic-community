@@ -10,7 +10,7 @@ Moved from `evolution-api` (`Extras/orgasmic-community`).
 | --- | --- | --- |
 | `orgasmic-fc-tracker/` | **1.2.1** | Engagement-Tracker, Dashboard, Evolution-Webhook |
 | `orgasmic-fc-events/` | **1.0.9** | Kalender im Portal (RSVP, Zoom, Event-Kommentare, Cache, MN-Layout) |
-| `orgasmic-fc-embeds/` | **1.2.3** | Bunny-Player, nativer Composer-Upload, Autoplay, Wiedergabe-Tracking + Webhook |
+| `orgasmic-fc-embeds/` | **1.2.4** | Bunny-Player, nativer Composer-Upload, Autoplay, Wiedergabe-Tracking + Webhook |
 | `orgasmic-fc-chat/` | **1.1.9** | Space-Chat (Mighty-Networks-Layout, Bild + Sprache, Offline-Cache) |
 | `orgasmic-fc-app/` | **1.1.5** | PWA, Web Push, Prefs im Profilmenü, Capacitor-Token-API + optional Firebase |
 

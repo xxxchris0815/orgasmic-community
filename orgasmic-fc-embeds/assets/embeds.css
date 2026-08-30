@@ -34,8 +34,14 @@
   border: 0 !important;
 }
 
-.orgasmic-bunny-composer {
+.orgasmic-bunny-composer,
+.orgasmic-bunny-object {
   margin: 8px 0 12px;
+  user-select: none;
+}
+
+[contenteditable="true"] .orgasmic-bunny-object {
+  display: block;
 }
 
 #orgasmic-bunny-upload {

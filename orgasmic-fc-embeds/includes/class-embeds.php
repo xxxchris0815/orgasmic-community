@@ -20,6 +20,41 @@ class Orgasmic_Fc_Bunny_Embeds
         add_action('fluent_community/headless/footer', [$this, 'boot']);
         add_filter('pre_oembed_result', [$this, 'oembed_result'], 10, 3);
         add_filter('embed_oembed_html', [$this, 'oembed_html'], 10, 4);
+        add_filter('wp_kses_allowed_html', [$this, 'allow_iframe'], 20, 2);
+    }
+
+    /**
+     * @param array<string, mixed> $tags
+     * @return array<string, mixed>
+     */
+    public function allow_iframe(array $tags, $context): array
+    {
+        unset($context);
+        $tags['iframe'] = array_merge($tags['iframe'] ?? [], [
+            'src' => true,
+            'allow' => true,
+            'allowfullscreen' => true,
+            'frameborder' => true,
+            'width' => true,
+            'height' => true,
+            'title' => true,
+            'loading' => true,
+            'referrerpolicy' => true,
+            'class' => true,
+            'style' => true,
+        ]);
+        foreach (['div', 'a', 'span'] as $tag) {
+            $tags[$tag] = array_merge($tags[$tag] ?? [], [
+                'class' => true,
+                'href' => true,
+                'contenteditable' => true,
+                'data-orgasmic-bunny' => true,
+                'data-orgasmic-bunny-object' => true,
+                'data-bunny-play' => true,
+            ]);
+        }
+
+        return $tags;
     }
 
     /**

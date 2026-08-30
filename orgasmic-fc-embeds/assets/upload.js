@@ -15,6 +15,7 @@
   let picking = false;
   let pickerArmed = false;
   let lastEditor = null;
+  const pendingPlayUrls = [];
 
   function fileInput() {
     let input = document.getElementById('orgasmic-bunny-file');
@@ -414,8 +415,10 @@
   }
 
   function alreadyInserted(url) {
-    const body = pickBodyEditor(lastEditor) || lastEditor;
-    return !!(body && !isTitleEditor(body) && editorContains(body, url));
+    const root = composerRoot(lastEditor);
+    if (root && root.querySelector('[data-orgasmic-bunny-object]')) return true;
+    const parsed = parsePlay(url);
+    return !!(parsed && document.querySelector('[data-orgasmic-bunny-object][data-bunny-play*="' + parsed.video + '"]'));
   }
 
   function stripUrlFromEditor(el, url) {
@@ -427,43 +430,27 @@
     }
     const target = el.isContentEditable ? el : (el.closest && el.closest('[contenteditable="true"]'));
     if (!target) return;
-    if ((target.innerText || '').trim() === url) {
+    if (target.querySelector && target.querySelector('[data-orgasmic-bunny-object]')) {
+      /* keep the player object; only remove leftover visible URL text */
+    } else if ((target.innerText || '').trim() === url) {
       target.innerHTML = '';
       fireInput(target);
       return;
     }
-    const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
+    const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        if (node.parentElement && node.parentElement.closest('[data-orgasmic-bunny-object], .orgasmic-bunny-url-hide')) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return (node.nodeValue || '').indexOf(url) !== -1 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      },
+    });
     const nodes = [];
-    while (walker.nextNode()) {
-      if ((walker.currentNode.nodeValue || '').indexOf(url) !== -1) nodes.push(walker.currentNode);
-    }
+    while (walker.nextNode()) nodes.push(walker.currentNode);
     nodes.forEach((node) => {
       node.nodeValue = node.nodeValue.split(url).join('');
     });
     fireInput(target);
-  }
-
-  function cloakUrl(el, url) {
-    const target = el && (el.isContentEditable ? el : (el.closest && el.closest('[contenteditable="true"]')));
-    if (!target || !url) return;
-    const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
-    const nodes = [];
-    while (walker.nextNode()) {
-      if ((walker.currentNode.nodeValue || '').indexOf(url) !== -1) nodes.push(walker.currentNode);
-    }
-    nodes.forEach((node) => {
-      if (node.parentElement && node.parentElement.classList.contains('orgasmic-bunny-url-hide')) return;
-      const parts = node.nodeValue.split(url);
-      const frag = document.createDocumentFragment();
-      if (parts[0]) frag.appendChild(document.createTextNode(parts[0]));
-      const hide = document.createElement('span');
-      hide.className = 'orgasmic-bunny-url-hide';
-      hide.setAttribute('data-orgasmic-bunny-url', '1');
-      hide.textContent = url;
-      frag.appendChild(hide);
-      if (parts.slice(1).join(url)) frag.appendChild(document.createTextNode(parts.slice(1).join(url)));
-      node.parentNode.replaceChild(frag, node);
-    });
   }
 
   function parsePlay(url) {
@@ -471,61 +458,158 @@
     return m ? { library: m[1], video: m[2].toLowerCase() } : null;
   }
 
-  function showComposerPlayer(url, near) {
-    const parsed = parsePlay(url);
-    if (!parsed) return;
-    const root = composerRoot(near || lastEditor);
-    let box = root.querySelector('[data-orgasmic-bunny-preview]');
-    if (!box) {
-      box = document.createElement('div');
-      box.className = 'orgasmic-bunny-embed orgasmic-bunny-composer';
-      box.setAttribute('data-orgasmic-bunny-preview', parsed.library + '/' + parsed.video);
-      const body = pickBodyEditor(near) || lastEditor;
-      const host = (body && (body.parentElement || body)) || root;
-      if (body && body.nextSibling) host.insertBefore(box, body.nextSibling);
-      else host.appendChild(box);
-    }
-    if (box.querySelector('iframe[src*="' + parsed.video + '"]')) return;
-    box.innerHTML = '';
-    const iframe = document.createElement('iframe');
-    iframe.src = 'https://iframe.mediadelivery.net/embed/'
+  function embedSrc(parsed) {
+    return 'https://iframe.mediadelivery.net/embed/'
       + encodeURIComponent(parsed.library) + '/' + encodeURIComponent(parsed.video)
-      + '?autoplay=false&preload=true&responsive=true';
-    iframe.allow = 'accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen';
-    iframe.allowFullscreen = true;
-    iframe.title = 'Video';
-    box.appendChild(iframe);
+      + '?autoplay=false&preload=true&responsive=true&playerjs=true';
+  }
+
+  function playerObject(url) {
+    const parsed = parsePlay(url);
+    const wrap = document.createElement('div');
+    wrap.className = 'orgasmic-bunny-embed orgasmic-bunny-object';
+    wrap.setAttribute('contenteditable', 'false');
+    wrap.setAttribute('data-orgasmic-bunny-object', parsed ? parsed.library + '/' + parsed.video : '1');
+    wrap.setAttribute('data-bunny-play', url);
+    if (parsed) {
+      const iframe = document.createElement('iframe');
+      iframe.src = embedSrc(parsed);
+      iframe.allow = 'accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen';
+      iframe.allowFullscreen = true;
+      iframe.title = 'Video';
+      wrap.appendChild(iframe);
+    }
+    const keep = document.createElement('a');
+    keep.href = url;
+    keep.className = 'orgasmic-bunny-url-hide';
+    keep.textContent = url;
+    wrap.appendChild(keep);
+    return wrap;
+  }
+
+  function stripAllUrls(root, url) {
+    editorsIn(root).forEach((el) => stripUrlFromEditor(el, url));
+    if (root && root.querySelectorAll) {
+      root.querySelectorAll('[data-orgasmic-bunny-preview]').forEach((n) => n.remove());
+    }
+  }
+
+  function insertPlayerObject(el, url) {
+    if (!el || !url) return false;
+    const root = composerRoot(el);
+    stripAllUrls(root, url);
+
+    const target = el.isContentEditable
+      ? el
+      : ((el.closest && el.closest('[contenteditable="true"]')) || el);
+    const parsed = parsePlay(url);
+    const existing = root.querySelector('[data-orgasmic-bunny-object]');
+    if (existing && parsed && existing.getAttribute('data-orgasmic-bunny-object') === parsed.library + '/' + parsed.video) {
+      if (!existing.closest('[contenteditable="true"]') && target && target.isContentEditable) {
+        target.appendChild(existing);
+      }
+      lastEditor = target;
+      return true;
+    }
+
+    const obj = playerObject(url);
+    if (target && target.isContentEditable) {
+      try { target.focus(); } catch (e) {}
+      try {
+        document.execCommand('insertHTML', false, obj.outerHTML);
+      } catch (e) {}
+      if (!target.querySelector('[data-orgasmic-bunny-object]')) {
+        target.appendChild(obj);
+      }
+      fireInput(target);
+      lastEditor = target;
+      return !!target.querySelector('[data-orgasmic-bunny-object]');
+    }
+
+    const host = (el.parentElement || root);
+    host.appendChild(obj);
+    lastEditor = el;
+    return true;
+  }
+
+  function rememberPlayUrl(url) {
+    if (url && pendingPlayUrls.indexOf(url) === -1) pendingPlayUrls.push(url);
   }
 
   function finishInsert(el, url) {
-    lastEditor = el;
-    cloakUrl(el, url);
-    showComposerPlayer(url, el);
-    [60, 200, 500].forEach((ms) => {
-      window.setTimeout(() => {
-        editorsIn(composerRoot(el)).filter(isTitleEditor).forEach((n) => stripUrlFromEditor(n, url));
-        cloakUrl(el, url);
-        showComposerPlayer(url, el);
-      }, ms);
+    rememberPlayUrl(url);
+    const ok = insertPlayerObject(el, url);
+    [50, 160, 400, 900].forEach((ms) => {
+      window.setTimeout(() => insertPlayerObject(el, url), ms);
     });
-    return true;
+    return ok;
   }
 
   function insertPlayUrl(url) {
     if (!url) return false;
+    if (alreadyInserted(url)) {
+      rememberPlayUrl(url);
+      const root = composerRoot(lastEditor);
+      stripAllUrls(root, url);
+      return true;
+    }
     const root = composerRoot(lastEditor || document.activeElement);
-    editorsIn(root).filter(isTitleEditor).forEach((el) => stripUrlFromEditor(el, url));
-
     const body = pickBodyEditor(lastEditor) || pickBodyEditor(root) || findComposerEditor();
-    if (body && !isTitleEditor(body)) {
-      if (editorContains(body, url) || insertText(body, url)) return finishInsert(body, url);
-    }
-
+    if (body && !isTitleEditor(body)) return finishInsert(body, url);
     const ranked = editorsIn(root).filter((el) => !isTitleEditor(el)).sort((a, b) => scoreEditor(b) - scoreEditor(a));
-    for (let i = 0; i < ranked.length; i += 1) {
-      if (insertText(ranked[i], url)) return finishInsert(ranked[i], url);
-    }
+    if (ranked[0]) return finishInsert(ranked[0], url);
     return false;
+  }
+
+  function injectPlayIntoPayload(raw, url) {
+    if (!raw || !url) return raw;
+    try {
+      const data = JSON.parse(raw);
+      const keys = ['message', 'content', 'description'];
+      let changed = false;
+      keys.forEach((key) => {
+        if (typeof data[key] !== 'string') return;
+        if (/mediadelivery\.net|orgasmic-bunny/.test(data[key])) return;
+        data[key] = (data[key].trim() ? data[key].trim() + '\n\n' : '') + url;
+        changed = true;
+      });
+      if (data.feed && typeof data.feed.message === 'string' && !/mediadelivery\.net|orgasmic-bunny/.test(data.feed.message)) {
+        data.feed.message = (data.feed.message.trim() ? data.feed.message.trim() + '\n\n' : '') + url;
+        changed = true;
+      }
+      return changed ? JSON.stringify(data) : raw;
+    } catch (e) {
+      return raw;
+    }
+  }
+
+  function hookFeedSubmit() {
+    if (window.fetch && !window.fetch.__orgasmicBunny) {
+      const orig = window.fetch;
+      window.fetch = function (input, init) {
+        const href = typeof input === 'string' ? input : (input && input.url) || '';
+        if (pendingPlayUrls.length && init && init.method && /post|put|patch/i.test(init.method) && /\/feeds(\b|\/|\?)/.test(href) && typeof init.body === 'string') {
+          init = Object.assign({}, init, { body: injectPlayIntoPayload(init.body, pendingPlayUrls[pendingPlayUrls.length - 1]) });
+        }
+        return orig.call(this, input, init);
+      };
+      window.fetch.__orgasmicBunny = true;
+    }
+    if (window.XMLHttpRequest && !window.XMLHttpRequest.prototype.__orgasmicBunny) {
+      const send = window.XMLHttpRequest.prototype.send;
+      const open = window.XMLHttpRequest.prototype.open;
+      window.XMLHttpRequest.prototype.open = function (method, url) {
+        this.__orgasmicBunnyFeed = /post|put|patch/i.test(String(method || '')) && /\/feeds(\b|\/|\?)/.test(String(url || ''));
+        return open.apply(this, arguments);
+      };
+      window.XMLHttpRequest.prototype.send = function (body) {
+        if (this.__orgasmicBunnyFeed && pendingPlayUrls.length && typeof body === 'string') {
+          body = injectPlayIntoPayload(body, pendingPlayUrls[pendingPlayUrls.length - 1]);
+        }
+        return send.call(this, body);
+      };
+      window.XMLHttpRequest.prototype.__orgasmicBunny = true;
+    }
   }
 
   function insertPlayUrlRetry(url) {
@@ -634,6 +718,7 @@
     if (document.body) obs.observe(document.body, { childList: true, subtree: true });
   }
 
+  hookFeedSubmit();
   fileInput();
   bindToolbarOverlays();
 })();
