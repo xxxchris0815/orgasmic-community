@@ -259,12 +259,31 @@
   watchNavIcons();
   if ((location.hash || '') === '#orgasmic-notify') openPrefs();
 
+  async function firebaseReady() {
+    const Cap = window.Capacitor && window.Capacitor.Plugins;
+    if (!Cap || !Cap.OrgasmicNative || !Cap.OrgasmicNative.pushReady) return false;
+    try {
+      const status = await Cap.OrgasmicNative.pushReady();
+      return !!(status && status.ready);
+    } catch (e) {
+      return false;
+    }
+  }
+
   async function enableNativePush() {
     const Cap = window.Capacitor && window.Capacitor.Plugins;
     if (!Cap || !Cap.PushNotifications) return false;
+    // PushNotifications.register() kills the Android process when google-services.json
+    // was not baked into the APK. JS try/catch cannot catch that native crash.
+    if (!(await firebaseReady())) {
+      console.warn('[orgasmic-app] native push skipped (Firebase not initialized)');
+      return false;
+    }
     const perm = await Cap.PushNotifications.requestPermissions();
     if (perm.receive !== 'granted' && perm.display !== 'granted') return false;
-    await Cap.PushNotifications.register();
+    await Cap.PushNotifications.addListener('registrationError', (err) => {
+      console.warn('[orgasmic-app] push registration error', err);
+    });
     await Cap.PushNotifications.addListener('registration', async (ev) => {
       const platform = (window.Capacitor.getPlatform && window.Capacitor.getPlatform()) || '';
       await postJson('push/token', { channel: 'fcm', platform: platform, token: ev.value });
@@ -273,12 +292,15 @@
       const data = (ev.notification && ev.notification.data) || {};
       if (data.url) window.location.href = data.url;
     });
+    await Cap.PushNotifications.register();
     return true;
   }
 
   const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   if (isNative) {
-    enableNativePush().catch(() => {});
+    enableNativePush().catch((err) => {
+      console.warn('[orgasmic-app] native push failed', err);
+    });
     return;
   }
 

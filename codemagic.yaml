@@ -24,6 +24,9 @@ workflows:
           else
             echo "GOOGLE_SERVICES_JSON fehlt — Debug baut, Push geht noch nicht."
           fi
+          if [ -f android/app/google-services.json ]; then
+            echo "google-services.json vorhanden ($(wc -c < android/app/google-services.json) bytes)"
+          fi
       - name: Sync Capacitor
         script: |
           cd orgasmic-native

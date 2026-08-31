@@ -263,7 +263,51 @@ Kommt nichts:
 
 ---
 
-## 11. iPhone (später, nicht jetzt)
+## 11. App stürzt nach dem Login — Logs holen
+
+Nach dem Login lädt das Portal `app.js` und ruft `PushNotifications.register()` auf. **Ohne** `google-services.json` in der APK beendet Android den Prozess (`Default FirebaseApp is not initialized`). Ein JavaScript-`try/catch` fängt das nicht.
+
+**Sofort:** WordPress-Plugin **ORGASMIC App 1.1.6** einspielen. Dann wird Push erst registriert, wenn Firebase in der App wirklich da ist. Die aktuelle APK kann danach wieder genutzt werden.
+
+**Danach Push:** `GOOGLE_SERVICES_JSON` in Codemagic (Gruppe `firebase`) mit Paket `live.lo.community` → Debug-APK neu bauen.
+
+### Logs ohne Computer (Handy)
+
+1. Play Store: App **Logcat Reader** (oder MatLog) installieren.  
+2. Android: **Einstellungen → Über das Telefon** → siebenmal auf **Build-Nummer**.  
+3. **Entwickleroptionen** einschalten → bei Logcat Reader USB-Debugging / Lesen der Logs erlauben, wenn gefragt.  
+4. Filter: `AndroidRuntime` oder `live.lo.community` oder `FirebaseApp` oder `FATAL`.  
+5. App öffnen, einloggen, crash abwarten.  
+6. Die roten Zeilen ab `FATAL EXCEPTION` bis zum Ende des Java-Stacks kopieren und schicken.
+
+### Logs mit Computer (USB)
+
+1. Auf dem Handy: Entwickleroptionen → **USB-Debugging**.  
+2. USB verbinden, `adb devices` muss das Gerät zeigen.  
+3. Direkt nach dem Crash:
+
+```bash
+adb logcat -d | grep -A 80 "FATAL EXCEPTION"
+```
+
+Oder laufend mitlesen:
+
+```bash
+adb logcat Capacitor:V Capacitor/Console:V AndroidRuntime:E FirebaseMessaging:V *:S
+```
+
+### JavaScript (nur wenn die App offen bleibt)
+
+1. USB-Debugging an.  
+2. Am PC Chrome öffnen: `chrome://inspect/#devices`  
+3. Die WebView der App antippen → **inspect**.  
+4. Console / Network. Ein echter Prozess-Absturz erscheint hier **nicht**.
+
+Codemagic hat **keine** Laufzeit-Logs vom Handy — nur den APK-Build.
+
+---
+
+## 12. iPhone (später, nicht jetzt)
 
 Im Ordner `orgasmic-native/ios` ist die Hülle schon da. Dafür extra:
 

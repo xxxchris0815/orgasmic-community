@@ -12,7 +12,7 @@ Moved from `evolution-api` (`Extras/orgasmic-community`).
 | `orgasmic-fc-events/` | **1.0.9** | Kalender im Portal (RSVP, Zoom, Event-Kommentare, Cache, MN-Layout) |
 | `orgasmic-fc-embeds/` | **1.2.9** | Video-Player, nativer Composer-Upload, Autoplay, Wiedergabe-Tracking + Webhook |
 | `orgasmic-fc-chat/` | **1.1.9** | Space-Chat (Mighty-Networks-Layout, Bild + Sprache, Offline-Cache) |
-| `orgasmic-fc-app/` | **1.1.5** | PWA, Web Push, Prefs im Profilmenü, Capacitor-Token-API + optional Firebase |
+| `orgasmic-fc-app/` | **1.1.6** | PWA, Web Push, Prefs im Profilmenü, Capacitor-Token-API + optional Firebase |
 
 ## ORGASMIC Community Kalender
 
@@ -91,7 +91,7 @@ Push geht nur an Mitglieder des jeweiligen Spaces. Chat-Text ist standardmäßig
 
 WP-Admin: **ORGASMIC App**. PHP 8.2+ für Web-Push (`openssl_pkey_derive`). Firebase-JSON nur für Store-Apps.
 
-ZIP: [`orgasmic-fc-app-1.1.5.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.1.5.zip)
+ZIP: [`orgasmic-fc-app-1.1.6.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.1.6.zip)
 
 ### Capacitor / Play Store (Android zuerst)
 
