@@ -9,10 +9,10 @@ def getMyVersionName = { ->
 }
 
 android {
-    namespace "live.orgasmic.community"
+    namespace "live.lo.community"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "live.orgasmic.community"
+        applicationId "live.lo.community"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode getMyVersionCode()

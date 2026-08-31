@@ -12,7 +12,7 @@ Im Store und unter dem App-Icon **keine** sexuellen oder expliziten Wörter (auc
 | Play-Store-Titel (max. 30 Zeichen) | **LO Community** |
 | Kurzbeschreibung | Mitglieder-Community mit Chat, Beiträgen und Kalender |
 | Entwicklername | Firmenname oder **LO Community** — ohne Sex-Wörter |
-| Android-Paketname (technisch, unsichtbar) | `live.orgasmic.community` — **nicht ändern** |
+| Android-Paketname (technisch) | `live.lo.community` — so in Firebase und Play anlegen |
 
 Nicht in Titel, Kurztext, Screenshots, Icon-Schrift: orgasm, orgasmic, sex, xxx, nackt, escort, fetish usw.
 
@@ -49,7 +49,8 @@ Workflows in Codemagic:
    - Kostenlos oder kostenpflichtig: **Kostenlos**
    - Richtlinien und US-Exportregeln akzeptieren
 5. **App erstellen**.
-6. Notiere dir: die App existiert, ist aber noch **Entwurf**. Es fehlt Listing, Inhalt, Datenschutz — das kommt in Schritt 7. Zuerst Firebase und ein Test-Build.
+6. Falls du schon eine Play-App mit Paket `live.orgasmic.community` angelegt oder hochgeladen hast: **neue App** `LO Community` erstellen (Paketnamen in Play kann man nicht umbenennen). Die alte als Entwurf liegen lassen oder löschen, wenn Play das anbietet.
+7. Notiere dir: die App existiert, ist aber noch **Entwurf**. Es fehlt Listing, Inhalt, Datenschutz — das kommt in Schritt 7. Zuerst Firebase und ein Test-Build.
 
 ---
 
@@ -60,7 +61,7 @@ Zwei verschiedene Namen — nicht vermischen:
 | Was | Beispiel | Punkte? |
 | --- | --- | --- |
 | **Projekt-ID** (Firebase-Konto) | `live-orgasmic-community` | Bindestriche, **keine Punkte** — so ist das richtig |
-| **Android-Paketname** (die App) | `live.orgasmic.community` | **Punkte**, keine Bindestriche |
+| **Android-Paketname** (die App) | `live.lo.community` | **Punkte**, keine Bindestriche |
 
 Die Projekt-ID darfst du nicht mit Punkten anlegen. Den Android-Paketnamen **musst** du mit Punkten eintragen. Das Feld heißt beim Hinzufügen der Android-App „Android-Paketname“ / „Android package name“, nicht Projekt-ID.
 
@@ -72,15 +73,15 @@ Die Projekt-ID darfst du nicht mit Punkten anlegen. Den Android-Paketnamen **mus
 ### 2a. Android-App in Firebase
 
 1. Auf der Projektübersicht: **Android** (Icon) — nicht das Projekt umbenennen, eine **App** zum Projekt hinzufügen.
-2. Feld **Android-Paketname** **genau**: `live.orgasmic.community`  
-   (Punkte sind hier erlaubt und nötig. `live-orgasmic-community` ist **falsch** und passt nicht zur App.)
+2. Feld **Android-Paketname** **genau**: `live.lo.community`  
+   (Punkte sind hier erlaubt und nötig. Nicht die Firebase-Projekt-ID eintragen.)
 3. App-Spitzname: `LO Community Android`
 4. Debug-Signatur-SHA kannst du leer lassen.
 5. **App registrieren**.
 6. **`google-services.json` herunterladen**. Datei aufheben. Nicht ins öffentliche Git legen.
 7. Die nächsten Firebase-Schritte „ins SDK einfügen“ überspringen — Capacitor macht das.
 
-Falls schon eine Android-App mit `live-orgasmic-community` existiert: stehen lassen. **Zusätzlich** eine zweite Android-App mit Paket `live.orgasmic.community` anlegen und **deren** `google-services.json` verwenden.
+Falls schon eine Android-App mit `live.orgasmic.community` existiert: in Firebase **Einstellungen → Deine Apps** diese App entfernen (oder ignorieren) und **neu** mit Paket `live.lo.community` anlegen. Deren neue `google-services.json` in Codemagic als `GOOGLE_SERVICES_JSON` ersetzen.
 
 ### 2b. Cloud Messaging prüfen
 
@@ -252,7 +253,7 @@ Wenn die App in Play noch `draft` ist, bleibt `submit_as_draft: true` in der yam
 Kommt nichts:
 
 - Firebase JSON in WordPress hinterlegt?  
-- `GOOGLE_SERVICES_JSON` in Codemagic die **Android**-Datei, Paketname `live.orgasmic.community`?  
+- `GOOGLE_SERVICES_JSON` in Codemagic die **Android**-Datei, Paketname `live.lo.community`?  
 - In Firebase dieselbe Android-App?  
 - Nutzer in der App wirklich eingeloggt (Token geht nur an eingeloggte Mitglieder)?
 
@@ -263,7 +264,7 @@ Kommt nichts:
 Im Ordner `orgasmic-native/ios` ist die Hülle schon da. Dafür extra:
 
 - Apple Developer 99 $/Jahr  
-- Dieselbe Firebase-Projekt → **iOS-App** mit Bundle-ID `live.orgasmic.community`  
+- Dieselbe Firebase-Projekt → **iOS-App** mit Bundle-ID `live.lo.community`  
 - `GoogleService-Info.plist`  
 - Codemagic-macOS-Workflow (legen wir an, wenn Android steht)
 
@@ -273,7 +274,7 @@ Im Ordner `orgasmic-native/ios` ist die Hülle schon da. Dafür extra:
 
 - [ ] Play-Konto (25 $) aktiv  
 - [ ] Play-App `LO Community` angelegt  
-- [ ] Firebase-Projekt + Android-App `live.orgasmic.community`  
+- [ ] Firebase-Projekt + Android-App `live.lo.community`  
 - [ ] `google-services.json` heruntergeladen  
 - [ ] Firebase-Dienstkonto-JSON in WordPress **ORGASMIC App**  
 - [ ] Codemagic ↔ GitHub  

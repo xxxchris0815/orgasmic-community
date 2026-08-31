@@ -8,7 +8,7 @@ workflows:
         - firebase
       node: 22
       vars:
-        PACKAGE_NAME: live.orgasmic.community
+        PACKAGE_NAME: live.lo.community
     scripts:
       - name: Install npm packages
         script: |
@@ -72,7 +72,7 @@ workflows:
         - firebase
       node: 22
       vars:
-        PACKAGE_NAME: live.orgasmic.community
+        PACKAGE_NAME: live.lo.community
     scripts:
       - name: Install npm packages
         script: |
@@ -114,7 +114,7 @@ workflows:
         - google_play
       node: 22
       vars:
-        PACKAGE_NAME: live.orgasmic.community
+        PACKAGE_NAME: live.lo.community
     scripts:
       - name: Install npm packages
         script: |

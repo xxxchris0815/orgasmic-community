@@ -1,4 +1,4 @@
-package live.orgasmic.community;
+package live.lo.community;
 
 import com.getcapacitor.BridgeActivity;
 
