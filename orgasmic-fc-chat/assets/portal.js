@@ -34,6 +34,8 @@
     filter: 'all',
     loadingRooms: false,
     loadingThread: false,
+    selectMode: false,
+    selected: {},
   };
 
   let unreadTimer = null;
@@ -596,6 +598,8 @@
     stopThreadPoll();
     stopVoicePlayback();
     cancelVoice(true);
+    state.selectMode = false;
+    state.selected = {};
     if ((location.hash || '').indexOf('orgasmic-chat') === 1) {
       history.replaceState(null, '', location.pathname + location.search);
     }
@@ -645,6 +649,10 @@
 
   function sendIcon() {
     return '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 4.4 5.7 10.7l1.4 1.4L11 8.2V20h2V8.2l3.9 3.9 1.4-1.4z"></path></svg>';
+  }
+
+  function trashIcon() {
+    return iconSvg('<path d="M4 7h16M9 7V5h6v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M10 11v6M14 11v6"></path>');
   }
 
   function rateLabel() {
@@ -937,8 +945,9 @@
     const mine = state.me && msg.user_id === state.me.id;
     const author = authorFor(msg);
     const canDelete = mine || state.canManage;
+    const selected = !!(state.selectMode && state.selected[msg.id]);
     const name = author.display_name || (mine ? 'Du' : 'Mitglied');
-    html += '<article class="orgasmic-chat-msg' + (mine ? ' is-mine' : '') + '" data-och-msg="' + msg.id + '" data-och-uid="' + msg.user_id + '">';
+    html += '<article class="orgasmic-chat-msg' + (mine ? ' is-mine' : '') + (canDelete ? ' is-deletable' : '') + (selected ? ' is-selected' : '') + '" data-och-msg="' + msg.id + '" data-och-uid="' + msg.user_id + '"' + (canDelete ? ' data-och-can-del="1"' : '') + '>';
     html += avatarHtml(author.avatar, name, 'och-avatar');
     html += '<div class="och-bubble">';
     html += '<div class="och-msg-head"><span class="och-author">' + escapeHtml(name) + '</span>'
@@ -951,7 +960,6 @@
         + '<img class="och-photo" data-och-src="' + escapeHtml(msg.attachment.thumb || msg.attachment.url) + '" src="' + escapeHtml(msg.attachment.thumb || msg.attachment.url) + '" alt="" />'
         + '</a>';
     }
-    if (canDelete) html += '<button type="button" class="och-del" data-och-del="' + msg.id + '">Löschen</button>';
     html += '</div></article>';
     return { html: html, day: day || prevDay };
   }
@@ -1030,8 +1038,7 @@
         + '<button type="button" class="och-ghost" data-och-voice-cancel>Abbrechen</button></div>';
     } else if (state.pendingImage && (state.pendingImage.kind === 'audio' || (state.pendingImage.mime && String(state.pendingImage.mime).indexOf('audio/') === 0))) {
       html += '<div class="och-pending och-pending-voice">' + voicePlayerHtml(state.pendingImage.url, state.pendingImage.duration)
-        + '<span>Sprachnachricht' + (state.pendingImage.duration ? ' · ' + fmtDuration(state.pendingImage.duration) : '') + '</span>'
-        + '<button type="button" class="och-ghost" data-och-clear-image>Entfernen</button></div>';
+        + '<button type="button" class="och-icon-btn och-voice-discard" data-och-clear-image title="Verwerfen" aria-label="Verwerfen">' + trashIcon() + '</button></div>';
     } else if (state.pendingImage) {
       html += '<div class="och-pending"><img src="' + escapeHtml(state.pendingImage.thumb || state.pendingImage.url) + '" alt="" /><span>Bild angehängt</span><button type="button" class="och-ghost" data-och-clear-image>Entfernen</button></div>';
     }
@@ -1063,12 +1070,75 @@
   }
 
   function threadHeaderHtml(room) {
+    if (state.selectMode) {
+      const n = Object.keys(state.selected).length;
+      return '<div class="orgasmic-chat-thread-top is-selecting">'
+        + '<button type="button" class="och-icon-btn" data-och-select-cancel aria-label="Fertig">' + iconSvg('<path d="M6 6l12 12M18 6 6 18"></path>') + '</button>'
+        + '<div class="och-thread-who"><h2>' + n + ' ausgewählt</h2><p class="och-sub">Tippen zum Markieren</p></div>'
+        + '<button type="button" class="och-icon-btn" data-och-select-delete aria-label="Löschen" title="Löschen"' + (n ? '' : ' disabled') + '>' + trashIcon() + '</button></div>';
+    }
     return '<div class="orgasmic-chat-thread-top">'
       + '<button type="button" class="och-icon-btn orgasmic-chat-back" data-och-back aria-label="Zurück">' + iconSvg('<path d="M15 6 9 12l6 6"></path>') + '</button>'
       + avatarHtml(room.logo, room.title, 'och-avatar')
       + '<div class="och-thread-who"><h2>' + escapeHtml(room.title) + '</h2><p class="och-sub">Chat</p></div>'
       + '<button type="button" class="och-icon-btn orgasmic-chat-thread-close" data-och-close aria-label="Schließen">'
       + iconSvg('<path d="M6 6l12 12M18 6 6 18"></path>') + '</button></div>';
+  }
+
+  function selectedIds() {
+    return Object.keys(state.selected).map((id) => parseInt(id, 10)).filter((id) => id > 0);
+  }
+
+  function exitSelect() {
+    if (!state.selectMode && !Object.keys(state.selected).length) return;
+    state.selectMode = false;
+    state.selected = {};
+    paintThread({ focus: false, stick: false });
+  }
+
+  function enterSelect(id) {
+    if (!id) return;
+    state.selectMode = true;
+    state.selected = {};
+    state.selected[id] = true;
+    paintThread({ focus: false, stick: false });
+  }
+
+  function toggleSelect(id) {
+    if (!id) return;
+    if (!state.selectMode) {
+      enterSelect(id);
+      return;
+    }
+    if (state.selected[id]) {
+      delete state.selected[id];
+    } else {
+      state.selected[id] = true;
+    }
+    if (!Object.keys(state.selected).length) {
+      exitSelect();
+      return;
+    }
+    paintThread({ focus: false, stick: false });
+  }
+
+  async function deleteSelected() {
+    const ids = selectedIds();
+    if (!ids.length) return;
+    const btn = $('[data-och-select-delete]');
+    if (btn) btn.disabled = true;
+    try {
+      for (let i = 0; i < ids.length; i += 1) {
+        await api('messages/' + ids[i], { method: 'DELETE' });
+        state.messages = state.messages.filter((m) => m.id !== ids[i]);
+      }
+      state.selectMode = false;
+      state.selected = {};
+      paintThread({ focus: false, stick: false });
+    } catch (e) {
+      setError(e.message || 'Löschen fehlgeschlagen.');
+      if (btn) btn.disabled = false;
+    }
   }
 
   function threadBodyHtml() {
@@ -1088,7 +1158,7 @@
     const scroller = $('#och-scroll');
     if (scroller && (!opts || opts.stick !== false)) scroller.scrollTop = scroller.scrollHeight;
     const box = $('textarea[name="body"]');
-    if (box && state.spaceId && (!opts || opts.focus !== false)) box.focus();
+    if (box && state.spaceId && !state.selectMode && (!opts || opts.focus !== false)) box.focus();
     prefetchAttachments(state.messages);
     hydrateImages();
     bindAvatarFallback();
@@ -1105,7 +1175,10 @@
     const draftH = box ? box.style.height : '';
     const keepFocus = !!(box && document.activeElement === box);
     const shell = $('.orgasmic-chat');
-    if (shell) shell.classList.toggle('is-thread', !!state.spaceId);
+    if (shell) {
+      shell.classList.toggle('is-thread', !!state.spaceId);
+      shell.classList.toggle('is-selecting', !!state.selectMode);
+    }
     section.innerHTML = threadBodyHtml();
     const next = $('textarea[name="body"]');
     if (next && draft) {
@@ -1119,7 +1192,7 @@
     const root = document.getElementById('orgasmic-chat-root');
     if (!root || root.hidden) return;
 
-    root.innerHTML = '<div class="orgasmic-chat-overlay"><div class="orgasmic-chat' + (state.spaceId ? ' is-thread' : '') + '">'
+    root.innerHTML = '<div class="orgasmic-chat-overlay"><div class="orgasmic-chat' + (state.spaceId ? ' is-thread' : '') + (state.selectMode ? ' is-selecting' : '') + '">'
       + '<p class="orgasmic-chat-offline" data-och-offline' + (state.offline ? '' : ' hidden') + '>Offline — zuletzt geladene Nachrichten.</p>'
       + '<div class="orgasmic-chat-body">'
       + '<aside class="orgasmic-chat-rooms">'
@@ -1299,7 +1372,11 @@
     const seq = ++bootSeq;
     openOverlay();
     const nextId = route.spaceId || 0;
-    if (state.spaceId !== nextId) stopVoicePlayback();
+    if (state.spaceId !== nextId) {
+      stopVoicePlayback();
+      state.selectMode = false;
+      state.selected = {};
+    }
     state.spaceId = nextId;
     state.error = '';
     state.emojiOpen = false;
@@ -1545,8 +1622,28 @@
     if (!silent) composerExtras();
   }
 
+  let ignoreSelectClick = false;
+
   document.addEventListener('click', (ev) => {
-    const rate = ev.target.closest('[data-och-rate]');
+    const t = ev.target.closest ? ev.target : ev.target.parentElement;
+    if (!t || !t.closest) return;
+    if (ignoreSelectClick && t.closest('#orgasmic-chat-root [data-och-msg]')) {
+      ev.preventDefault();
+      return;
+    }
+    const selectCancel = t.closest('[data-och-select-cancel]');
+    if (selectCancel) {
+      ev.preventDefault();
+      exitSelect();
+      return;
+    }
+    const selectDelete = t.closest('[data-och-select-delete]');
+    if (selectDelete) {
+      ev.preventDefault();
+      deleteSelected();
+      return;
+    }
+    const rate = t.closest('[data-och-rate]');
     if (rate) {
       ev.preventDefault();
       cycleVoiceRate();
@@ -1640,18 +1737,51 @@
       composerExtras();
       return;
     }
-    const del = ev.target.closest('[data-och-del]');
-    if (del) {
+    const article = ev.target.closest('[data-och-msg]');
+    if (article && state.selectMode) {
+      if (ev.target.closest('[data-och-play], a')) return;
       ev.preventDefault();
-      const id = parseInt(del.getAttribute('data-och-del'), 10);
-      if (!id || !window.confirm('Nachricht löschen?')) return;
-      api('messages/' + id, { method: 'DELETE' }).then(() => {
-        state.messages = state.messages.filter((m) => m.id !== id);
-        const node = document.querySelector('[data-och-msg="' + id + '"]');
-        if (node) node.remove();
-      }).catch((e) => setError(e.message || 'Löschen fehlgeschlagen.'));
+      if (article.getAttribute('data-och-can-del')) {
+        toggleSelect(parseInt(article.getAttribute('data-och-msg'), 10));
+      }
     }
   });
+
+  let pressTimer = 0;
+  function clearPress() {
+    if (pressTimer) {
+      window.clearTimeout(pressTimer);
+      pressTimer = 0;
+    }
+  }
+  document.addEventListener('pointerdown', (ev) => {
+    const root = document.getElementById('orgasmic-chat-root');
+    if (!root || root.hidden) return;
+    if (ev.target.closest('[data-och-play], a, button, textarea, input')) return;
+    const msg = ev.target.closest('[data-och-msg][data-och-can-del]');
+    if (!msg) return;
+    const id = parseInt(msg.getAttribute('data-och-msg'), 10);
+    clearPress();
+    pressTimer = window.setTimeout(() => {
+      pressTimer = 0;
+      ignoreSelectClick = true;
+      enterSelect(id);
+      window.setTimeout(() => {
+        ignoreSelectClick = false;
+      }, 450);
+    }, 420);
+  }, true);
+  document.addEventListener('pointermove', (ev) => {
+    if (!pressTimer) return;
+    if (Math.abs(ev.movementX) + Math.abs(ev.movementY) > 10) clearPress();
+  }, true);
+  document.addEventListener('pointerup', clearPress, true);
+  document.addEventListener('pointercancel', clearPress, true);
+  document.addEventListener('contextmenu', (ev) => {
+    if (ev.target.closest && ev.target.closest('#orgasmic-chat-root [data-och-msg]')) {
+      ev.preventDefault();
+    }
+  }, true);
 
   document.addEventListener('input', (ev) => {
     if (ev.target.matches('[data-och-search]')) {

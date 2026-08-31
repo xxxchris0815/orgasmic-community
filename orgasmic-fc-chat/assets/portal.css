@@ -403,6 +403,40 @@ html.orgasmic-chat-keyboard body > *:not(#orgasmic-chat-root) {
 
 .orgasmic-chat-thread-top {
   border-bottom: 1px solid var(--och-line);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.orgasmic-chat.is-selecting .orgasmic-chat-composer {
+  display: none;
+}
+
+.orgasmic-chat-msg.is-deletable {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.orgasmic-chat-msg.is-selected .och-bubble {
+  background: rgba(196, 163, 90, 0.16);
+  border-radius: 12px;
+  padding: 6px 8px;
+  margin: -6px -8px;
+}
+
+.orgasmic-chat-msg.is-selected {
+  position: relative;
+}
+
+.orgasmic-chat-msg.is-selected::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--och-accent, #c4a35a);
 }
 
 #orgasmic-chat-root .orgasmic-chat-back {
@@ -604,16 +638,7 @@ html.orgasmic-chat-keyboard body > *:not(#orgasmic-chat-root) {
 }
 
 .orgasmic-chat-msg .och-del {
-  display: inline-block;
-  margin-top: 6px;
-  background: transparent;
-  color: var(--och-muted);
-  border: 0;
-  padding: 0;
-  font-size: 12px;
-  font-weight: 650;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  display: none;
 }
 
 .orgasmic-chat-empty,
@@ -737,6 +762,21 @@ html.orgasmic-chat-keyboard body > *:not(#orgasmic-chat-root) {
   font-size: 12px;
   color: var(--och-muted);
   padding: 4px 8px 8px;
+}
+
+.och-pending-voice {
+  justify-content: space-between;
+}
+
+.och-pending-voice .och-voice {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.och-voice-discard {
+  flex-shrink: 0;
+  color: var(--och-muted) !important;
 }
 
 .och-pending img {

@@ -156,13 +156,13 @@ class Orgasmic_Fc_App_Notify
         $id = (int) ($event['id'] ?? 0);
         $event_title = trim((string) ($event['title'] ?? ''));
         $minutes = (int) $minutes;
-        $heading = $this->heading($this->event_space_title($event), 'Termin');
+        $heading = $this->heading($this->event_space_title($event), 'Event');
         if ($minutes <= 5) {
-            $body = $event_title !== '' ? $event_title . ' — Veranstaltung beginnt' : 'Veranstaltung beginnt';
+            $body = $event_title !== '' ? $event_title . ' — Event beginnt' : 'Event beginnt';
         } elseif ($minutes >= 1440) {
-            $body = ($event_title !== '' ? $event_title : 'Termin') . ' beginnt morgen';
+            $body = ($event_title !== '' ? $event_title : 'Event') . ' beginnt morgen';
         } else {
-            $body = ($event_title !== '' ? $event_title : 'Termin') . ' beginnt in ' . $minutes . ' Minuten';
+            $body = ($event_title !== '' ? $event_title : 'Event') . ' beginnt in ' . $minutes . ' Minuten';
         }
         $recipients = array_values(array_unique(array_map('intval', (array) $user_ids)));
         $recipients = $this->filter_prefs($recipients, 'event');
@@ -197,8 +197,8 @@ class Orgasmic_Fc_App_Notify
         $this->store->enqueue(
             $recipients,
             'event',
-            $this->heading($this->event_space_title($event), 'Termin'),
-            $this->clip($event_title !== '' ? 'Neuer Termin: ' . $event_title : 'Neuer Termin in deinem Kreis', 160),
+            $this->heading($this->event_space_title($event), 'Event'),
+            $this->clip($event_title !== '' ? 'Neues Event: ' . $event_title : 'Neues Event', 160),
             $this->url($id ? '#orgasmic-event-' . $id : '#orgasmic-calendar'),
             'event-new-' . $id,
             ['event_id' => $id]
@@ -308,8 +308,11 @@ class Orgasmic_Fc_App_Notify
     private function heading(string $space, string $kind): string
     {
         $space = trim($space);
+        if ($space === '' || strcasecmp($space, 'Kreis') === 0) {
+            return $kind;
+        }
 
-        return $space !== '' ? $space . ' · ' . $kind : $kind;
+        return $space . ' · ' . $kind;
     }
 
     private function line(string $author, string $preview, string $generic): string
@@ -333,8 +336,13 @@ class Orgasmic_Fc_App_Notify
             $sid = (int) ($event['space_id'] ?? 0);
             $ids = $sid > 0 ? [$sid] : [];
         }
+        // Several rooms → just "Event", not a generic "Kreis".
+        if (count($ids) !== 1) {
+            return '';
+        }
+        $title = $this->access->space_title($ids[0]);
 
-        return $ids !== [] ? $this->access->space_title($ids[0]) : '';
+        return ($title !== '' && strcasecmp($title, 'Kreis') !== 0) ? $title : '';
     }
 
     private function clip(string $text, int $max): string

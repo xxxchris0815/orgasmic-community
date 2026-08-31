@@ -98,10 +98,38 @@
 
 .orgasmic-cal header.orgasmic-cal-top {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: stretch;
   gap: 16px;
   margin-bottom: 28px;
+}
+
+.orgasmic-cal-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.orgasmic-cal button.oc-icon-close {
+  flex: 0 0 auto;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  margin: -6px -8px 0 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+}
+
+.orgasmic-cal button.oc-icon-close:hover,
+.orgasmic-cal button.oc-icon-close:focus-visible {
+  background: rgba(15, 23, 42, 0.06);
 }
 
 .orgasmic-cal h1 {
@@ -767,19 +795,18 @@ a[href="#orgasmic-calendar"].has-today {
     background: var(--oc-bg, inherit);
   }
 
-  .orgasmic-cal h1 {
-    font-size: 24px;
-  }
-
   .orgasmic-cal-actions {
     width: 100%;
   }
 
-  .orgasmic-cal-actions .oc-btn,
-  .orgasmic-cal-actions button {
+  .orgasmic-cal-actions .oc-btn {
     flex: 1;
     justify-content: center;
     min-height: 44px;
+  }
+
+  .orgasmic-cal h1 {
+    font-size: 24px;
   }
 
   .orgasmic-cal-month {

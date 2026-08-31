@@ -21,7 +21,7 @@ class Orgasmic_Fc_Events_Feed
         if ($space_ids === []) {
             return [
                 'ids' => [],
-                'error' => 'Bitte mindestens einen Space wählen, damit der Termin im Activity Stream erscheint.',
+                'error' => 'Bitte mindestens einen Space wählen, damit das Event im Activity Stream erscheint.',
             ];
         }
 

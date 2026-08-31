@@ -243,3 +243,19 @@ html.orgasmic-native {
     z-index: 100000 !important;
   }
 }
+
+#orgasmic-ptr {
+  position: fixed;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100001;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #1a1625;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 650;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.2);
+  pointer-events: none;
+}

@@ -1,12 +1,16 @@
 === ORGASMIC Chat ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.1.12
+Stable tag: 1.1.13
 License: GPLv2 or later
 
 Space chat for FluentCommunity. One room per space, members only, header icon with unread badge, REST API.
 
 == Changelog ==
+
+= 1.1.13 =
+* Long-press messages to select and delete (trash in the header), like WhatsApp
+* Discard a pending voice note with a trash icon instead of the Sprachnachricht label
 
 = 1.1.12 =
 * Fill the visual viewport when the keyboard is open so the feed cannot show between composer and keys

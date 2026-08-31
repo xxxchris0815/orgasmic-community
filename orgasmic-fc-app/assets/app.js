@@ -304,6 +304,73 @@
 
   setupNativeChrome();
 
+  function overlayOpen() {
+    const chat = document.getElementById('orgasmic-chat-root');
+    const cal = document.getElementById('orgasmic-cal-root');
+    const prefs = document.getElementById('orgasmic-app-prefs');
+    return (chat && !chat.hidden) || (cal && !cal.hidden) || (prefs && !prefs.hidden);
+  }
+
+  function atFeedTop() {
+    const y = window.scrollY || document.documentElement.scrollTop || 0;
+    if (y > 6) return false;
+    const nodes = document.querySelectorAll('main, [class*="feeds"], [class*="FeedList"], [class*="feed_wrap"], .fcom_contents');
+    for (let i = 0; i < nodes.length; i += 1) {
+      const el = nodes[i];
+      if (el.scrollHeight > el.clientHeight + 40 && el.scrollTop > 6) return false;
+    }
+    return true;
+  }
+
+  function setupFeedRefresh() {
+    let startY = 0;
+    let pulling = false;
+    let armed = false;
+    const bar = document.createElement('div');
+    bar.id = 'orgasmic-ptr';
+    bar.hidden = true;
+    bar.textContent = 'Loslassen zum Aktualisieren';
+    (document.body || document.documentElement).appendChild(bar);
+
+    document.addEventListener('touchstart', (ev) => {
+      if (overlayOpen() || !atFeedTop()) {
+        pulling = false;
+        return;
+      }
+      startY = ev.touches[0].clientY;
+      pulling = true;
+      armed = false;
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (ev) => {
+      if (!pulling) return;
+      const dy = ev.touches[0].clientY - startY;
+      if (dy > 64) {
+        armed = true;
+        bar.hidden = false;
+      } else {
+        armed = false;
+        bar.hidden = true;
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchend', () => {
+      if (pulling && armed && !overlayOpen()) {
+        bar.textContent = 'Aktualisieren…';
+        window.setTimeout(() => {
+          window.location.reload();
+        }, 160);
+      } else {
+        bar.hidden = true;
+        bar.textContent = 'Loslassen zum Aktualisieren';
+      }
+      pulling = false;
+      armed = false;
+    }, { passive: true });
+  }
+
+  setupFeedRefresh();
+
   const TOKEN_KEY = 'orgasmic-fcm-token';
   let pendingToken = '';
   let pendingPlatform = '';

@@ -19,7 +19,7 @@ class Orgasmic_Fc_Events_Install
     public const OPTION_SUBTITLE = 'orgasmic_fc_events_subtitle';
     public const OPTION_APPEARANCE = 'orgasmic_fc_events_appearance';
     public const OPTION_ACCENT = 'orgasmic_fc_events_accent';
-    public const DEFAULT_SUBTITLE = 'Termine für deine Kreise — RSVP, Zoom, wer dabei ist.';
+    public const DEFAULT_SUBTITLE = 'Events in deinen Räumen — RSVP, Zoom, wer dabei ist.';
 
     public static function portal_settings(): array
     {
@@ -72,6 +72,8 @@ class Orgasmic_Fc_Events_Install
 
         if (get_option(self::OPTION_SUBTITLE, null) === null) {
             update_option(self::OPTION_SUBTITLE, self::DEFAULT_SUBTITLE);
+        } elseif ((string) get_option(self::OPTION_SUBTITLE, '') === 'Termine für deine Kreise — RSVP, Zoom, wer dabei ist.') {
+            update_option(self::OPTION_SUBTITLE, self::DEFAULT_SUBTITLE);
         }
 
         if (get_option(self::OPTION_APPEARANCE, null) === null) {
@@ -100,6 +102,10 @@ class Orgasmic_Fc_Events_Install
 
         if (!wp_next_scheduled('orgasmic_fc_events_reminders')) {
             wp_schedule_event(time() + 60, 'orgasmic_five_minutes', 'orgasmic_fc_events_reminders');
+        }
+
+        if ((string) get_option(self::OPTION_SUBTITLE, '') === 'Termine für deine Kreise — RSVP, Zoom, wer dabei ist.') {
+            update_option(self::OPTION_SUBTITLE, self::DEFAULT_SUBTITLE);
         }
     }
 

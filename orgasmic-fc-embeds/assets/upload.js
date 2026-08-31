@@ -32,7 +32,8 @@
       input.value = '';
       picking = false;
       input.style.pointerEvents = 'none';
-      if (file && isVideoFile(file)) uploadFile(file).catch(() => {});
+      if (!file || !isVideoFile(file)) return;
+      snapshotVideo(file).then((snap) => uploadFile(snap || file).catch(() => {}));
     });
     document.body.appendChild(input);
     return input;
@@ -112,31 +113,32 @@
     });
   }
 
+  function openPickerNow() {
+    picking = true;
+    const input = fileInput();
+    input.style.pointerEvents = 'auto';
+    try {
+      if (typeof input.showPicker === 'function') {
+        input.showPicker();
+      } else {
+        input.click();
+      }
+    } catch (e) {
+      try {
+        input.click();
+      } catch (err) {
+        picking = false;
+      }
+    }
+    window.setTimeout(() => {
+      picking = false;
+    }, 4000);
+  }
+
   function pickFile() {
     rememberEditor(document.activeElement);
     closeAttachDialogs();
-    picking = true;
-    const open = () => {
-      const input = fileInput();
-      input.style.pointerEvents = 'auto';
-      try {
-        if (typeof input.showPicker === 'function') {
-          input.showPicker();
-        } else {
-          input.click();
-        }
-      } catch (e) {
-        try {
-          input.click();
-        } catch (err) {
-          picking = false;
-        }
-      }
-      window.setTimeout(() => {
-        picking = false;
-      }, 4000);
-    };
-    ensureMediaPermission().then(open).catch(open);
+    openPickerNow();
   }
 
   function interceptVideoControl(ev) {
@@ -153,7 +155,7 @@
     rememberEditor(control);
     if (ev.type === 'pointerdown' || !pickerArmed) {
       pickerArmed = true;
-      pickFile();
+      openPickerNow();
       window.setTimeout(() => {
         pickerArmed = false;
       }, 1200);
@@ -165,6 +167,7 @@
 
   function overlayNativePicker(btn) {
     if (!btn || btn.querySelector('[data-orgasmic-bunny-overlay]')) return;
+    fileInput();
     const style = window.getComputedStyle(btn);
     if (style.position === 'static') {
       btn.style.position = 'relative';
@@ -172,16 +175,18 @@
     const label = document.createElement('label');
     label.setAttribute('data-orgasmic-bunny-overlay', '1');
     label.setAttribute('aria-label', 'Video hochladen');
+    label.htmlFor = 'orgasmic-bunny-file';
     label.style.cssText = 'position:absolute;inset:0;z-index:6;margin:0;cursor:pointer;background:transparent;';
     label.addEventListener('click', (ev) => {
-      ev.preventDefault();
       ev.stopPropagation();
       if (typeof ev.stopImmediatePropagation === 'function') {
         ev.stopImmediatePropagation();
       }
       pickerArmed = true;
       rememberEditor(btn);
-      pickFile();
+      picking = true;
+      fileInput().style.pointerEvents = 'auto';
+      ensureMediaPermission().catch(() => {});
       window.setTimeout(closeAttachDialogs, 0);
       window.setTimeout(closeAttachDialogs, 80);
       window.setTimeout(() => {
@@ -306,6 +311,16 @@
       }
     } catch (e) {}
     return readViaFileReader(blob);
+  }
+
+  async function snapshotVideo(file) {
+    try {
+      const buf = await readAsBuffer(file);
+      if (buf && buf.byteLength) {
+        return new File([buf], file.name || 'video.mp4', { type: file.type || 'video/mp4', lastModified: file.lastModified || Date.now() });
+      }
+    } catch (e) {}
+    return file;
   }
 
   async function readAsBuffer(blob) {
@@ -1021,6 +1036,7 @@
   document.addEventListener('focusin', (ev) => {
     if (ev.target && isUsableEditor(ev.target) && inComposerArea(ev.target) && !isTitleEditor(ev.target)) {
       rememberEditor(ev.target);
+      if (isNativeShell()) ensureMediaPermission().catch(() => {});
     }
   }, true);
   document.addEventListener('pointerdown', interceptVideoControl, true);

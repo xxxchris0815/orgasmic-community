@@ -193,7 +193,7 @@
   function subtitleText() {
     return (state.bootstrap && state.bootstrap.portal && state.bootstrap.portal.subtitle)
       || cfg.subtitle
-      || 'Termine für deine Kreise — RSVP, Zoom, wer dabei ist.';
+      || 'Events in deinen Räumen — RSVP, Zoom, wer dabei ist.';
   }
 
   function paintNavIcons() {
@@ -505,13 +505,14 @@
   function shell(inner) {
     const canManage = !!(state.bootstrap && state.bootstrap.can_manage);
     return '<div class="orgasmic-cal-overlay"><div class="orgasmic-cal">'
-      + '<header class="orgasmic-cal-top"><div>'
-      + '<p class="oc-sub">ORGASMIC</p><h1>Kalender</h1>'
-      + '<p class="oc-sub">' + escapeHtml(subtitleText()) + '</p>'
-      + '</div><div class="orgasmic-cal-actions">'
-      + (canManage ? '<a class="oc-btn" href="#orgasmic-event-new">Neues Event</a>' : '')
-      + '<button type="button" class="oc-close" data-oc-close>Schließen</button>'
-      + '</div></header>'
+      + '<header class="orgasmic-cal-top"><div class="orgasmic-cal-heading">'
+      + '<div><p class="oc-sub">ORGASMIC</p><h1>Kalender</h1>'
+      + '<p class="oc-sub">' + escapeHtml(subtitleText()) + '</p></div>'
+      + '<button type="button" class="oc-icon-close" data-oc-close aria-label="Schließen" title="Schließen">'
+      + '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>'
+      + '</button></div>'
+      + (canManage ? '<div class="orgasmic-cal-actions"><a class="oc-btn" href="#orgasmic-event-new">Neues Event</a></div>' : '')
+      + '</header>'
       + (state.error ? '<p class="oc-sub">' + escapeHtml(state.error) + '</p>' : '')
       + (state.loading ? '<p class="oc-sub oc-sync">Aktualisiere…</p>' : '')
       + inner
@@ -662,7 +663,7 @@
     const cards = shown.map(eventCardHtml).join('')
       || '<div class="orgasmic-cal-empty">'
       + (state.loading && !state.events.length
-        ? 'Termine werden geladen…'
+        ? 'Events werden geladen…'
         : (state.selectedDay ? 'Keine Events an diesem Tag.' : 'Noch keine Events in deinen Kreisen.'))
       + '</div>';
 

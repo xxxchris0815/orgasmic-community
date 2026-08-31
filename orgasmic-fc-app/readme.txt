@@ -1,12 +1,16 @@
 === ORGASMIC App ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.1.9
+Stable tag: 1.1.10
 License: GPLv2 or later
 
 PWA, offline cache, and Web Push for chat, posts, comments, and calendar events.
 
 == Changelog ==
+
+= 1.1.10 =
+* Push uses Event (not Termin) and omits a generic Kreis when the space name is missing
+* Pull down at the top of the activity stream to reload
 
 = 1.1.9 =
 * Register the FCM token after login (not on the login screen), retry via admin-ajax if the REST nonce is stale
