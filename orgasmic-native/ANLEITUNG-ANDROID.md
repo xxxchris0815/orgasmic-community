@@ -52,7 +52,7 @@ Workflows in Codemagic:
    - Richtlinien und US-Exportregeln akzeptieren
 5. **App erstellen**.
 6. Falls du schon eine Play-App mit Paket `live.orgasmic.community` angelegt oder hochgeladen hast: **neue App** `LO Community` erstellen (Paketnamen in Play kann man nicht umbenennen). Die alte als Entwurf liegen lassen oder löschen, wenn Play das anbietet.
-7. Notiere dir: die App existiert, ist aber noch **Entwurf**. Es fehlt Listing, Inhalt, Datenschutz — das kommt in Schritt 7. Zuerst Firebase und ein Test-Build.
+7. Notiere dir: die App existiert, ist aber noch **Entwurf**. Listing (Name, Texte, Icon) änderst du später in Abschnitt 7 — in der Play Console, nicht in Codemagic.
 
 ---
 
@@ -308,21 +308,88 @@ Danach weiter mit Abschnitt 7 (Play-Listing) und AAB in den internen Test hochla
 
 ## 7. Play Console fertigmachen (bevor der Store die AAB annimmt)
 
-In der Play Console die App öffnen. Links die Pflichtpunkte abarbeiten. Ohne die bleibt der Upload im Entwurf.
+Das Play-Listing liegt **nicht** in Codemagic und **nicht** in GitHub. Es ist die öffentliche Store-Seite in der **Google Play Console**. Codemagic baut nur die AAB. Texte, Icon, Screenshots änderst du immer in Play.
 
-### 7a. Store-Eintrag (Hauptstore-eintrag)
+Ohne Listing + Datenschutz + App-Inhalt bleibt jeder Upload im **Entwurf**.
 
-1. **Wachstum → Store-Eintrag**.
-2. **App-Name:** `LO Community`
-3. **Kurzbeschreibung** (max. 80 Zeichen), z. B.:  
-   `Mitglieder-Community mit Chat, Beiträgen und Kalender.`
-4. **Ausführliche Beschreibung**, z. B.:  
-   `LO Community ist der Treffpunkt für Mitglieder: Beiträge im Feed, Chat in den Räumen und ein gemeinsamer Kalender. Push-Benachrichtigungen für neue Nachrichten und Termine. Die Nutzung setzt ein bestehendes Konto voraus.`  
-   Keine sexuellen Wörter, keine Nackt-Screenshots.
-5. App-Icon 512×512 PNG — ohne Schriftzug mit kritischen Wörtern.
-6. Feature-Grafik 1024×500.
-7. Mindestens **2 Handy-Screenshots** (z. B. Feed und Chat), Texte im Bild ebenfalls ohne kritische Wörter.
-8. Speichern.
+### Wo klicke ich? (Play-Console-Karte)
+
+1. Browser: [https://play.google.com/console](https://play.google.com/console) — mit dem Google-Konto, das die App besitzt (dasselbe wie in Abschnitt 1).
+2. Nicht in Firebase, nicht in Codemagic.
+3. Auf der Startseite die App **LO Community** anklicken.  
+   Siehst du die App nicht: links **Alle Apps** / **All apps**.
+4. Du bist jetzt **in der App**. Links eine Leiste. Die Labels wechseln je nach Sprache der Console (Zahnrad unten links → Sprache). Deutsch und Englisch:
+
+| Was du willst | Links in der Leiste (Deutsch) | Englisch |
+| --- | --- | --- |
+| **Listing** (Name, Texte, Icon, Screenshots) | **Mehr Nutzer gewinnen** → **App-Präsenz im Play Store** → **Store-Haupteintrag** | Grow users → Store presence → Main store listing |
+| Alternative, oft kürzer | **Dashboard** → Karte / Aufgabe **Store-Eintrag festlegen** | Dashboard → Set up your store listing |
+| Kategorie, E-Mail, Website | **Mehr Nutzer gewinnen** → **App-Präsenz im Play Store** → **Play Store-Einstellungen** | Grow users → Store presence → Store settings |
+| Datenschutz-URL | **Richtlinie** → **Datenschutzrichtlinie** | Policy → Privacy policy |
+| Datensicherheit-Fragebogen | **Richtlinie** → **Datensicherheit** | Policy → Data safety |
+| UGC / Zielgruppe | **Richtlinie** → **App-Inhalt** | Policy → App content |
+| AAB hochladen (später) | **Testen und veröffentlichen** → **Testen** → **Interner Test** | Test and release → Testing → Internal testing |
+
+Ältere Console sagt statt „Mehr Nutzer gewinnen“ oft **Wachstum**, statt „Store-Haupteintrag“ oft **Hauptstore-eintrag** / **Store-Eintrag**. Inhalt ist derselbe Bildschirm.
+
+Paketname `live.lo.community` steht **nicht** auf der Listing-Seite. Den setzt Play beim **ersten AAB-Upload**. Listing = nur das, was Menschen im Store lesen.
+
+---
+
+### 7a. Store-Haupteintrag (das eigentliche Listing)
+
+1. Links: **Mehr Nutzer gewinnen** (oder **Wachstum**) aufklappen.
+2. **App-Präsenz im Play Store** / **Store-Präsenz** aufklappen.
+3. **Store-Haupteintrag** / **Hauptstore-eintrag** anklicken.  
+   Nicht „Benutzerdefinierte Store-Einträge“ — das ist extra, brauchen wir nicht.
+4. Oben auf der Seite die **Sprache** prüfen: **Deutsch** (bzw. die Standardsprache, die du beim App-Erstellen gewählt hast). Falsche Sprache = du editierst eine Übersetzung, die kaum jemand sieht.
+5. Abschnitt **App-Details** / **App details** — Copy-Paste:
+
+   | Feld in der UI | Wert | Limit |
+   | --- | --- | --- |
+   | **App-Name** | `LO Community` | 30 Zeichen |
+   | **Kurze Beschreibung** / Short description | `Mitglieder-Community mit Chat, Beiträgen und Kalender.` | 80 Zeichen |
+   | **Vollständige Beschreibung** / Full description | Text unten | 4000 Zeichen |
+
+   Ausführliche Beschreibung zum Einfügen:
+
+   ```
+   LO Community ist der Treffpunkt für Mitglieder: Beiträge im Feed, Chat in den Räumen und ein gemeinsamer Kalender. Push-Benachrichtigungen für neue Nachrichten und Termine. Die Nutzung setzt ein bestehendes Konto voraus.
+   ```
+
+   In **keinem** dieser Felder und auf **keinem** Bild: orgasm, orgasmic, sex, xxx, nackt, escort, fetish, interne Marke. Play lehnt das ab oder hängt 18+ an.
+
+6. Weiter runter zu **Grafiken** / **Graphics**. Dateien vom Rechner, Drag-and-drop oder **Hochladen**:
+
+   | Feld | Pflicht | Format |
+   | --- | --- | --- |
+   | **App-Symbol** / App icon | ja | PNG, **genau 512×512**, kein Alpha nötig, ohne Sex-Wörter in der Schrift |
+   | **Feature-Grafik** / Feature graphic | ja | **1024×500**, JPEG oder PNG |
+   | **Handy-Screenshots** / Phone screenshots | ja, **mindestens 2** (bis 8) | JPEG oder PNG, kürzeste Seite mindestens 320 px, längste höchstens 3840 px. z. B. Feed + Chat, Texte im Bild ebenfalls ohne kritische Wörter |
+   | Tablet-Screenshots, TV, Wear | nein | weglassen |
+
+7. YouTube-Video: leer lassen, solange keins existiert.
+8. Unten rechts **Speichern** / **Save**. Ohne Speichern ist nichts übernommen. Es gibt hier meist **keine** extra „Veröffentlichen“-Schaltfläche — das Listing hängt am Release. Speichern reicht, bis der interne Test live geht.
+9. Oben oft **Vorschau bei Google Play** — nur du siehst den Entwurf; Testhandys sehen ihn nach Annahme der Tester-Einladung.
+
+Fehlt der Menüpunkt: App noch nicht angelegt → Abschnitt 1. Oder du stehst auf Konto-Ebene (**Alle Apps**) statt in der App **LO Community**.
+
+---
+
+### 7a-2. Kategorie und Kontakt (andere Seite, gehört zum Listing)
+
+Name/Texte/Bilder allein reichen nicht. Play will Kategorie und Support-Mail.
+
+1. Links bleiben: **Mehr Nutzer gewinnen** → **App-Präsenz im Play Store** → **Play Store-Einstellungen** (nicht der Haupteintrag).
+2. **App-Kategorie:** z. B. **Social** / Soziales oder **Kommunikation** — passt zu Community/Chat. Nicht „Dating“, nicht Erwachsenen-Kategorie.
+3. **Tags:** weglassen oder harmlos (Community, Chat).
+4. Runter zu **Kontaktdaten**:
+   - **E-Mail** (Pflicht): eine Adresse, die du liest
+   - **Website:** `https://community.orgasmic.live/portal` (oder die öffentliche Info-Seite)
+   - Telefon: optional
+5. **Speichern**.
+
+Die Datenschutz-URL gehört **nicht** hierhin, sondern unter **Richtlinie → Datenschutzrichtlinie** (7b).
 
 ### 7b. Datenschutz
 
