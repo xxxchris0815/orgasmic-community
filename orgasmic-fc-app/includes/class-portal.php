@@ -25,27 +25,28 @@ class Orgasmic_Fc_App_Portal
         echo '<link rel="manifest" href="' . esc_url(home_url('/orgasmic-manifest.json')) . '" />';
         echo '<meta name="theme-color" content="' . esc_attr($theme) . '" />';
         echo '<meta name="apple-mobile-web-app-capable" content="yes" />';
-        echo '<meta name="apple-mobile-web-app-title" content="ORGASMIC" />';
+        echo '<meta name="apple-mobile-web-app-title" content="LO Community" />';
         echo '<link rel="apple-touch-icon" href="' . esc_url(ORGASMIC_FC_APP_URL . 'assets/icon-192.png') . '" />';
-        if (is_user_logged_in()) {
-            $css = ORGASMIC_FC_APP_URL . 'assets/app.css?ver=' . rawurlencode(ORGASMIC_FC_APP_VERSION);
-            echo '<link rel="stylesheet" href="' . esc_url($css) . '" />';
-        }
+        $css = ORGASMIC_FC_APP_URL . 'assets/app.css?ver=' . rawurlencode(ORGASMIC_FC_APP_VERSION);
+        echo '<link rel="stylesheet" href="' . esc_url($css) . '" />';
     }
 
     public function boot(): void
     {
         static $booted = false;
-        if ($booted || !is_user_logged_in()) {
+        if ($booted) {
             return;
         }
         $booted = true;
+        $logged = is_user_logged_in();
         $data = [
             'root' => esc_url_raw(rest_url('orgasmic-app/v1/')),
+            'ajax' => esc_url_raw(admin_url('admin-ajax.php')),
             'nonce' => wp_create_nonce('wp_rest'),
             'navIcon' => $this->icon_svg(false),
             'sw' => esc_url_raw(home_url('/orgasmic-sw.js')),
-            'prefs' => Orgasmic_Fc_App_Install::prefs_for(get_current_user_id()),
+            'prefs' => $logged ? Orgasmic_Fc_App_Install::prefs_for(get_current_user_id()) : Orgasmic_Fc_App_Install::default_prefs(),
+            'loggedIn' => $logged,
         ];
         echo '<script>window.OrgasmicFcApp = ' . wp_json_encode($data) . ';</script>';
         echo '<script src="' . esc_url(ORGASMIC_FC_APP_URL . 'assets/app.js?ver=' . rawurlencode(ORGASMIC_FC_APP_VERSION)) . '" defer></script>';

@@ -18,6 +18,9 @@ class Orgasmic_Fc_App_Rest
     public function register(): void
     {
         add_action('rest_api_init', [$this, 'routes']);
+        add_action('wp_ajax_orgasmic_fc_app_boot', [$this, 'ajax_boot']);
+        add_action('wp_ajax_nopriv_orgasmic_fc_app_boot', [$this, 'ajax_boot']);
+        add_action('wp_ajax_orgasmic_fc_app_push_token', [$this, 'ajax_token']);
     }
 
     public function routes(): void
@@ -71,6 +74,9 @@ class Orgasmic_Fc_App_Rest
             'canPush' => $this->push->can_send(),
             'startUrl' => $start,
             'theme' => (string) get_option(Orgasmic_Fc_App_Install::OPTION_THEME, '#121c30'),
+            'nonce' => wp_create_nonce('wp_rest'),
+            'loggedIn' => is_user_logged_in(),
+            'userId' => get_current_user_id(),
             'kinds' => [
                 'chat' => (bool) get_option(Orgasmic_Fc_App_Install::OPTION_CHAT, 1),
                 'feed' => (bool) get_option(Orgasmic_Fc_App_Install::OPTION_FEED, 1),
@@ -84,6 +90,36 @@ class Orgasmic_Fc_App_Rest
                 'tokenPath' => 'push/token',
             ],
         ]);
+    }
+
+    public function ajax_boot(): void
+    {
+        $uid = get_current_user_id();
+        wp_send_json([
+            'ok' => true,
+            'loggedIn' => $uid > 0,
+            'userId' => $uid,
+            'nonce' => wp_create_nonce('wp_rest'),
+            'prefs' => $uid > 0
+                ? Orgasmic_Fc_App_Install::prefs_for($uid)
+                : Orgasmic_Fc_App_Install::default_prefs(),
+        ]);
+    }
+
+    public function ajax_token(): void
+    {
+        if (!is_user_logged_in()) {
+            status_header(401);
+            wp_send_json(['ok' => false, 'message' => 'auth']);
+        }
+        $token = sanitize_text_field((string) ($_POST['token'] ?? ''));
+        $platform = sanitize_key((string) ($_POST['platform'] ?? ''));
+        if ($token === '') {
+            status_header(400);
+            wp_send_json(['ok' => false, 'message' => 'Token fehlt.']);
+        }
+        $this->store->save_token(get_current_user_id(), $token, $platform);
+        wp_send_json(['ok' => true]);
     }
 
     public function token(WP_REST_Request $request)

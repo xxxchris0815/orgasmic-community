@@ -14,6 +14,18 @@ class Orgasmic_Fc_App_Access
             return [];
         }
 
+        foreach ([
+            ['FluentCommunity\\App\\Functions\\Utility', 'getSpaceUserIds'],
+            ['FluentCommunity\\App\\Services\\Helper', 'getSpaceUserIds'],
+        ] as [$class, $method]) {
+            if (class_exists($class) && method_exists($class, $method)) {
+                $ids = $this->normalize_ids($class::$method($space_id));
+                if ($ids !== []) {
+                    return $ids;
+                }
+            }
+        }
+
         global $wpdb;
         $pivot = $this->table_if_exists($wpdb->prefix . 'fcom_space_user');
         if (!$pivot) {
@@ -23,16 +35,16 @@ class Orgasmic_Fc_App_Access
             return [];
         }
 
+        // FC labels membership differently across versions (active / accepted / joined / member).
+        // Only drop people who left, were banned, or are still waiting for approval.
         $ids = $wpdb->get_col(
             $wpdb->prepare(
-                "SELECT user_id FROM {$pivot} WHERE space_id = %d AND (status IS NULL OR status = %s OR status = %s)",
-                $space_id,
-                'active',
-                'accepted'
+                "SELECT user_id FROM {$pivot} WHERE space_id = %d AND (status IS NULL OR status = '' OR status NOT IN ('left','banned','pending','rejected','removed','declined'))",
+                $space_id
             )
         );
 
-        return array_values(array_unique(array_filter(array_map('intval', $ids ?: []))));
+        return $this->normalize_ids($ids ?: []);
     }
 
     public function space_title(int $space_id): string
@@ -88,6 +100,32 @@ class Orgasmic_Fc_App_Access
         }
         $decoded = json_decode($value, true);
         return is_array($decoded) ? $this->decode_ids($decoded) : [];
+    }
+
+    private function normalize_ids($ids): array
+    {
+        if ($ids instanceof Traversable) {
+            $ids = iterator_to_array($ids);
+        }
+        if (!is_array($ids)) {
+            return [];
+        }
+        $out = [];
+        foreach ($ids as $item) {
+            if (is_numeric($item)) {
+                $out[] = (int) $item;
+                continue;
+            }
+            if (is_object($item)) {
+                $out[] = (int) ($item->user_id ?? $item->ID ?? $item->id ?? 0);
+                continue;
+            }
+            if (is_array($item)) {
+                $out[] = (int) ($item['user_id'] ?? $item['ID'] ?? $item['id'] ?? 0);
+            }
+        }
+
+        return array_values(array_unique(array_filter($out)));
     }
 
     private function table_if_exists(string $table): ?string

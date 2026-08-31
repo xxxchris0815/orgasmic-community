@@ -112,6 +112,11 @@ class Orgasmic_Fc_App_Install
         $this->ensure_defaults();
         Orgasmic_Fc_App_Vapid::ensure_keys();
 
+        if (!get_option('orgasmic_fc_app_copy_119')) {
+            update_option(self::OPTION_INCLUDE_BODY, 1);
+            update_option('orgasmic_fc_app_copy_119', 1);
+        }
+
         if (!wp_next_scheduled('orgasmic_fc_app_send')) {
             wp_schedule_event(time() + 30, 'orgasmic_one_minute', 'orgasmic_fc_app_send');
         }
@@ -125,7 +130,7 @@ class Orgasmic_Fc_App_Install
             self::OPTION_FEED => 1,
             self::OPTION_COMMENT => 1,
             self::OPTION_EVENT => 1,
-            self::OPTION_INCLUDE_BODY => 0,
+            self::OPTION_INCLUDE_BODY => 1,
             self::OPTION_START_URL => '/',
             self::OPTION_THEME => '#121c30',
         ];

@@ -170,7 +170,7 @@ class Orgasmic_Fc_App_Admin
         $this->checkbox('Beiträge', Orgasmic_Fc_App_Install::OPTION_FEED, 'Neue Posts im Space');
         $this->checkbox('Kommentare', Orgasmic_Fc_App_Install::OPTION_COMMENT, 'Antworten und Mentions (nicht der ganze Space)');
         $this->checkbox('Events', Orgasmic_Fc_App_Install::OPTION_EVENT, 'Neue Termine und Reminder an RSVP „dabei“');
-        $this->checkbox('Text mitsenden', Orgasmic_Fc_App_Install::OPTION_INCLUDE_BODY, 'Nachrichtentext / Beitragstext in der Push. Standard aus.');
+        $this->checkbox('Text mitsenden', Orgasmic_Fc_App_Install::OPTION_INCLUDE_BODY, 'Autor plus Nachrichtentext / Beitragstext. Aus: nur Autor und Art (Chat, Beitrag, Kommentar).');
         echo '</table>';
 
         echo '<h2>PWA</h2><table class="form-table" role="presentation">';
@@ -204,6 +204,21 @@ class Orgasmic_Fc_App_Admin
         echo '<input type="hidden" name="action" value="orgasmic_fc_app_test_push" />';
         submit_button('Test-Push an mich senden', 'secondary');
         echo '</form>';
+
+        echo '<h2>Geräte mit App-Push</h2>';
+        $devices = $this->store->recent_fcm(20);
+        if ($devices === []) {
+            echo '<p>Noch kein FCM-Token gespeichert. Die Person muss die Store-/Debug-APK mit Firebase öffnen, sich einloggen und Benachrichtigungen erlauben. Danach erscheint sie hier — nicht nur unter „Dein Konto“.</p>';
+        } else {
+            echo '<p>Fehlt ein Mitglied, hat das Handy das Token noch nicht an WordPress geschickt (APK ohne Firebase, Login vor der Registrierung, oder Benachrichtigungen abgelehnt).</p>';
+            echo '<table class="widefat striped" style="max-width:720px"><thead><tr><th>Mitglied</th><th>E-Mail</th><th>Plattform</th><th>Token zuletzt</th></tr></thead><tbody>';
+            foreach ($devices as $row) {
+                echo '<tr><td>' . esc_html($row['display']) . ' <code>#' . (int) $row['user_id'] . '</code></td><td>'
+                    . esc_html($row['email']) . '</td><td>' . esc_html($row['platform'] !== '' ? $row['platform'] : '—')
+                    . '</td><td>' . esc_html($row['updated']) . '</td></tr>';
+            }
+            echo '</tbody></table>';
+        }
 
         echo '<h2>Capacitor (Store-Apps)</h2>';
         echo '<p>Nicht die Community neu bauen. Ein Capacitor-Projekt lädt <code>community.orgasmic.live/portal</code>. Plugins: <code>@capacitor/push-notifications</code>, <code>@capacitor/camera</code>, <code>capacitor-voice-recorder</code>. Die Website schickt das FCM-Token an <code>/wp-json/orgasmic-app/v1/push/token</code>. Chat nutzt Kamera und Mikro der App, falls vorhanden — sonst den Browser. Ohne <code>google-services.json</code> in der APK wird Push nicht registriert (sonst stürzt Android nach dem Login ab).</p>';

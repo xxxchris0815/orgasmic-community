@@ -216,6 +216,36 @@ class Orgasmic_Fc_App_Store
         return $out;
     }
 
+    /**
+     * Latest FCM devices so admins can see whose phone actually registered.
+     *
+     * @return list<array{user_id:int,display:string,email:string,platform:string,updated:string}>
+     */
+    public function recent_fcm(int $limit = 20): array
+    {
+        global $wpdb;
+        $table = Orgasmic_Fc_App_Install::subs_table();
+        $n = max(1, min(50, $limit));
+        $rows = $wpdb->get_results(
+            "SELECT user_id, platform, updated_at FROM {$table} WHERE channel IN ('fcm','apns') ORDER BY updated_at DESC LIMIT {$n}",
+            ARRAY_A
+        );
+        $out = [];
+        foreach (is_array($rows) ? $rows : [] as $row) {
+            $uid = (int) ($row['user_id'] ?? 0);
+            $user = $uid ? get_userdata($uid) : false;
+            $out[] = [
+                'user_id' => $uid,
+                'display' => $user ? (string) $user->display_name : ('#' . $uid),
+                'email' => $user ? (string) $user->user_email : '',
+                'platform' => (string) ($row['platform'] ?? ''),
+                'updated' => (string) ($row['updated_at'] ?? ''),
+            ];
+        }
+
+        return $out;
+    }
+
     public function last_queue_for(int $user_id): ?array
     {
         global $wpdb;

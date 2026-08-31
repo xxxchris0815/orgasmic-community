@@ -1,12 +1,18 @@
 === ORGASMIC App ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.1.8
+Stable tag: 1.1.9
 License: GPLv2 or later
 
 PWA, offline cache, and Web Push for chat, posts, comments, and calendar events.
 
 == Changelog ==
+
+= 1.1.9 =
+* Register the FCM token after login (not on the login screen), retry via admin-ajax if the REST nonce is stale
+* Push copy names the circle and type: Chat, Beitrag, Kommentar, Termin
+* Space membership lookup includes FC statuses beyond active/accepted
+* Admin lists recent FCM devices so you can see whether a member has a token
 
 = 1.1.8 =
 * Native shell: keep status/nav bars off the FluentCommunity chrome; align notification item in the profile menu

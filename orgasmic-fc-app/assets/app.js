@@ -304,6 +304,107 @@
 
   setupNativeChrome();
 
+  const TOKEN_KEY = 'orgasmic-fcm-token';
+  let pendingToken = '';
+  let pendingPlatform = '';
+  let tokenSynced = false;
+  let listenersBound = false;
+  let startPromise = null;
+
+  async function startNativePush() {
+    if (startPromise) return startPromise;
+    startPromise = (async () => {
+      await syncFcmToken();
+      await enableNativePush();
+      await syncFcmToken();
+    })().finally(() => {
+      startPromise = null;
+    });
+    return startPromise;
+  }
+
+  function ajaxUrl() {
+    return cfg.ajax || '/wp-admin/admin-ajax.php';
+  }
+
+  async function refreshSession() {
+    try {
+      const res = await fetch(ajaxUrl() + '?action=orgasmic_fc_app_boot', {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      });
+      const data = await res.json().catch(() => ({}));
+      const payload = data && data.data && typeof data.data === 'object' ? data.data : data;
+      if (payload && payload.nonce) cfg.nonce = payload.nonce;
+      if (payload && payload.loggedIn) {
+        cfg.loggedIn = true;
+        if (payload.prefs) {
+          cfg.prefs = payload.prefs;
+          applyPrefs(cfg.prefs);
+        }
+      }
+      return !!cfg.loggedIn;
+    } catch (e) {
+      return !!cfg.loggedIn;
+    }
+  }
+
+  function rememberFcmToken(token, platform) {
+    pendingToken = token;
+    pendingPlatform = platform || pendingPlatform;
+    try {
+      localStorage.setItem(TOKEN_KEY, JSON.stringify({
+        token: token,
+        platform: pendingPlatform,
+        at: Date.now(),
+      }));
+    } catch (e) {}
+  }
+
+  function storedFcmToken() {
+    if (pendingToken) return { token: pendingToken, platform: pendingPlatform };
+    try {
+      const raw = JSON.parse(localStorage.getItem(TOKEN_KEY) || 'null');
+      if (raw && raw.token) return { token: raw.token, platform: raw.platform || '' };
+    } catch (e) {}
+    return null;
+  }
+
+  async function postFcmToken(token, platform) {
+    try {
+      await postJson('push/token', { channel: 'fcm', platform: platform || '', token: token });
+      return true;
+    } catch (e) {
+      try {
+        const body = new URLSearchParams();
+        body.set('action', 'orgasmic_fc_app_push_token');
+        body.set('token', token);
+        body.set('platform', platform || '');
+        const res = await fetch(ajaxUrl(), {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+          body: body.toString(),
+        });
+        const data = await res.json().catch(() => ({}));
+        return !!(data && (data.ok || data.success));
+      } catch (err) {
+        return false;
+      }
+    }
+  }
+
+  async function syncFcmToken() {
+    if (tokenSynced) return true;
+    const saved = storedFcmToken();
+    if (!saved) return false;
+    const logged = cfg.loggedIn || (await refreshSession());
+    if (!logged) return false;
+    const ok = await postFcmToken(saved.token, saved.platform);
+    if (ok) tokenSynced = true;
+    return ok;
+  }
+
   async function firebaseReady() {
     const Cap = window.Capacitor && window.Capacitor.Plugins;
     if (!Cap || !Cap.OrgasmicNative || !Cap.OrgasmicNative.pushReady) return false;
@@ -326,25 +427,52 @@
     }
     const perm = await Cap.PushNotifications.requestPermissions();
     if (perm.receive !== 'granted' && perm.display !== 'granted') return false;
-    await Cap.PushNotifications.addListener('registrationError', (err) => {
-      console.warn('[orgasmic-app] push registration error', err);
-    });
-    await Cap.PushNotifications.addListener('registration', async (ev) => {
-      const platform = (window.Capacitor.getPlatform && window.Capacitor.getPlatform()) || '';
-      await postJson('push/token', { channel: 'fcm', platform: platform, token: ev.value });
-    });
-    await Cap.PushNotifications.addListener('pushNotificationActionPerformed', (ev) => {
-      const data = (ev.notification && ev.notification.data) || {};
-      if (data.url) window.location.href = data.url;
-    });
+    if (!listenersBound) {
+      listenersBound = true;
+      await Cap.PushNotifications.addListener('registrationError', (err) => {
+        console.warn('[orgasmic-app] push registration error', err);
+      });
+      await Cap.PushNotifications.addListener('registration', async (ev) => {
+        const platform = (window.Capacitor.getPlatform && window.Capacitor.getPlatform()) || '';
+        rememberFcmToken(ev.value, platform);
+        tokenSynced = false;
+        await syncFcmToken();
+      });
+      await Cap.PushNotifications.addListener('pushNotificationActionPerformed', (ev) => {
+        const data = (ev.notification && ev.notification.data) || {};
+        if (data.url) window.location.href = data.url;
+      });
+    }
     await Cap.PushNotifications.register();
     return true;
   }
 
   const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   if (isNative) {
-    enableNativePush().catch((err) => {
+    const bootNative = async () => {
+      if (cfg.loggedIn || (await refreshSession())) {
+        await startNativePush();
+        return;
+      }
+      let tries = 0;
+      const timer = setInterval(async () => {
+        tries += 1;
+        const ok = await refreshSession();
+        if (ok) {
+          clearInterval(timer);
+          await startNativePush();
+        } else if (tries > 120) {
+          clearInterval(timer);
+        }
+      }, 2500);
+    };
+    bootNative().catch((err) => {
       console.warn('[orgasmic-app] native push failed', err);
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return;
+      syncFcmToken().catch(() => {});
+      if (cfg.loggedIn) startNativePush().catch(() => {});
     });
     return;
   }
