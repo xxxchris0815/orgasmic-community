@@ -322,6 +322,213 @@
     return true;
   }
 
+  function setupAnnounce() {
+    if (!cfg.canAnnounce) return;
+
+    const announceState = { push: false, email: false };
+    let intentTimer = 0;
+    let wrapped = false;
+
+    function flagsHeader() {
+      const parts = [];
+      if (announceState.push) parts.push('push');
+      if (announceState.email) parts.push('email');
+      return parts.join(',');
+    }
+
+    function syncIntent() {
+      postJson('announce/intent', {
+        push: !!announceState.push,
+        email: !!announceState.email,
+      }).catch(() => {});
+    }
+
+    function scheduleIntent() {
+      window.clearTimeout(intentTimer);
+      intentTimer = window.setTimeout(syncIntent, 200);
+    }
+
+    function resetAnnounce() {
+      announceState.push = false;
+      announceState.email = false;
+      document.querySelectorAll('[data-oa-announce-push]').forEach((el) => { el.checked = false; });
+      document.querySelectorAll('[data-oa-announce-email]').forEach((el) => { el.checked = false; });
+    }
+
+    function flashAnnounce() {
+      let bar = document.getElementById('oa-announce-flash');
+      if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'oa-announce-flash';
+        (document.body || document.documentElement).appendChild(bar);
+      }
+      const bits = [];
+      if (announceState.push) bits.push('Push');
+      if (announceState.email) bits.push('E-Mail');
+      bar.textContent = bits.length === 1
+        ? bits[0] + ' geht an die Mitglieder…'
+        : bits.join(' und ') + ' gehen an die Mitglieder…';
+      bar.hidden = false;
+      window.setTimeout(() => { bar.hidden = true; }, 2800);
+    }
+
+    function looksLikePublish(btn) {
+      if (!btn || (btn.closest && btn.closest('[data-oa-announce]'))) return false;
+      const text = (btn.textContent || '').replace(/\s+/g, ' ').trim();
+      if (/kommentar|comment|antwort|reply|abbrechen|cancel|schließen|close|video|bild|image/i.test(text)) return false;
+      if (/^(Posten|Post|Veröffentlichen|Publish|Teilen|Share)$/i.test(text)) return true;
+      return !!(btn.classList && btn.classList.contains('el-button--primary')
+        && text.length > 0 && text.length < 20
+        && /post|veröffent|share|teilen|senden/i.test(text));
+    }
+
+    function isPostComposer(root) {
+      if (!root || root.closest('#orgasmic-chat-root, #orgasmic-cal-root, #orgasmic-app-prefs, #orgasmic-bunny-upload')) {
+        return false;
+      }
+      if (root.closest('[class*="comment-form"], [class*="CommentForm"], [class*="comment_form"], [class*="ReplyBox"]')) {
+        return false;
+      }
+      if (!root.querySelector('textarea, [contenteditable="true"]')) return false;
+      return [...root.querySelectorAll('button, .el-button, [role="button"]')].some(looksLikePublish);
+    }
+
+    function composerRoots() {
+      const out = [];
+      const seen = new Set();
+      document.querySelectorAll([
+        '[class*="composer"]',
+        '[class*="Composer"]',
+        '[class*="create_post"]',
+        '[class*="CreatePost"]',
+        '[class*="feed_form"]',
+        '.fcom_feed_form',
+        '.fcom-feed-form',
+      ].join(',')).forEach((el) => {
+        let root = el;
+        if (root.closest('[data-oa-announce]')) return;
+        if (!isPostComposer(root) && root.parentElement && isPostComposer(root.parentElement)) {
+          root = root.parentElement;
+        }
+        if (!isPostComposer(root) || seen.has(root)) return;
+        seen.add(root);
+        out.push(root);
+      });
+      return out;
+    }
+
+    function bindBox(box) {
+      const push = box.querySelector('[data-oa-announce-push]');
+      const email = box.querySelector('[data-oa-announce-email]');
+      if (push) push.checked = !!announceState.push;
+      if (email) email.checked = !!announceState.email;
+      box.addEventListener('change', () => {
+        announceState.push = !!(push && push.checked);
+        announceState.email = !!(email && email.checked);
+        scheduleIntent();
+      });
+    }
+
+    function injectAnnounce() {
+      composerRoots().forEach((root) => {
+        if (root.querySelector('[data-oa-announce]')) return;
+        const box = document.createElement('div');
+        box.className = 'oa-announce';
+        box.setAttribute('data-oa-announce', '1');
+        box.innerHTML = '<label><input type="checkbox" data-oa-announce-push /> Per Push an alle Mitglieder senden</label>'
+          + '<label><input type="checkbox" data-oa-announce-email /> Per E-Mail an alle Mitglieder senden</label>'
+          + '<p class="oa-announce-help">Nur wer den Beitrag sehen darf. Geheime Räume bleiben geheim.</p>';
+        bindBox(box);
+        const btn = [...root.querySelectorAll('button, .el-button, [role="button"]')].reverse().find(looksLikePublish);
+        const host = btn && (btn.closest('.el-form-item, [class*="footer"], [class*="actions"], [class*="toolbar"], [class*="Footer"]') || btn.parentElement);
+        if (host && host.parentElement && host !== root) {
+          host.parentElement.insertBefore(box, host);
+        } else {
+          root.appendChild(box);
+        }
+      });
+    }
+
+    function isFeedWrite(method, url) {
+      const m = String(method || 'GET').toUpperCase();
+      if (m !== 'POST' && m !== 'PUT') return false;
+      const u = String(url || '');
+      if (/comment/i.test(u)) return false;
+      return /fluent-community/i.test(u) && /feed/i.test(u);
+    }
+
+    function wrapNetwork() {
+      if (wrapped) return;
+      wrapped = true;
+      const origFetch = window.fetch;
+      if (typeof origFetch === 'function') {
+        window.fetch = function orgasmicAnnounceFetch(input, init) {
+          const url = typeof input === 'string' ? input : (input && input.url) || '';
+          const method = (init && init.method) || (input && input.method) || 'GET';
+          const sending = isFeedWrite(method, url) && (announceState.push || announceState.email);
+          if (sending) {
+            init = init ? Object.assign({}, init) : {};
+            const headers = new Headers(init.headers || (input && input.headers) || undefined);
+            headers.set('X-Orgasmic-Announce', flagsHeader());
+            init.headers = headers;
+            syncIntent();
+          }
+          const req = origFetch.call(this, input, init);
+          if (sending && req && typeof req.then === 'function') {
+            req.then((res) => {
+              if (res && res.ok) {
+                flashAnnounce();
+                resetAnnounce();
+              }
+            }).catch(() => {});
+          }
+          return req;
+        };
+      }
+      const xhrOpen = XMLHttpRequest.prototype.open;
+      const xhrSend = XMLHttpRequest.prototype.send;
+      XMLHttpRequest.prototype.open = function orgasmicAnnounceOpen(method, url) {
+        this._oaAnnounce = isFeedWrite(method, url);
+        this._oaUrl = url;
+        return xhrOpen.apply(this, arguments);
+      };
+      XMLHttpRequest.prototype.send = function orgasmicAnnounceSend(body) {
+        if (this._oaAnnounce && (announceState.push || announceState.email)) {
+          try {
+            this.setRequestHeader('X-Orgasmic-Announce', flagsHeader());
+          } catch (e) {}
+          syncIntent();
+          this.addEventListener('load', () => {
+            if (this.status >= 200 && this.status < 300) {
+              flashAnnounce();
+              resetAnnounce();
+            }
+          });
+        }
+        return xhrSend.apply(this, arguments);
+      };
+    }
+
+    document.addEventListener('click', (ev) => {
+      const btn = ev.target.closest && ev.target.closest('button, .el-button, [role="button"]');
+      if (!btn || !looksLikePublish(btn)) return;
+      if (!btn.closest || !composerRoots().some((root) => root.contains(btn))) return;
+      if (announceState.push || announceState.email) syncIntent();
+    }, true);
+
+    wrapNetwork();
+    injectAnnounce();
+    let scheduled = 0;
+    const obs = new MutationObserver(() => {
+      if (scheduled) return;
+      scheduled = window.setTimeout(() => {
+        scheduled = 0;
+        injectAnnounce();
+      }, 180);
+    });
+    if (document.body) obs.observe(document.body, { childList: true, subtree: true });
+  }
+
   function setupFeedRefresh() {
     let startY = 0;
     let pulling = false;
@@ -370,6 +577,7 @@
   }
 
   setupFeedRefresh();
+  setupAnnounce();
 
   const TOKEN_KEY = 'orgasmic-fcm-token';
   let pendingToken = '';

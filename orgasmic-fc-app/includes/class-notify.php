@@ -73,18 +73,21 @@ class Orgasmic_Fc_App_Notify
 
     public function on_feed($feed): void
     {
-        if (!$this->enabled(Orgasmic_Fc_App_Install::OPTION_FEED)) {
-            return;
-        }
-
+        $flags = $this->announce_flags();
         $space_id = (int) $this->access->prop($feed, 'space_id');
-        if ($space_id < 1) {
-            return;
-        }
-
         $actor = (int) $this->access->prop($feed, 'user_id');
         $feed_id = $this->access->model_id($feed);
         $excerpt = wp_strip_all_tags((string) ($this->access->prop($feed, 'title') ?: $this->access->prop($feed, 'message') ?: ''));
+        $url = $this->url($feed_id ? '?orgasmic_feed=' . $feed_id : '');
+
+        if ($flags['push'] || $flags['email']) {
+            $this->announce($feed, $flags, $space_id, $actor, $feed_id, $excerpt, $url);
+        }
+
+        if ($flags['push'] || !$this->enabled(Orgasmic_Fc_App_Install::OPTION_FEED) || $space_id < 1) {
+            return;
+        }
+
         $title = $this->heading($this->access->space_title($space_id), 'Beitrag');
         $body = $this->line($this->actor_name($actor), $excerpt, 'Neuer Beitrag');
         $recipients = array_values(array_diff($this->access->space_member_ids($space_id), [$actor]));
@@ -94,11 +97,29 @@ class Orgasmic_Fc_App_Notify
             'feed',
             $title,
             $body,
-            $this->url($feed_id ? '?orgasmic_feed=' . $feed_id : ''),
+            $url,
             'feed-' . $feed_id,
             ['space_id' => $space_id, 'feed_id' => $feed_id]
         );
         $this->kick();
+    }
+
+    public function announce_feed($feed, bool $push, bool $email): array
+    {
+        if (!$this->access->can_manage()) {
+            return ['ok' => false, 'error' => 'Keine Berechtigung.'];
+        }
+        $space_id = (int) $this->access->prop($feed, 'space_id');
+        $actor = (int) $this->access->prop($feed, 'user_id');
+        $feed_id = $this->access->model_id($feed);
+        if ($feed_id < 1) {
+            return ['ok' => false, 'error' => 'Beitrag nicht gefunden.'];
+        }
+        $excerpt = wp_strip_all_tags((string) ($this->access->prop($feed, 'title') ?: $this->access->prop($feed, 'message') ?: ''));
+        $url = $this->url('?orgasmic_feed=' . $feed_id);
+        $this->announce($feed, ['push' => $push, 'email' => $email], $space_id, $actor, $feed_id, $excerpt, $url);
+
+        return ['ok' => true, 'push' => $push, 'email' => $email];
     }
 
     public function on_comment($comment, $feed, $mentioned = null): void
@@ -212,6 +233,10 @@ class Orgasmic_Fc_App_Notify
         foreach ($rows as $row) {
             $this->deliver($row);
         }
+        $mails = $this->store->pending_mail(20);
+        foreach ($mails as $row) {
+            $this->deliver_mail($row);
+        }
     }
 
     public function flush_light(): void
@@ -268,6 +293,117 @@ class Orgasmic_Fc_App_Notify
         }
 
         $this->store->mark_retry((int) $row['id'], $last_error ?: 'kein Gerät', $last_status);
+    }
+
+    private function announce($feed, array $flags, int $space_id, int $actor, int $feed_id, string $excerpt, string $url): void
+    {
+        $recipients = array_values(array_diff($this->access->audience_ids($space_id), [$actor]));
+        if ($recipients === []) {
+            return;
+        }
+        $space = $space_id > 0 ? $this->access->space_title($space_id) : '';
+        $author = $this->actor_name($actor);
+        $title = $this->heading($space, 'Ankündigung');
+        $body = $this->line($author, $excerpt, 'Neuer Beitrag');
+
+        if (!empty($flags['push'])) {
+            $this->store->enqueue(
+                $recipients,
+                'announce',
+                $title,
+                $body,
+                $url,
+                'announce-' . $feed_id,
+                ['space_id' => $space_id, 'feed_id' => $feed_id]
+            );
+        }
+        if (!empty($flags['email'])) {
+            $this->store->enqueue_mail(
+                $recipients,
+                $feed_id,
+                $this->mail_subject($space, $author, $excerpt),
+                $this->mail_body($author, $space, $excerpt, $url),
+                $url
+            );
+        }
+        $this->kick();
+        unset($feed);
+    }
+
+    /**
+     * Honor the composer checkboxes. Header from the intercepted feed POST, user-meta as fallback.
+     * Meta is only consumed on a feed HTTP request so a leftover tick cannot blast an Event-Post.
+     */
+    private function announce_flags(): array
+    {
+        $header = strtolower((string) ($_SERVER['HTTP_X_ORGASMIC_ANNOUNCE'] ?? ''));
+        $push = str_contains($header, 'push');
+        $email = str_contains($header, 'email') || str_contains($header, 'mail');
+
+        $uri = (string) ($_SERVER['REQUEST_URI'] ?? '');
+        $is_feed_http = (bool) preg_match('/feed/i', $uri)
+            || (bool) preg_match('/fluent-community/i', $uri);
+        $uid = get_current_user_id();
+        if ($uid > 0 && $is_feed_http) {
+            $meta = get_user_meta($uid, Orgasmic_Fc_App_Install::META_ANNOUNCE, true);
+            if (is_array($meta) && (time() - (int) ($meta['at'] ?? 0)) <= 180) {
+                $push = $push || !empty($meta['push']);
+                $email = $email || !empty($meta['email']);
+                delete_user_meta($uid, Orgasmic_Fc_App_Install::META_ANNOUNCE);
+            }
+        }
+
+        if ((!$push && !$email) || !$this->access->can_manage()) {
+            return ['push' => false, 'email' => false];
+        }
+
+        return ['push' => $push, 'email' => $email];
+    }
+
+    private function mail_subject(string $space, string $author, string $excerpt): string
+    {
+        $space = trim($space);
+        if ($space !== '' && strcasecmp($space, 'Kreis') !== 0) {
+            $head = $space;
+        } else {
+            $head = 'LO Community';
+        }
+        $preview = $this->clip($excerpt !== '' ? $excerpt : ($author !== '' ? $author . ' hat einen Beitrag geschrieben' : 'Neuer Beitrag'), 80);
+
+        return $this->clip($head . ': ' . $preview, 120);
+    }
+
+    private function mail_body(string $author, string $space, string $excerpt, string $url): string
+    {
+        $who = $author !== '' ? $author : 'Ein Mitglied';
+        $where = ($space !== '' && strcasecmp($space, 'Kreis') !== 0) ? ' in ' . $space : '';
+        $text = $excerpt !== '' ? $excerpt : 'Neuer Beitrag';
+        $open = $url !== '' ? $url : home_url('/');
+
+        $html = '<p>' . esc_html($who) . ' hat einen neuen Beitrag veröffentlicht' . esc_html($where) . ':</p>';
+        $html .= '<p>' . nl2br(esc_html($text)) . '</p>';
+        $html .= '<p><a href="' . esc_url($open) . '">Beitrag öffnen</a></p>';
+        $html .= '<p style="color:#6b6575;font-size:12px">Du erhältst diese E-Mail, weil ein Admin diesen Beitrag an alle Mitglieder gesendet hat.</p>';
+
+        return $html;
+    }
+
+    private function deliver_mail(array $row): void
+    {
+        $user = get_userdata((int) ($row['user_id'] ?? 0));
+        $to = $user && is_email((string) $user->user_email) ? (string) $user->user_email : '';
+        if ($to === '') {
+            $this->store->mark_mail_sent((int) $row['id']);
+            return;
+        }
+        $subject = (string) ($row['subject'] ?? 'Neuer Beitrag');
+        $body = (string) ($row['body'] ?? '');
+        $ok = wp_mail($to, $subject, $body, ['Content-Type: text/html; charset=UTF-8']);
+        if ($ok) {
+            $this->store->mark_mail_sent((int) $row['id']);
+            return;
+        }
+        $this->store->mark_mail_retry((int) $row['id'], 'wp_mail fehlgeschlagen');
     }
 
     private function filter_prefs(array $user_ids, string $kind): array

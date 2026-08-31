@@ -10,6 +10,7 @@ global $wpdb;
 
 $wpdb->query('DROP TABLE IF EXISTS ' . $wpdb->prefix . 'orgasmic_fc_push_subs');
 $wpdb->query('DROP TABLE IF EXISTS ' . $wpdb->prefix . 'orgasmic_fc_push_queue');
+$wpdb->query('DROP TABLE IF EXISTS ' . $wpdb->prefix . 'orgasmic_fc_mail_queue');
 
 delete_option('orgasmic_fc_app_db');
 delete_option('orgasmic_fc_app_vapid_public');
@@ -26,5 +27,6 @@ delete_option('orgasmic_fc_app_theme');
 delete_option('orgasmic_fc_app_fcm_json');
 
 $wpdb->delete($wpdb->usermeta, ['meta_key' => 'orgasmic_fc_app_prefs']);
+$wpdb->delete($wpdb->usermeta, ['meta_key' => '_orgasmic_fc_announce_intent']);
 
 wp_clear_scheduled_hook('orgasmic_fc_app_send');

@@ -47,6 +47,7 @@ class Orgasmic_Fc_App_Portal
             'sw' => esc_url_raw(home_url('/orgasmic-sw.js')),
             'prefs' => $logged ? Orgasmic_Fc_App_Install::prefs_for(get_current_user_id()) : Orgasmic_Fc_App_Install::default_prefs(),
             'loggedIn' => $logged,
+            'canAnnounce' => $logged && (new Orgasmic_Fc_App_Access())->can_manage(),
         ];
         echo '<script>window.OrgasmicFcApp = ' . wp_json_encode($data) . ';</script>';
         echo '<script src="' . esc_url(ORGASMIC_FC_APP_URL . 'assets/app.js?ver=' . rawurlencode(ORGASMIC_FC_APP_VERSION)) . '" defer></script>';

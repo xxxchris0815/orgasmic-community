@@ -259,3 +259,54 @@ html.orgasmic-native {
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.2);
   pointer-events: none;
 }
+
+.oa-announce {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 0 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(26, 22, 37, 0.12);
+  background: #f6f3ee;
+  font-size: 13px;
+  line-height: 1.35;
+  color: #1a1625;
+}
+
+.oa-announce label {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.oa-announce input {
+  margin-top: 2px;
+  flex: 0 0 auto;
+}
+
+.oa-announce .oa-announce-help {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 400;
+  color: #6b6575;
+}
+
+#oa-announce-flash {
+  position: fixed;
+  left: 50%;
+  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 100002;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: #1a1625;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 650;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.2);
+  pointer-events: none;
+  max-width: calc(100vw - 32px);
+}

@@ -8,7 +8,8 @@ if (!defined('ABSPATH')) {
 
 class Orgasmic_Fc_App_Install
 {
-    public const DB_VERSION = '1.1.0';
+    public const DB_VERSION = '1.2.0';
+    public const META_ANNOUNCE = '_orgasmic_fc_announce_intent';
     public const OPTION_DB = 'orgasmic_fc_app_db';
     public const OPTION_VAPID_PUBLIC = 'orgasmic_fc_app_vapid_public';
     public const OPTION_VAPID_PRIVATE = 'orgasmic_fc_app_vapid_private';
@@ -35,6 +36,12 @@ class Orgasmic_Fc_App_Install
     {
         global $wpdb;
         return $wpdb->prefix . 'orgasmic_fc_push_queue';
+    }
+
+    public static function mail_table(): string
+    {
+        global $wpdb;
+        return $wpdb->prefix . 'orgasmic_fc_mail_queue';
     }
 
     public function activate(): void
@@ -187,6 +194,23 @@ class Orgasmic_Fc_App_Install
             PRIMARY KEY  (id),
             KEY pending (sent_at, available_at),
             KEY user_id (user_id)
+        ) {$charset};");
+
+        $mail = self::mail_table();
+        dbDelta("CREATE TABLE {$mail} (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            user_id BIGINT UNSIGNED NOT NULL,
+            feed_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            subject VARCHAR(190) NOT NULL,
+            body LONGTEXT NOT NULL,
+            url TEXT NULL,
+            attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+            available_at DATETIME NOT NULL,
+            sent_at DATETIME NULL,
+            last_error TEXT NULL,
+            PRIMARY KEY  (id),
+            KEY pending (sent_at, available_at),
+            KEY feed_user (feed_id, user_id)
         ) {$charset};");
     }
 }

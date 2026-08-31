@@ -158,8 +158,9 @@ class Orgasmic_Fc_App_Admin
         echo '<p><strong>' . (int) $counts['users'] . '</strong> Mitglieder mit Gerät, '
             . '<strong>' . (int) ($counts['fcm'] ?? 0) . '</strong> FCM (App), '
             . '<strong>' . (int) ($counts['web'] ?? 0) . '</strong> Web/PWA, '
-            . '<strong>' . (int) $counts['queued'] . '</strong> in der Queue, '
-            . '<strong>' . (int) $counts['sent'] . '</strong> gesendet. '
+            . '<strong>' . (int) $counts['queued'] . '</strong> Push in der Queue, '
+            . '<strong>' . (int) ($counts['mail_queued'] ?? 0) . '</strong> E-Mails in der Queue, '
+            . '<strong>' . (int) $counts['sent'] . '</strong> Push gesendet. '
             . 'Dein Konto: <strong>' . (int) $mine['fcm'] . '</strong> FCM, <strong>' . (int) $mine['web'] . '</strong> Web.</p>';
 
         echo '<form method="post" action="options.php">';
@@ -172,6 +173,7 @@ class Orgasmic_Fc_App_Admin
         $this->checkbox('Events', Orgasmic_Fc_App_Install::OPTION_EVENT, 'Neue Events und Erinnerungen an RSVP „dabei“');
         $this->checkbox('Text mitsenden', Orgasmic_Fc_App_Install::OPTION_INCLUDE_BODY, 'Autor plus Nachrichtentext / Beitragstext. Aus: nur Autor und Art (Chat, Beitrag, Kommentar).');
         echo '</table>';
+        echo '<p class="description">Admins sehen im Beitrags-Composer zwei Häkchen: <strong>Push</strong> und <strong>E-Mail an alle Mitglieder</strong>. Empfänger sind nur Leute, die den Beitrag sehen dürfen (Raum bzw. Community — keine geheimen Kreise nach außen). E-Mails gehen über <code>wp_mail</code> in der Minute-Queue.</p>';
 
         echo '<h2>PWA</h2><table class="form-table" role="presentation">';
         echo '<tr><th>Start-URL</th><td><input class="regular-text" name="'

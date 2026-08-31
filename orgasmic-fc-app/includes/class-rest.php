@@ -11,7 +11,9 @@ class Orgasmic_Fc_App_Rest
     public function __construct(
         private Orgasmic_Fc_App_Store $store,
         private Orgasmic_Fc_App_WebPush $push,
-        private Orgasmic_Fc_App_Fcm $fcm
+        private Orgasmic_Fc_App_Fcm $fcm,
+        private Orgasmic_Fc_App_Access $access,
+        private Orgasmic_Fc_App_Notify $notify
     ) {
     }
 
@@ -63,6 +65,58 @@ class Orgasmic_Fc_App_Rest
                 'callback' => [$this, 'save_prefs'],
             ],
         ]);
+
+        register_rest_route($ns, '/announce/intent', [
+            'methods' => 'POST',
+            'permission_callback' => [$this, 'can_announce'],
+            'callback' => [$this, 'announce_intent'],
+        ]);
+
+        register_rest_route($ns, '/announce', [
+            'methods' => 'POST',
+            'permission_callback' => [$this, 'can_announce'],
+            'callback' => [$this, 'announce'],
+        ]);
+    }
+
+    public function can_announce(): bool
+    {
+        return $this->access->can_manage();
+    }
+
+    public function announce_intent(WP_REST_Request $request)
+    {
+        $json = $request->get_json_params();
+        if (!is_array($json)) {
+            $json = [];
+        }
+        update_user_meta(get_current_user_id(), Orgasmic_Fc_App_Install::META_ANNOUNCE, [
+            'push' => !empty($json['push']),
+            'email' => !empty($json['email']),
+            'at' => time(),
+        ]);
+
+        return rest_ensure_response(['ok' => true]);
+    }
+
+    public function announce(WP_REST_Request $request)
+    {
+        $json = $request->get_json_params();
+        if (!is_array($json)) {
+            $json = [];
+        }
+        $feed_id = (int) ($json['feed_id'] ?? $request->get_param('feed_id'));
+        $feed = $this->access->load_feed($feed_id);
+        if (!$feed) {
+            return new WP_Error('not_found', 'Beitrag nicht gefunden.', ['status' => 404]);
+        }
+        $push = !empty($json['push']);
+        $email = !empty($json['email']);
+        if (!$push && !$email) {
+            return new WP_Error('invalid', 'Push oder E-Mail wählen.', ['status' => 400]);
+        }
+
+        return rest_ensure_response($this->notify->announce_feed($feed, $push, $email));
     }
 
     public function bootstrap(): WP_REST_Response
@@ -84,6 +138,7 @@ class Orgasmic_Fc_App_Rest
                 'event' => (bool) get_option(Orgasmic_Fc_App_Install::OPTION_EVENT, 1),
             ],
             'prefs' => Orgasmic_Fc_App_Install::prefs_for(get_current_user_id()),
+            'canAnnounce' => $this->access->can_manage(),
             'native' => [
                 'capacitorReady' => true,
                 'fcmConfigured' => $this->fcm->can_send(),
@@ -103,6 +158,7 @@ class Orgasmic_Fc_App_Rest
             'prefs' => $uid > 0
                 ? Orgasmic_Fc_App_Install::prefs_for($uid)
                 : Orgasmic_Fc_App_Install::default_prefs(),
+            'canAnnounce' => $uid > 0 && $this->access->can_manage($uid),
         ]);
     }
 

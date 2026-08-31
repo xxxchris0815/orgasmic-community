@@ -199,6 +199,7 @@ class Orgasmic_Fc_App_Store
             'users' => (int) $wpdb->get_var("SELECT COUNT(DISTINCT user_id) FROM {$subs}"),
             'queued' => (int) $wpdb->get_var("SELECT COUNT(*) FROM {$queue} WHERE sent_at IS NULL"),
             'sent' => (int) $wpdb->get_var("SELECT COUNT(*) FROM {$queue} WHERE sent_at IS NOT NULL"),
+            'mail_queued' => (int) $wpdb->get_var('SELECT COUNT(*) FROM ' . Orgasmic_Fc_App_Install::mail_table() . ' WHERE sent_at IS NULL'),
         ];
     }
 
@@ -244,6 +245,93 @@ class Orgasmic_Fc_App_Store
         }
 
         return $out;
+    }
+
+    public function enqueue_mail(array $user_ids, int $feed_id, string $subject, string $body, string $url): int
+    {
+        $user_ids = array_values(array_unique(array_filter(array_map('intval', $user_ids))));
+        if ($user_ids === []) {
+            return 0;
+        }
+
+        global $wpdb;
+        $table = Orgasmic_Fc_App_Install::mail_table();
+        $now = gmdate('Y-m-d H:i:s');
+        $count = 0;
+        foreach ($user_ids as $user_id) {
+            $exists = (int) $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT id FROM {$table} WHERE feed_id = %d AND user_id = %d LIMIT 1",
+                    $feed_id,
+                    $user_id
+                )
+            );
+            if ($exists > 0) {
+                continue;
+            }
+            $ok = $wpdb->insert($table, [
+                'user_id' => $user_id,
+                'feed_id' => $feed_id,
+                'subject' => $this->clip($subject, 190),
+                'body' => $body,
+                'url' => $url,
+                'attempts' => 0,
+                'available_at' => $now,
+                'sent_at' => null,
+                'last_error' => null,
+            ], ['%d', '%d', '%s', '%s', '%s', '%d', '%s', '%s', '%s']);
+            if ($ok) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    public function pending_mail(int $limit = 20): array
+    {
+        global $wpdb;
+        $table = Orgasmic_Fc_App_Install::mail_table();
+        $limit = max(1, min(50, $limit));
+        $now = gmdate('Y-m-d H:i:s');
+
+        return $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT * FROM {$table} WHERE sent_at IS NULL AND available_at <= %s AND attempts < 8 ORDER BY id ASC LIMIT {$limit}",
+                $now
+            ),
+            ARRAY_A
+        ) ?: [];
+    }
+
+    public function mark_mail_sent(int $id): void
+    {
+        global $wpdb;
+        $wpdb->update(
+            Orgasmic_Fc_App_Install::mail_table(),
+            ['sent_at' => gmdate('Y-m-d H:i:s'), 'last_error' => null],
+            ['id' => $id],
+            ['%s', '%s'],
+            ['%d']
+        );
+    }
+
+    public function mark_mail_retry(int $id, string $error): void
+    {
+        global $wpdb;
+        $table = Orgasmic_Fc_App_Install::mail_table();
+        $wpdb->query(
+            $wpdb->prepare(
+                "UPDATE {$table}
+                 SET attempts = attempts + 1,
+                     available_at = %s,
+                     last_error = %s
+                 WHERE id = %d",
+                gmdate('Y-m-d H:i:s', time() + 120),
+                $this->clip($error, 500),
+                $id
+            )
+        );
     }
 
     public function last_queue_for(int $user_id): ?array

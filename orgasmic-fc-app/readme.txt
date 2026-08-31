@@ -1,12 +1,15 @@
 === ORGASMIC App ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.1.10
+Stable tag: 1.1.11
 License: GPLv2 or later
 
 PWA, offline cache, and Web Push for chat, posts, comments, and calendar events.
 
 == Changelog ==
+
+= 1.1.11 =
+* Admins can send a post as push and/or email to everyone who can see it (composer checkboxes)
 
 = 1.1.10 =
 * Push uses Event (not Termin) and omits a generic Kreis when the space name is missing
