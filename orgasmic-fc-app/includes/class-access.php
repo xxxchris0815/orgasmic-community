@@ -161,9 +161,9 @@ class Orgasmic_Fc_App_Access
     }
 
     /**
-     * Rooms, courses, and other FC spaces for admin assignment.
+     * Groups, rooms, courses, and other FC spaces for admin assignment.
      *
-     * @return list<array{id:int,title:string,type:string,kind:string}>
+     * @return list<array{id:int,title:string,type:string,kind:string,parent_id:int}>
      */
     public function all_spaces(): array
     {
@@ -175,7 +175,7 @@ class Orgasmic_Fc_App_Access
         $columns = $wpdb->get_col("SHOW COLUMNS FROM {$table}");
         $columns = is_array($columns) ? $columns : [];
         $select = ['id', 'title'];
-        foreach (['type', 'space_type', 'status', 'privacy'] as $optional) {
+        foreach (['type', 'space_type', 'status', 'privacy', 'parent_id', 'parent_space_id'] as $optional) {
             if (in_array($optional, $columns, true)) {
                 $select[] = $optional;
             }
@@ -191,7 +191,9 @@ class Orgasmic_Fc_App_Access
             $kind = 'room';
             if (in_array($type, ['course', 'courses'], true)) {
                 $kind = 'course';
-            } elseif (in_array($type, ['space_group', 'space-group', 'group', 'sidebar_link', 'link'], true)) {
+            } elseif (in_array($type, ['space_group', 'space-group', 'group'], true)) {
+                $kind = 'group';
+            } elseif (in_array($type, ['sidebar_link', 'sidebar-link', 'link'], true)) {
                 $kind = 'other';
             }
             $out[] = [
@@ -199,6 +201,52 @@ class Orgasmic_Fc_App_Access
                 'title' => (string) $row['title'],
                 'type' => $type,
                 'kind' => $kind,
+                'parent_id' => (int) ($row['parent_id'] ?? $row['parent_space_id'] ?? 0),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return list<array{ID:int,display_name:string,user_email:string,user_login:string}>
+     */
+    public function list_directory(string $q = '', int $limit = 40): array
+    {
+        $limit = max(1, min(80, $limit));
+        $q = trim($q);
+        $args = [
+            'number' => $limit,
+            'fields' => ['ID', 'display_name', 'user_email', 'user_login'],
+            'orderby' => 'display_name',
+            'order' => 'ASC',
+        ];
+        if ($q !== '') {
+            if (ctype_digit($q)) {
+                $user = get_userdata((int) $q);
+                return $user ? [[
+                    'ID' => (int) $user->ID,
+                    'display_name' => (string) $user->display_name,
+                    'user_email' => (string) $user->user_email,
+                    'user_login' => (string) $user->user_login,
+                ]] : [];
+            }
+            $args['search'] = '*' . $q . '*';
+            $args['search_columns'] = ['user_login', 'user_email', 'display_name', 'user_nicename'];
+        } else {
+            $ids = $this->community_member_ids();
+            if ($ids !== []) {
+                $args['include'] = array_slice($ids, 0, 400);
+            }
+        }
+
+        $out = [];
+        foreach ((new WP_User_Query($args))->get_results() as $user) {
+            $out[] = [
+                'ID' => (int) $user->ID,
+                'display_name' => (string) $user->display_name,
+                'user_email' => (string) $user->user_email,
+                'user_login' => (string) $user->user_login,
             ];
         }
 

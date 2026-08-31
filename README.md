@@ -12,7 +12,7 @@ Moved from `evolution-api` (`Extras/orgasmic-community`).
 | `orgasmic-fc-events/` | **1.0.12** | Kalender im Portal (RSVP, Zoom, Markieren/Duplizieren/Löschen mobil+Desktop) |
 | `orgasmic-fc-embeds/` | **1.2.13** | Video-Player, nativer Composer-Upload, kompakte Chips in Sidebars |
 | `orgasmic-fc-chat/` | **1.1.14** | Space-Chat (Mighty-Networks-Layout, Markieren ohne Scroll-Sprung) |
-| `orgasmic-fc-app/` | **1.1.13** | PWA, Web Push (Admins + Zuordnung Räume/Kurse/Chats per Admin/API) |
+| `orgasmic-fc-app/` | **1.1.14** | PWA, Web Push, Mitglieder-Zuordnung (Gruppen/Räume/Kurse) |
 
 ## ORGASMIC Community Kalender
 
@@ -92,7 +92,7 @@ Kein zweites Native-Frontend. Das FluentCommunity-Portal wird zur App:
 
 Push geht an Mitglieder des jeweiligen Spaces **und an WordPress-Admins** (die sonst trotz Admin-Rolle nicht in `fcom_space_user` stehen). Format: **Raumname · Art** (Chat / Beitrag / Kommentar / Event / Ankündigung) plus Autor und Text — ohne generisches „Kreis“ oder „Termin“. Jedes Mitglied kann Chat / Beiträge / Kommentare / Events über **Profil → Benachrichtigungen** abschalten.
 
-Räume, Kurse und Chats (ein Chat pro Space) einem Konto zuordnen: **ORGASMIC App → Push prüfen → Mitglied → Zuordnung**, oder per API:
+Räume, Kurse und Gruppen einem Konto zuordnen: **ORGASMIC App → Mitglieder**, oder per API:
 
 ```
 GET  /wp-json/orgasmic-app/v1/spaces
@@ -108,7 +108,7 @@ Admins sehen im Beitrags-Composer zwei Häkchen: **Per Push an alle Mitglieder s
 
 WP-Admin: **ORGASMIC App**. Unter **Push prüfen** ein Mitglied suchen (z. B. Alexandra): Token, erlaubte Arten, letzte Queue-Zeilen inkl. Firebase-Fehler, Test-Push auf ihr Gerät. PHP 8.2+ für Web-Push (`openssl_pkey_derive`). Firebase-JSON nur für Store-Apps. Unter **Geräte mit App-Push** steht, wessen Handy ein FCM-Token gespeichert hat.
 
-ZIP: [`orgasmic-fc-app-1.1.13.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.1.13.zip)
+ZIP: [`orgasmic-fc-app-1.1.14.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.1.14.zip)
 
 ### Capacitor / Play Store (Android zuerst)
 

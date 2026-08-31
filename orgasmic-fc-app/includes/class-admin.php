@@ -35,6 +35,22 @@ class Orgasmic_Fc_App_Admin
             'dashicons-smartphone',
             62
         );
+        add_submenu_page(
+            'orgasmic-fc-app',
+            'Einstellungen',
+            'Einstellungen',
+            'manage_options',
+            'orgasmic-fc-app',
+            [$this, 'render']
+        );
+        add_submenu_page(
+            'orgasmic-fc-app',
+            'Mitglieder',
+            'Mitglieder',
+            'manage_options',
+            'orgasmic-fc-app-members',
+            [$this, 'render_members']
+        );
     }
 
     public function settings(): void
@@ -146,7 +162,7 @@ class Orgasmic_Fc_App_Admin
             $this->access_for_enroll()->enroll($uid, $ids, 'set');
         }
         wp_safe_redirect(add_query_arg([
-            'page' => 'orgasmic-fc-app',
+            'page' => 'orgasmic-fc-app-members',
             'orgasmic_user' => $uid,
             'orgasmic_fc_app_enroll' => '1',
         ], admin_url('admin.php')));
@@ -166,7 +182,8 @@ class Orgasmic_Fc_App_Admin
 
         $counts = $this->store->counts();
         echo '<div class="wrap"><h1>ORGASMIC App</h1>';
-        echo '<p>PWA fürs Homescreen plus Push für Chat, Beiträge, Kommentare und Events. Mitglieder steuern ihre eigenen Arten über die Glocke im Portal. Store-Apps brauchen Firebase in der APK <em>und</em> das Dienstkonto hier.</p>';
+        echo '<p>PWA fürs Homescreen plus Push für Chat, Beiträge, Kommentare und Events. Mitglieder steuern ihre eigenen Arten über die Glocke im Portal. Gruppen, Räume und Kurse zuordnen: <a href="'
+            . esc_url(admin_url('admin.php?page=orgasmic-fc-app-members')) . '">ORGASMIC App → Mitglieder</a>. Store-Apps brauchen Firebase in der APK <em>und</em> das Dienstkonto hier.</p>';
 
         $test = isset($_GET['orgasmic_fc_app_test']) ? sanitize_key((string) $_GET['orgasmic_fc_app_test']) : '';
         if ($test === '1') {
@@ -181,9 +198,6 @@ class Orgasmic_Fc_App_Admin
             $err = (string) get_transient('orgasmic_fc_app_test_err');
             delete_transient('orgasmic_fc_app_test_err');
             echo '<div class="notice notice-error"><p>Firebase hat den Test abgelehnt: <code>' . esc_html($err !== '' ? $err : 'unbekannt') . '</code></p></div>';
-        }
-        if (!empty($_GET['orgasmic_fc_app_enroll'])) {
-            echo '<div class="notice notice-success"><p>Räume, Kurse und Chats für dieses Mitglied gespeichert. Push folgt der Mitgliedschaft (Admins bekommen Chat/Beitrag/Event zusätzlich immer).</p></div>';
         }
 
         $mine = $this->store->channels_for_user(get_current_user_id());
@@ -271,7 +285,8 @@ class Orgasmic_Fc_App_Admin
         $q = isset($_GET['s']) ? sanitize_text_field(wp_unslash((string) $_GET['s'])) : '';
         $picked = (int) ($_GET['orgasmic_user'] ?? 0);
         echo '<h2>Push prüfen</h2>';
-        echo '<p>Mitglied suchen (Name oder E-Mail). Danach siehst du: Gerätetoken, welche Arten sie erlaubt hat, und ob Chat/Beitrag überhaupt in der Queue landete — plus Firebase-Fehler.</p>';
+        echo '<p>Mitglied suchen (Name oder E-Mail). Danach siehst du: Gerätetoken, welche Arten sie erlaubt hat, und ob Chat/Beitrag überhaupt in der Queue landete — plus Firebase-Fehler. Zuordnung von Gruppen/Räumen/Kursen liegt unter <a href="'
+            . esc_url(admin_url('admin.php?page=orgasmic-fc-app-members')) . '">Mitglieder</a>.</p>';
         echo '<form method="get" action="' . esc_url(admin_url('admin.php')) . '">';
         echo '<input type="hidden" name="page" value="orgasmic-fc-app" />';
         echo '<p><input type="search" class="regular-text" name="s" value="' . esc_attr($q) . '" placeholder="z. B. Alexandra" /> ';
@@ -364,8 +379,6 @@ class Orgasmic_Fc_App_Admin
         submit_button('Test-Push an ' . $member['display_name'] . ' senden', 'primary', 'submit', false);
         echo '</form>';
 
-        $this->render_enroll($uid);
-
         echo '<h3>Letzte Zustellungen</h3>';
         if ($queue === []) {
             echo '<p>Noch nichts in der Queue für dieses Konto. Dann war sie keine Empfängerin: eigene Nachricht, nicht im Raum, oder Art abgeschaltet. Zum Testen muss <em>jemand anderes</em> in denselben Raum schreiben — oder du nutzt den Test-Button oben.</p>';
@@ -384,42 +397,203 @@ class Orgasmic_Fc_App_Admin
         echo '</div>';
     }
 
+    public function render_members(): void
+    {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        $access = $this->access_for_enroll();
+        $q = isset($_GET['s']) ? sanitize_text_field(wp_unslash((string) $_GET['s'])) : '';
+        $picked = (int) ($_GET['orgasmic_user'] ?? 0);
+
+        echo '<div class="wrap"><h1>Mitglieder</h1>';
+        echo '<p>Hier ordnest du einer Person <strong>Gruppen</strong>, <strong>Räume</strong> und <strong>Kurse</strong> zu. Chat hängt am Raum bzw. Kurs — kein extra Häkchen. Speichern ersetzt die komplette Zuordnung dieser Person.</p>';
+
+        if (!empty($_GET['orgasmic_fc_app_enroll'])) {
+            echo '<div class="notice notice-success is-dismissible"><p>Zuordnung gespeichert.</p></div>';
+        }
+
+        echo '<form method="get" action="' . esc_url(admin_url('admin.php')) . '" style="margin:12px 0 20px">';
+        echo '<input type="hidden" name="page" value="orgasmic-fc-app-members" />';
+        echo '<p><input type="search" class="regular-text" name="s" value="' . esc_attr($q) . '" placeholder="Name, E-Mail oder User-ID" /> ';
+        submit_button('Suchen', 'secondary', '', false);
+        echo '</p></form>';
+
+        if ($picked > 0) {
+            $user = get_userdata($picked);
+            if (!$user) {
+                echo '<p>Mitglied nicht gefunden.</p></div>';
+                return;
+            }
+            $back = add_query_arg(['page' => 'orgasmic-fc-app-members', 's' => $q], admin_url('admin.php'));
+            echo '<p><a href="' . esc_url($back) . '">← Alle Mitglieder</a></p>';
+            echo '<div class="card" style="max-width:920px;padding:16px 20px">';
+            echo '<p><strong>' . esc_html((string) $user->display_name) . '</strong> · '
+                . esc_html((string) $user->user_email) . ' · <code>#' . $picked . '</code></p>';
+            $this->render_enroll($picked);
+            echo '</div></div>';
+            return;
+        }
+
+        $matches = $access->list_directory($q, $q === '' ? 40 : 20);
+        if ($matches === []) {
+            echo $q !== ''
+                ? '<p>Kein Mitglied zu <code>' . esc_html($q) . '</code>.</p></div>'
+                : '<p>Keine Community-Mitglieder gefunden.</p></div>';
+            return;
+        }
+
+        echo '<table class="widefat striped" style="max-width:860px"><thead><tr><th>Mitglied</th><th>E-Mail</th><th>ID</th><th></th></tr></thead><tbody>';
+        foreach ($matches as $row) {
+            $url = add_query_arg([
+                'page' => 'orgasmic-fc-app-members',
+                'orgasmic_user' => (int) $row['ID'],
+                's' => $q,
+            ], admin_url('admin.php'));
+            echo '<tr><td>' . esc_html($row['display_name']) . '</td><td>'
+                . esc_html($row['user_email']) . '</td><td><code>#' . (int) $row['ID']
+                . '</code></td><td><a class="button button-small" href="' . esc_url($url) . '">Zuordnen</a></td></tr>';
+        }
+        echo '</tbody></table>';
+        if ($q === '') {
+            echo '<p class="description">Erste 40 Mitglieder. Über die Suche kommst du an alle Konten.</p>';
+        }
+        echo '</div>';
+    }
+
     private function render_enroll(int $uid): void
     {
         $access = $this->access_for_enroll();
         $spaces = $access->all_spaces();
         $owned = $access->user_space_ids($uid);
-        $groups = [
-            'room' => 'Räume / Chats',
-            'course' => 'Kurse',
-            'other' => 'Weitere Spaces',
+        $by_kind = [
+            'group' => [],
+            'room' => [],
+            'course' => [],
+            'other' => [],
         ];
-        echo '<h3>Zuordnung</h3>';
-        echo '<p>WordPress-Admin allein reicht nicht fürs Mitgliedsein. Häkchen setzen oder per API: <code>POST /wp-json/orgasmic-app/v1/members/'
-            . $uid . '/spaces</code> mit Header <code>X-Orgasmic-Key</code> (derselbe Schlüssel wie beim Kalender) und JSON <code>{"space_ids":[1,2],"mode":"set"}</code>. <code>mode: add</code> ergänzt, ohne andere Räume zu entfernen.</p>';
+        foreach ($spaces as $space) {
+            $kind = (string) ($space['kind'] ?? 'room');
+            if (!isset($by_kind[$kind])) {
+                $kind = 'other';
+            }
+            $by_kind[$kind][] = $space;
+        }
+
+        echo '<p class="description">Gruppe = Ordner in der Sidebar. Räume und Kurse extra setzen — der Chat gehört zum jeweiligen Raum oder Kurs. API: <code>POST /wp-json/orgasmic-app/v1/members/'
+            . $uid . '/spaces</code>, Header <code>X-Orgasmic-Key</code> (Kalender-Schlüssel), JSON <code>{"space_ids":[1,2],"mode":"set"}</code>.</p>';
         echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';
         wp_nonce_field('orgasmic_fc_app_enroll');
         echo '<input type="hidden" name="action" value="orgasmic_fc_app_enroll" />';
         echo '<input type="hidden" name="orgasmic_fc_app_user_id" value="' . $uid . '" />';
-        foreach ($groups as $kind => $label) {
-            $chunk = array_values(array_filter($spaces, static fn(array $s): bool => ($s['kind'] ?? '') === $kind));
-            if ($chunk === []) {
-                continue;
-            }
-            echo '<p><strong>' . esc_html($label) . '</strong></p><div style="display:flex;flex-wrap:wrap;gap:8px 16px;margin:0 0 12px">';
-            foreach ($chunk as $space) {
-                $id = (int) $space['id'];
-                echo '<label style="min-width:180px"><input type="checkbox" name="space_ids[]" value="' . $id . '" '
-                    . checked(in_array($id, $owned, true), true, false) . ' /> '
-                    . esc_html((string) $space['title']) . '</label>';
-            }
-            echo '</div>';
-        }
+
+        $this->render_space_checks('Gruppen', $by_kind['group'], $owned, 'group');
+        $this->render_room_checks($by_kind['room'], $by_kind['group'], $owned);
+        $this->render_space_checks('Kurse', $by_kind['course'], $owned, 'course');
+        $this->render_space_checks('Weitere', $by_kind['other'], $owned, 'other');
+
         if ($spaces === []) {
             echo '<p>Keine FluentCommunity-Spaces gefunden.</p>';
         }
-        submit_button('Zuordnung speichern', 'secondary');
+        submit_button('Zuordnung speichern');
         echo '</form>';
+        echo '<script>
+        document.querySelectorAll("[data-oc-toggle]").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var sel = btn.getAttribute("data-oc-toggle");
+            var on = btn.getAttribute("data-oc-on") === "1";
+            document.querySelectorAll(sel).forEach(function (el) { el.checked = on; });
+          });
+        });
+        </script>';
+    }
+
+    /**
+     * @param list<array{id:int,title:string,kind:string,parent_id?:int}> $items
+     * @param list<int> $owned
+     */
+    private function render_space_checks(string $label, array $items, array $owned, string $kind): void
+    {
+        if ($items === []) {
+            return;
+        }
+        $sel = 'input[name="space_ids[]"][data-kind="' . esc_attr($kind) . '"]';
+        echo '<h2>' . esc_html($label) . ' · '
+            . '<button type="button" class="button-link" data-oc-toggle="' . esc_attr($sel) . '" data-oc-on="1">alle</button> · '
+            . '<button type="button" class="button-link" data-oc-toggle="' . esc_attr($sel) . '" data-oc-on="0">keine</button></h2>';
+        echo '<div style="display:flex;flex-wrap:wrap;gap:8px 16px;margin:0 0 16px">';
+        foreach ($items as $space) {
+            $this->space_checkbox($space, $owned, 0, $kind);
+        }
+        echo '</div>';
+    }
+
+    /**
+     * @param list<array{id:int,title:string,kind:string,parent_id?:int}> $rooms
+     * @param list<array{id:int,title:string}> $groups
+     * @param list<int> $owned
+     */
+    private function render_room_checks(array $rooms, array $groups, array $owned): void
+    {
+        if ($rooms === []) {
+            return;
+        }
+        $group_ids = [];
+        foreach ($groups as $group) {
+            $group_ids[(int) $group['id']] = (string) $group['title'];
+        }
+        $nested = [];
+        $loose = [];
+        foreach ($rooms as $room) {
+            $parent = (int) ($room['parent_id'] ?? 0);
+            if ($parent > 0 && isset($group_ids[$parent])) {
+                $nested[$parent][] = $room;
+            } else {
+                $loose[] = $room;
+            }
+        }
+
+        echo '<h2>Räume <span style="font-weight:400;font-size:13px">(inkl. Chat)</span></h2>';
+        foreach ($group_ids as $gid => $gtitle) {
+            $chunk = $nested[$gid] ?? [];
+            if ($chunk === []) {
+                continue;
+            }
+            $sel = 'input[name="space_ids[]"][data-parent="' . (int) $gid . '"]';
+            echo '<p style="margin:12px 0 6px"><strong>' . esc_html($gtitle) . '</strong> · '
+                . '<button type="button" class="button-link" data-oc-toggle="' . esc_attr($sel) . '" data-oc-on="1">alle</button> · '
+                . '<button type="button" class="button-link" data-oc-toggle="' . esc_attr($sel) . '" data-oc-on="0">keine</button></p>';
+            echo '<div style="display:flex;flex-wrap:wrap;gap:8px 16px;margin:0 0 12px">';
+            foreach ($chunk as $space) {
+                $this->space_checkbox($space, $owned, $gid, 'room');
+            }
+            echo '</div>';
+        }
+        if ($loose !== []) {
+            if ($nested !== []) {
+                echo '<p style="margin:12px 0 6px"><strong>Ohne Gruppe</strong></p>';
+            }
+            echo '<div style="display:flex;flex-wrap:wrap;gap:8px 16px;margin:0 0 16px">';
+            foreach ($loose as $space) {
+                $this->space_checkbox($space, $owned, 0, 'room');
+            }
+            echo '</div>';
+        }
+    }
+
+    /**
+     * @param array{id:int,title:string} $space
+     * @param list<int> $owned
+     */
+    private function space_checkbox(array $space, array $owned, int $parent = 0, string $kind = 'room'): void
+    {
+        $id = (int) $space['id'];
+        echo '<label style="min-width:200px"><input type="checkbox" name="space_ids[]" value="' . $id . '"'
+            . ' data-kind="' . esc_attr($kind) . '"'
+            . ($parent > 0 ? ' data-parent="' . $parent . '"' : '')
+            . ' ' . checked(in_array($id, $owned, true), true, false) . ' /> '
+            . esc_html((string) $space['title']) . '</label>';
     }
 
     private function checkbox(string $label, string $option, string $help): void
