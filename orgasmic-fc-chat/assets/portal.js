@@ -483,6 +483,29 @@
   }
 
   let pageLockY = 0;
+  let closedLayoutH = 0;
+
+  function isTextField(el) {
+    if (!el || !el.tagName) return false;
+    if (el.tagName === 'TEXTAREA' || el.isContentEditable) return true;
+    if (el.tagName !== 'INPUT') return false;
+    const type = (el.type || 'text').toLowerCase();
+    return ['button', 'checkbox', 'radio', 'file', 'submit', 'reset', 'hidden', 'range', 'color'].indexOf(type) === -1;
+  }
+
+  function keyboardOpen(root) {
+    const el = document.activeElement;
+    if (el && root.contains(el) && isTextField(el)) return true;
+    const vv = window.visualViewport;
+    if (vv) {
+      const covered = Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0));
+      if (covered > 60) return true;
+    }
+    // Android adjustResize shrinks window.innerHeight to the area above the keyboard,
+    // so visualViewport "covered" stays ~0 and the old 80px check never fired.
+    if (closedLayoutH > 0 && window.innerHeight < closedLayoutH - 80) return true;
+    return false;
+  }
 
   function lockPageForOverlay() {
     pageLockY = window.scrollY || window.pageYOffset || 0;
@@ -509,32 +532,37 @@
   function pinOverlayToViewport() {
     const root = document.getElementById('orgasmic-chat-root');
     if (!root || root.hidden) return;
-    applyMobileBarInset();
+    const kb = keyboardOpen(root);
+    if (!kb) applyMobileBarInset();
     const vv = window.visualViewport;
-    const visTop = vv ? vv.offsetTop : 0;
+    const visTop = vv ? Math.max(0, vv.offsetTop || 0) : 0;
     const visH = vv ? vv.height : window.innerHeight;
-    let bar = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--orgasmic-mobile-bar')) || 0;
-    const covered = Math.max(0, window.innerHeight - visH - visTop);
-    if (covered > 80) bar = 0;
+    let bar = 0;
+    if (!kb) {
+      bar = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--orgasmic-mobile-bar')) || 0;
+    }
+    document.documentElement.classList.toggle('orgasmic-chat-keyboard', kb);
+    root.classList.toggle('is-keyboard', kb);
     root.style.left = '0px';
     root.style.right = '0px';
     root.style.width = '100%';
-    root.style.bottom = 'auto';
-    root.style.top = visTop + 'px';
-    root.style.height = Math.max(120, visH - bar) + 'px';
     root.style.transform = 'none';
-    window.requestAnimationFrame(() => {
-      if (!root || root.hidden || !window.visualViewport) return;
-      const want = window.visualViewport.offsetTop;
-      const got = root.getBoundingClientRect().top;
-      const drift = got - want;
-      root.style.transform = Math.abs(drift) > 2 ? ('translateY(' + (-drift) + 'px)') : 'none';
-    });
+    root.style.top = visTop + 'px';
+    if (kb) {
+      root.style.bottom = '0px';
+      root.style.height = Math.ceil(visH) + 'px';
+    } else {
+      root.style.bottom = bar + 'px';
+      root.style.height = Math.max(120, Math.ceil(visH - bar)) + 'px';
+    }
   }
 
   function clearOverlayPin() {
     const root = document.getElementById('orgasmic-chat-root');
+    document.documentElement.classList.remove('orgasmic-chat-open', 'orgasmic-chat-keyboard');
+    closedLayoutH = 0;
     if (!root) return;
+    root.classList.remove('is-keyboard');
     root.style.top = '';
     root.style.left = '';
     root.style.right = '';
@@ -548,6 +576,8 @@
     const root = document.getElementById('orgasmic-chat-root');
     if (!root) return;
     applyMobileBarInset();
+    closedLayoutH = window.innerHeight;
+    document.documentElement.classList.add('orgasmic-chat-open');
     root.hidden = false;
     lockPageForOverlay();
     pinOverlayToViewport();
@@ -1702,12 +1732,24 @@
   watchNavIcons();
   applyMobileBarInset();
   window.addEventListener('resize', () => {
+    const root = document.getElementById('orgasmic-chat-root');
+    const el = document.activeElement;
+    if (!root || root.hidden || !(el && root.contains(el) && isTextField(el))) {
+      closedLayoutH = window.innerHeight;
+    }
     applyMobileBarInset();
     pinOverlayToViewport();
   });
   window.addEventListener('orientationchange', () => {
-    applyMobileBarInset();
-    pinOverlayToViewport();
+    window.setTimeout(() => {
+      const root = document.getElementById('orgasmic-chat-root');
+      const el = document.activeElement;
+      if (!root || root.hidden || !(el && root.contains(el) && isTextField(el))) {
+        closedLayoutH = window.innerHeight;
+      }
+      applyMobileBarInset();
+      pinOverlayToViewport();
+    }, 200);
   });
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', pinOverlayToViewport);

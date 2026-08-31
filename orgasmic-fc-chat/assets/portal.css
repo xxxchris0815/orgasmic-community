@@ -7,10 +7,25 @@
   background: var(--och-list, #fff);
   isolation: isolate;
   overscroll-behavior: none;
+  box-sizing: border-box;
+}
+
+#orgasmic-chat-root.is-keyboard {
+  bottom: 0 !important;
 }
 
 #orgasmic-chat-root[hidden] {
   display: none !important;
+}
+
+html.orgasmic-chat-open,
+html.orgasmic-chat-open body {
+  background: var(--och-list, #fff);
+}
+
+/* Keyboard covers the FC bar; hide the feed so a 1px pin error cannot leak posts. */
+html.orgasmic-chat-keyboard body > *:not(#orgasmic-chat-root) {
+  visibility: hidden !important;
 }
 
 .orgasmic-chat-overlay {
@@ -790,6 +805,11 @@ a[href="#orgasmic-chat"] .och-nav-badge {
 @media (max-width: 760px) {
   #orgasmic-chat-root {
     bottom: var(--orgasmic-mobile-bar, calc(56px + env(safe-area-inset-bottom, 0px)));
+    height: auto;
+  }
+
+  #orgasmic-chat-root.is-keyboard {
+    bottom: 0 !important;
     height: auto;
   }
 
