@@ -1,7 +1,8 @@
-# ORGASMIC Native (Capacitor)
+# OL Community Native (Capacitor)
 
-Hülle um [community.orgasmic.live](https://community.orgasmic.live) für Play Store und App Store.
+Hülle um die bestehende Community-Website für Play Store und App Store.
 
-- App-ID: `live.orgasmic.community`
+- **Anzeigename (Handy + Store):** OL Community
+- **App-ID (technisch):** `live.orgasmic.community` — nicht ändern
 - Push: `@capacitor/push-notifications` → WordPress `POST /wp-json/orgasmic-app/v1/push/token`
 - Bauen: Codemagic, siehe **[ANLEITUNG-ANDROID.md](ANLEITUNG-ANDROID.md)**

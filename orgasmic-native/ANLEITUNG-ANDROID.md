@@ -1,8 +1,20 @@
-# ORGASMIC Android-App — Schritt für Schritt (Codemagic)
+# OL Community — Android (Codemagic)
 
-Die App ist keine zweite Website. Capacitor öffnet **https://community.orgasmic.live**. Push läuft über Firebase. Gebaut wird online bei Codemagic.
+Die App ist keine zweite Website. Capacitor öffnet die bestehende Community-URL. Push läuft über Firebase. Gebaut wird online bei Codemagic.
 
-Paketname (niemals ändern): `live.orgasmic.community`
+## Öffentliche Namen (Store + Homescreen)
+
+Im Store und unter dem App-Icon **keine** sexuellen oder expliziten Wörter (auch nicht die interne Marke).
+
+| Wo | Text |
+| --- | --- |
+| App-Name auf dem Handy | **OL Community** |
+| Play-Store-Titel (max. 30 Zeichen) | **OL Community** |
+| Kurzbeschreibung | Mitglieder-Community mit Chat, Beiträgen und Kalender |
+| Entwicklername | Firmenname oder **OL Community** — ohne Sex-Wörter |
+| Android-Paketname (technisch, unsichtbar) | `live.orgasmic.community` — **nicht ändern** |
+
+Nicht in Titel, Kurztext, Screenshots, Icon-Schrift: orgasm, orgasmic, sex, xxx, nackt, escort, fetish usw.
 
 Reihenfolge einhalten. Android zuerst. iOS kommt später mit demselben Firebase-Projekt.
 
@@ -31,7 +43,7 @@ Workflows in Codemagic:
 2. Falls noch kein Entwicklerkonto: **Registrieren**, einmalig **25 USD** zahlen, Identität verifizieren. Das kann 1–2 Tage dauern. Warte, bis das Konto **aktiv** ist.
 3. **Alle Apps erstellen** → **App erstellen**.
 4. Ausfüllen:
-   - App-Name: `ORGASMIC`
+   - App-Name: `OL Community`
    - Standardsprache: Deutsch
    - App oder Spiel: **App**
    - Kostenlos oder kostenpflichtig: **Kostenlos**
@@ -53,7 +65,7 @@ Zwei verschiedene Namen — nicht vermischen:
 Die Projekt-ID darfst du nicht mit Punkten anlegen. Den Android-Paketnamen **musst** du mit Punkten eintragen. Das Feld heißt beim Hinzufügen der Android-App „Android-Paketname“ / „Android package name“, nicht Projekt-ID.
 
 1. Öffne [https://console.firebase.google.com](https://console.firebase.google.com) mit **demselben Google-Konto**.
-2. **Projekt hinzufügen** → Anzeigename z. B. `ORGASMIC`. Die erzeugte Projekt-ID darf `live-orgasmic-community` heißen.
+2. **Projekt hinzufügen** → Anzeigename z. B. `OL Community`. Die erzeugte Projekt-ID darf Bindestriche haben (z. B. `live-orgasmic-community`).
 3. Google Analytics kannst du anlassen oder überspringen.
 4. **Projekt erstellen**.
 
@@ -62,7 +74,7 @@ Die Projekt-ID darfst du nicht mit Punkten anlegen. Den Android-Paketnamen **mus
 1. Auf der Projektübersicht: **Android** (Icon) — nicht das Projekt umbenennen, eine **App** zum Projekt hinzufügen.
 2. Feld **Android-Paketname** **genau**: `live.orgasmic.community`  
    (Punkte sind hier erlaubt und nötig. `live-orgasmic-community` ist **falsch** und passt nicht zur App.)
-3. App-Spitzname: `ORGASMIC Android`
+3. App-Spitzname: `OL Community Android`
 4. Debug-Signatur-SHA kannst du leer lassen.
 5. **App registrieren**.
 6. **`google-services.json` herunterladen**. Datei aufheben. Nicht ins öffentliche Git legen.
@@ -163,11 +175,16 @@ In der Play Console die App öffnen. Links die Pflichtpunkte abarbeiten. Ohne di
 ### 7a. Store-Eintrag (Hauptstore-eintrag)
 
 1. **Wachstum → Store-Eintrag**.
-2. Kurzbeschreibung und ausführliche Beschreibung (Deutsch).
-3. App-Icon 512×512 PNG.
-4. Feature-Grafik 1024×500.
-5. Mindestens **2 Handy-Screenshots** (z. B. Feed und Chat).
-6. Speichern.
+2. **App-Name:** `OL Community`
+3. **Kurzbeschreibung** (max. 80 Zeichen), z. B.:  
+   `Mitglieder-Community mit Chat, Beiträgen und Kalender.`
+4. **Ausführliche Beschreibung**, z. B.:  
+   `OL Community ist der Treffpunkt für Mitglieder: Beiträge im Feed, Chat in den Räumen und ein gemeinsamer Kalender. Push-Benachrichtigungen für neue Nachrichten und Termine. Die Nutzung setzt ein bestehendes Konto voraus.`  
+   Keine sexuellen Wörter, keine Nackt-Screenshots.
+5. App-Icon 512×512 PNG — ohne Schriftzug mit kritischen Wörtern.
+6. Feature-Grafik 1024×500.
+7. Mindestens **2 Handy-Screenshots** (z. B. Feed und Chat), Texte im Bild ebenfalls ohne kritische Wörter.
+8. Speichern.
 
 ### 7b. Datenschutz
 
@@ -255,7 +272,7 @@ Im Ordner `orgasmic-native/ios` ist die Hülle schon da. Dafür extra:
 ## Kurz: Reihenfolge zum Abhaken
 
 - [ ] Play-Konto (25 $) aktiv  
-- [ ] Play-App `ORGASMIC` angelegt  
+- [ ] Play-App `OL Community` angelegt  
 - [ ] Firebase-Projekt + Android-App `live.orgasmic.community`  
 - [ ] `google-services.json` heruntergeladen  
 - [ ] Firebase-Dienstkonto-JSON in WordPress **ORGASMIC App**  

@@ -57,7 +57,7 @@ workflows:
             -alias orgasmic \
             -storepass "$KEYSTORE_PASSWORD" \
             -keypass "$KEYSTORE_PASSWORD" \
-            -dname "CN=ORGASMIC, OU=App, O=ORGASMIC, L=Berlin, ST=Berlin, C=DE"
+            -dname "CN=OL Community, OU=App, O=OL Community, L=Berlin, ST=Berlin, C=DE"
     artifacts:
       - orgasmic-release.keystore
 

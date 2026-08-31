@@ -95,7 +95,7 @@ ZIP: [`orgasmic-fc-app-1.1.5.zip`](https://github.com/xxxchris0815/orgasmic-comm
 
 ### Capacitor / Play Store (Android zuerst)
 
-Ordner `orgasmic-native/`. Die App lädt die bestehende Community. Push über Firebase.
+Ordner `orgasmic-native/`. Die App lädt die bestehende Community. Öffentlicher Name: **OL Community** (kein explizites Store-Wording). Push über Firebase.
 
 Schritt für Schritt (Firebase, Play Console, Codemagic):  
 [`orgasmic-native/ANLEITUNG-ANDROID.md`](orgasmic-native/ANLEITUNG-ANDROID.md)
