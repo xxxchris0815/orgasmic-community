@@ -441,6 +441,15 @@ html.orgasmic-chat-keyboard body > *:not(#orgasmic-chat-root) {
   box-shadow: none;
 }
 
+.och-load-older {
+  align-self: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--och-muted);
+  padding: 8px 0 4px;
+  cursor: pointer;
+}
+
 .orgasmic-chat-msg {
   display: flex;
   width: 100%;

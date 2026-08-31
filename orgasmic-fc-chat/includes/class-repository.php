@@ -93,23 +93,23 @@ class Orgasmic_Fc_Chat_Repository
         return (int) array_sum($this->unread_map($space_ids, $user_id));
     }
 
-    public function messages(int $space_id, int $after = 0, int $before = 0, int $limit = 50): array
+    public function messages(int $space_id, int $after = 0, int $before = 0, int $limit = 40): array
     {
         global $wpdb;
         $table = Orgasmic_Fc_Chat_Install::messages_table();
-        $limit = max(1, min(100, $limit));
+        $limit = max(1, min(80, $limit));
 
         $where = ['space_id = %d', 'deleted_at IS NULL'];
         $args = [$space_id];
-        $order = 'ASC';
+        $order = 'DESC';
 
         if ($after > 0) {
             $where[] = 'id > %d';
             $args[] = $after;
+            $order = 'ASC';
         } elseif ($before > 0) {
             $where[] = 'id < %d';
             $args[] = $before;
-            $order = 'DESC';
         }
 
         $sql = "SELECT id, space_id, user_id, body, attachment_id, created_at
@@ -124,6 +124,22 @@ class Orgasmic_Fc_Chat_Repository
         }
 
         return array_map([$this, 'hydrate_message'], $rows);
+    }
+
+    public function exists_before(int $space_id, int $before_id): bool
+    {
+        if ($space_id < 1 || $before_id < 1) {
+            return false;
+        }
+        global $wpdb;
+        $table = Orgasmic_Fc_Chat_Install::messages_table();
+        return (bool) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT 1 FROM {$table} WHERE space_id = %d AND deleted_at IS NULL AND id < %d LIMIT 1",
+                $space_id,
+                $before_id
+            )
+        );
     }
 
     public function latest_id(int $space_id): int

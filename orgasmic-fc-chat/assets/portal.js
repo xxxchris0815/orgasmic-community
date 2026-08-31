@@ -36,7 +36,11 @@
     loadingRooms: false,
     loadingThread: false,
     sending: false,
+    hasOlder: false,
+    loadingOlder: false,
   };
+
+  const PAGE = 40;
 
   let unreadTimer = null;
   let threadTimer = null;
@@ -1008,6 +1012,58 @@
     bindAvatarFallback();
   }
 
+  function olderBannerHtml() {
+    if (!state.hasOlder && !state.loadingOlder) return '';
+    return '<div class="och-load-older" data-och-older>'
+      + (state.loadingOlder ? 'Lade ältere Nachrichten…' : 'Nach oben für ältere Nachrichten')
+      + '</div>';
+  }
+
+  function paintOlderBanner() {
+    const scroller = $('#och-scroll');
+    if (!scroller) return;
+    const existing = scroller.querySelector('[data-och-older]');
+    const html = olderBannerHtml();
+    if (!html) {
+      if (existing) existing.remove();
+      return;
+    }
+    if (existing) {
+      existing.outerHTML = html;
+      return;
+    }
+    scroller.insertAdjacentHTML('afterbegin', html);
+  }
+
+  function prependMessages(items) {
+    const scroller = $('#och-scroll');
+    if (!scroller || !items.length) return;
+    const empty = scroller.querySelector('[data-och-empty]');
+    if (empty) empty.remove();
+    const firstDayEl = scroller.querySelector('.och-day');
+    const firstDayText = firstDayEl ? firstDayEl.textContent : '';
+    const prevH = scroller.scrollHeight;
+    const prevTop = scroller.scrollTop;
+    let day = '';
+    let html = '';
+    items.forEach((msg) => {
+      const built = messageHtml(msg, day);
+      day = built.day;
+      html += built.html;
+    });
+    const banner = scroller.querySelector('[data-och-older]');
+    if (banner) banner.insertAdjacentHTML('afterend', html);
+    else scroller.insertAdjacentHTML('afterbegin', html);
+    if (firstDayEl && day && firstDayText === day) {
+      firstDayEl.remove();
+    }
+    scroller.scrollTop = prevTop + (scroller.scrollHeight - prevH);
+    paintOlderBanner();
+    prefetchAttachments(items);
+    hydrateImages();
+    bindAvatarFallback();
+  }
+
   function refreshRooms() {
     const list = $('[data-och-rooms]');
     if (!list) return;
@@ -1183,7 +1239,7 @@
     }
     const body = (state.loadingThread && !state.messages.length)
       ? '<div class="orgasmic-chat-messages" id="och-scroll"><div class="och-loading" data-och-empty>Chat wird geladen…</div></div>'
-      : '<div class="orgasmic-chat-messages" id="och-scroll">' + messagesHtml() + '</div>';
+      : '<div class="orgasmic-chat-messages" id="och-scroll">' + olderBannerHtml() + messagesHtml() + '</div>';
     return threadHeaderHtml(room) + body + composerHtml(room);
   }
 
@@ -1277,17 +1333,20 @@
     if (!spaceId) {
       state.messages = [];
       lastId = 0;
+      state.hasOlder = false;
       return false;
     }
     const cached = cacheGet('orgasmic-chat-msgs:' + cacheUid() + ':' + spaceId);
     if (cached && Array.isArray(cached) && cached.length) {
       state.messages = cached;
       lastId = cached[cached.length - 1].id;
+      state.hasOlder = cached.length >= PAGE;
       rememberAuthors(cached);
       return true;
     }
     state.messages = [];
     lastId = 0;
+    state.hasOlder = false;
     return false;
   }
 
@@ -1340,8 +1399,8 @@
   async function loadMessages(reset) {
     if (!state.spaceId) return [];
     const path = reset
-      ? 'rooms/' + state.spaceId + '/messages?limit=50'
-      : 'rooms/' + state.spaceId + '/messages?after=' + lastId + '&limit=50';
+      ? 'rooms/' + state.spaceId + '/messages?limit=' + PAGE
+      : 'rooms/' + state.spaceId + '/messages?after=' + lastId + '&limit=' + PAGE;
     try {
       const data = await api(path);
       const items = data.items || [];
@@ -1349,7 +1408,8 @@
       const incoming = [];
       if (reset) {
         state.messages = items;
-        if (state.messages.length) lastId = state.messages[state.messages.length - 1].id;
+        lastId = state.messages.length ? state.messages[state.messages.length - 1].id : 0;
+        state.hasOlder = !!data.has_older;
       } else if (items.length) {
         const seen = new Set(state.messages.map((m) => m.id));
         items.forEach((m) => {
@@ -1360,7 +1420,7 @@
         });
         if (state.messages.length) lastId = state.messages[state.messages.length - 1].id;
       }
-      cacheSet('orgasmic-chat-msgs:' + cacheUid() + ':' + state.spaceId, state.messages.slice(-50));
+      cacheSet('orgasmic-chat-msgs:' + cacheUid() + ':' + state.spaceId, state.messages.slice(-PAGE));
       prefetchAttachments(reset ? state.messages : incoming);
       setOffline(false);
       await api('rooms/' + state.spaceId + '/read', {
@@ -1381,10 +1441,45 @@
       if (cached && Array.isArray(cached) && cached.length) {
         state.messages = cached;
         if (state.messages.length) lastId = state.messages[state.messages.length - 1].id;
+        state.hasOlder = cached.length >= PAGE;
         setOffline(true);
         return [];
       }
       throw err;
+    }
+  }
+
+  async function loadOlder() {
+    if (!state.spaceId || state.loadingOlder || !state.hasOlder || !state.messages.length) return;
+    const first = state.messages[0];
+    if (!first || !first.id) return;
+    state.loadingOlder = true;
+    paintOlderBanner();
+    try {
+      const data = await api('rooms/' + state.spaceId + '/messages?before=' + first.id + '&limit=' + PAGE);
+      const items = data.items || [];
+      rememberAuthors(items);
+      state.hasOlder = !!data.has_older;
+      if (!items.length) {
+        state.hasOlder = false;
+        paintOlderBanner();
+        return;
+      }
+      const seen = new Set(state.messages.map((m) => m.id));
+      const fresh = items.filter((m) => !seen.has(m.id));
+      if (!fresh.length) {
+        state.hasOlder = false;
+        paintOlderBanner();
+        return;
+      }
+      state.messages = fresh.concat(state.messages);
+      prependMessages(fresh);
+    } catch (e) {
+      state.hasOlder = true;
+      paintOlderBanner();
+    } finally {
+      state.loadingOlder = false;
+      paintOlderBanner();
     }
   }
 
@@ -1399,7 +1494,7 @@
     stopThreadPoll();
     const ms = Math.max(3000, ((cfg.pollSeconds || 6) * 1000) / 2);
     threadTimer = setInterval(async () => {
-      if (document.hidden || !state.spaceId) return;
+      if (document.hidden || !state.spaceId || state.loadingOlder) return;
       try {
         const incoming = await loadMessages(false);
         if (incoming.length) {
@@ -1425,6 +1520,8 @@
       stopVoicePlayback();
       state.selectMode = false;
       state.selected = {};
+      state.hasOlder = false;
+      state.loadingOlder = false;
     }
     state.spaceId = nextId;
     state.error = '';
@@ -1739,6 +1836,12 @@
       location.hash = '#orgasmic-chat';
       return;
     }
+    const older = ev.target.closest('[data-och-older]');
+    if (older) {
+      ev.preventDefault();
+      loadOlder();
+      return;
+    }
     const room = ev.target.closest('[data-och-room]');
     if (room) {
       ev.preventDefault();
@@ -1853,6 +1956,12 @@
     if (isFinePointer()) {
       toggleSelect(parseInt(msg.getAttribute('data-och-msg'), 10));
     }
+  }, true);
+
+  document.addEventListener('scroll', (ev) => {
+    if (!ev.target || ev.target.id !== 'och-scroll') return;
+    if (ev.target.scrollTop > 80) return;
+    loadOlder();
   }, true);
 
   document.addEventListener('input', (ev) => {

@@ -111,13 +111,19 @@ class Orgasmic_Fc_Chat_Rest
 
         $after = (int) $request->get_param('after');
         $before = (int) $request->get_param('before');
-        $limit = (int) ($request->get_param('limit') ?: 50);
+        $limit = (int) ($request->get_param('limit') ?: 40);
         $items = $this->repo->messages($space_id, $after, $before, $limit);
         $this->attach_authors($items);
+
+        $has_older = false;
+        if ($after < 1 && $items !== []) {
+            $has_older = $this->repo->exists_before($space_id, (int) $items[0]['id']);
+        }
 
         return rest_ensure_response([
             'items' => $items,
             'latest_id' => $this->repo->latest_id($space_id),
+            'has_older' => $has_older,
         ]);
     }
 
