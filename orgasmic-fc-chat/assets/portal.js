@@ -216,8 +216,12 @@
       theirs: '--och-theirs',
     };
     Object.keys(map).forEach((key) => {
-      if (state.portal[key]) overlay.style.setProperty(map[key], state.portal[key]);
-      else overlay.style.removeProperty(map[key]);
+      const value = state.portal[key];
+      if (!value || (key === 'mine' && /^#([fF]{3}|[fF]{6})$/.test(value))) {
+        overlay.style.removeProperty(map[key]);
+        return;
+      }
+      overlay.style.setProperty(map[key], value);
     });
   }
 
@@ -942,7 +946,7 @@
     if (day && day !== prevDay) {
       html += '<div class="och-day">' + escapeHtml(day) + '</div>';
     }
-    const mine = state.me && msg.user_id === state.me.id;
+    const mine = isMine(msg);
     const author = authorFor(msg);
     const canDelete = mine || state.canManage;
     const selected = !!(state.selectMode && state.selected[msg.id]);
@@ -951,6 +955,7 @@
     if (canDelete) {
       html += '<button type="button" class="och-pick" data-och-pick="' + msg.id + '" aria-label="Markieren" title="Markieren"></button>';
     }
+    html += '<div class="och-cluster">';
     html += avatarHtml(author.avatar, name, 'och-avatar');
     html += '<div class="och-bubble">';
     html += '<div class="och-msg-head"><span class="och-author">' + escapeHtml(name) + '</span>'
@@ -963,7 +968,7 @@
         + '<img class="och-photo" data-och-src="' + escapeHtml(msg.attachment.thumb || msg.attachment.url) + '" src="' + escapeHtml(msg.attachment.thumb || msg.attachment.url) + '" alt="" />'
         + '</a>';
     }
-    html += '</div></article>';
+    html += '</div></div></article>';
     return { html: html, day: day || prevDay };
   }
 
@@ -1072,6 +1077,10 @@
       + '</div>';
   }
 
+  function isMine(msg) {
+    return Number((msg && msg.user_id) || 0) > 0 && Number(msg.user_id) === Number(state.me && state.me.id);
+  }
+
   function threadHeaderHtml(room) {
     if (state.selectMode) {
       const n = Object.keys(state.selected).length;
@@ -1084,6 +1093,8 @@
       + '<button type="button" class="och-icon-btn orgasmic-chat-back" data-och-back aria-label="Zurück">' + iconSvg('<path d="M15 6 9 12l6 6"></path>') + '</button>'
       + avatarHtml(room.logo, room.title, 'och-avatar')
       + '<div class="och-thread-who"><h2>' + escapeHtml(room.title) + '</h2><p class="och-sub">Chat</p></div>'
+      + '<button type="button" class="och-icon-btn" data-och-select-start aria-label="Markieren" title="Nachrichten markieren">'
+      + iconSvg('<circle cx="12" cy="12" r="7.2"></circle><path d="m8.8 12.1 2.1 2.1 4.3-4.4"></path>') + '</button>'
       + '<button type="button" class="och-icon-btn orgasmic-chat-thread-close" data-och-close aria-label="Schließen">'
       + iconSvg('<path d="M6 6l12 12M18 6 6 18"></path>') + '</button></div>';
   }
@@ -1092,37 +1103,58 @@
     return Object.keys(state.selected).map((id) => parseInt(id, 10)).filter((id) => id > 0);
   }
 
+  function applySelectUi() {
+    const shell = $('.orgasmic-chat');
+    if (shell) {
+      shell.classList.toggle('is-thread', !!state.spaceId);
+      shell.classList.toggle('is-selecting', !!state.selectMode);
+    }
+    const room = roomById(state.spaceId);
+    const top = $('.orgasmic-chat-thread-top');
+    if (top && room) {
+      top.outerHTML = threadHeaderHtml(room);
+    }
+    document.querySelectorAll('#orgasmic-chat-root [data-och-msg]').forEach((el) => {
+      const id = el.getAttribute('data-och-msg');
+      el.classList.toggle('is-selected', !!(state.selectMode && state.selected[id]));
+    });
+  }
+
   function exitSelect() {
     if (!state.selectMode && !Object.keys(state.selected).length) return;
     state.selectMode = false;
     state.selected = {};
-    paintThread({ focus: false, stick: false, keepScroll: true });
+    applySelectUi();
   }
 
   function enterSelect(id) {
-    if (!id) return;
     state.selectMode = true;
-    state.selected = {};
-    state.selected[id] = true;
-    paintThread({ focus: false, stick: false, keepScroll: true });
+    if (id) {
+      state.selected = {};
+      state.selected[id] = true;
+      state.selected[String(id)] = true;
+    }
+    applySelectUi();
   }
 
   function toggleSelect(id) {
     if (!id) return;
+    const key = String(id);
     if (!state.selectMode) {
       enterSelect(id);
       return;
     }
-    if (state.selected[id]) {
+    if (state.selected[key] || state.selected[id]) {
+      delete state.selected[key];
       delete state.selected[id];
     } else {
-      state.selected[id] = true;
+      state.selected[key] = true;
     }
     if (!Object.keys(state.selected).length) {
       exitSelect();
       return;
     }
-    paintThread({ focus: false, stick: false, keepScroll: true });
+    applySelectUi();
   }
 
   async function deleteSelected() {
@@ -1654,6 +1686,12 @@
       exitSelect();
       return;
     }
+    const selectStart = t.closest('[data-och-select-start]');
+    if (selectStart) {
+      ev.preventDefault();
+      enterSelect();
+      return;
+    }
     const selectDelete = t.closest('[data-och-select-delete]');
     if (selectDelete) {
       ev.preventDefault();
@@ -1809,8 +1847,11 @@
   document.addEventListener('pointerup', clearPress, true);
   document.addEventListener('pointercancel', clearPress, true);
   document.addEventListener('contextmenu', (ev) => {
-    if (ev.target.closest && ev.target.closest('#orgasmic-chat-root [data-och-msg]')) {
-      ev.preventDefault();
+    const msg = ev.target.closest && ev.target.closest('#orgasmic-chat-root [data-och-msg][data-och-can-del]');
+    if (!msg) return;
+    ev.preventDefault();
+    if (isFinePointer()) {
+      toggleSelect(parseInt(msg.getAttribute('data-och-msg'), 10));
     }
   }, true);
 

@@ -11,7 +11,7 @@ Moved from `evolution-api` (`Extras/orgasmic-community`).
 | `orgasmic-fc-tracker/` | **1.2.1** | Engagement-Tracker, Dashboard, Evolution-Webhook |
 | `orgasmic-fc-events/` | **1.0.12** | Kalender im Portal (RSVP, Zoom, Markieren/Duplizieren/Löschen mobil+Desktop) |
 | `orgasmic-fc-embeds/` | **1.2.13** | Video-Player, nativer Composer-Upload, kompakte Chips in Sidebars |
-| `orgasmic-fc-chat/` | **1.1.14** | Space-Chat (Mighty-Networks-Layout, Markieren ohne Scroll-Sprung) |
+| `orgasmic-fc-chat/` | **1.1.15** | Space-Chat (WhatsApp-Ausrichtung, Markieren ohne Scroll-Sprung) |
 | `orgasmic-fc-app/` | **1.1.14** | PWA, Web Push, Mitglieder-Zuordnung (Gruppen/Räume/Kurse) |
 
 ## ORGASMIC Community Kalender
@@ -70,16 +70,15 @@ Ersatz für den FluentCommunity-Pro-Chat:
 
 - Ein Chatraum pro Space, nur für Mitglieder dieses Spaces
 - Icon oben rechts im Portal, Ungelesen-Badge
-- Layout wie Mighty Networks: Liste + Thread, Avatare, Waveform, Composer
-- Text, Emoji, Bild, Sprachnachricht (max. 90 Sekunden, WebM/Opus)
-- Nachrichten markieren: Handy langes Drücken, PC Kästchen oder Strg/Cmd+Klick — Scrollposition bleibt
+- Layout wie WhatsApp: eigene Nachrichten rechts, andere links
+- Nachrichten markieren: Kreis oben rechts im Thread, Handy langes Drücken, PC Rechtsklick — Scroll bleibt
 - REST-API für Portal und Capacitor (`/wp-json/orgasmic-chat/v1/`)
 - Offline: letzte Räume und Nachrichten im localStorage (kein REST-Cache im Service Worker)
 - In einer Capacitor-App: natives Mikro (`capacitor-voice-recorder`) und Kamera (`@capacitor/camera`)
 
 WP-Admin: **ORGASMIC Chat → Einstellungen** (Farben, Untertitel, welche Spaces Chat haben).
 
-ZIP: [`orgasmic-fc-chat-1.1.14.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-chat-1.1.14.zip)
+ZIP: [`orgasmic-fc-chat-1.1.15.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-chat-1.1.15.zip)
 
 ## ORGASMIC App (PWA + Push)
 

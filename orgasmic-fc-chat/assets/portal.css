@@ -48,8 +48,8 @@ html.orgasmic-chat-keyboard body > *:not(#orgasmic-chat-root) {
   --och-line: var(--och-portal-line, var(--el-border-color, rgba(26, 22, 37, 0.08)));
   --och-accent: var(--och-accent-set, #c4a35a);
   --och-muted: #6b6458;
-  --och-mine: var(--och-mine-set, #fff);
-  --och-theirs: var(--och-theirs-set, #fff);
+  --och-mine: #efe4c8;
+  --och-theirs: #ffffff;
   --och-list: #ffffff;
   --och-header: #ffffff;
   --och-chat-bg: #f6f5f3;
@@ -63,7 +63,7 @@ html.orgasmic-chat-keyboard body > *:not(#orgasmic-chat-root) {
   --och-line: rgba(26, 22, 37, 0.08);
   --och-accent: var(--och-accent-set, #c4a35a);
   --och-muted: #6b6458;
-  --och-mine: #ffffff;
+  --och-mine: #efe4c8;
   --och-theirs: #ffffff;
   --och-list: #ffffff;
   --och-header: #ffffff;
@@ -78,8 +78,8 @@ html.orgasmic-chat-keyboard body > *:not(#orgasmic-chat-root) {
   --och-line: rgba(255, 255, 255, 0.08);
   --och-accent: var(--och-accent-set, #c4a35a);
   --och-muted: #c9c0b0;
-  --och-mine: #1b1e24;
-  --och-theirs: #1b1e24;
+  --och-mine: #3a3428;
+  --och-theirs: #242628;
   --och-list: #16181d;
   --och-header: #16181d;
   --och-chat-bg: #111318;
@@ -412,33 +412,6 @@ html.orgasmic-chat-keyboard body > *:not(#orgasmic-chat-root) {
   display: none;
 }
 
-.orgasmic-chat-msg.is-deletable {
-  -webkit-user-select: none;
-  user-select: none;
-}
-
-.orgasmic-chat-msg.is-selected .och-bubble {
-  background: rgba(196, 163, 90, 0.16);
-  border-radius: 12px;
-  padding: 6px 8px;
-  margin: -6px -8px;
-}
-
-.orgasmic-chat-msg.is-selected {
-  position: relative;
-}
-
-.orgasmic-chat-msg.is-selected::before {
-  content: '';
-  position: absolute;
-  left: -4px;
-  top: 8px;
-  bottom: 8px;
-  width: 3px;
-  border-radius: 3px;
-  background: var(--och-accent, #c4a35a);
-}
-
 #orgasmic-chat-root .orgasmic-chat-back {
   display: none;
 }
@@ -448,10 +421,11 @@ html.orgasmic-chat-keyboard body > *:not(#orgasmic-chat-root) {
   min-height: 0;
   overflow: auto;
   overflow-x: hidden;
-  padding: 20px 28px 16px;
+  overflow-anchor: none;
+  padding: 20px 18px 16px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
   background: var(--och-chat-bg);
 }
 
@@ -462,26 +436,65 @@ html.orgasmic-chat-keyboard body > *:not(#orgasmic-chat-root) {
   color: var(--och-muted);
   background: transparent;
   border-radius: 0;
-  padding: 4px 0;
+  padding: 8px 0 4px;
   margin: 4px 0;
   box-shadow: none;
 }
 
 .orgasmic-chat-msg {
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
-  gap: 12px;
-  max-width: min(760px, 100%);
-  align-items: start;
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  gap: 8px;
+  align-items: flex-end;
+  justify-content: flex-start;
   margin: 0;
   position: relative;
+}
+
+.orgasmic-chat-msg.is-mine {
+  justify-content: flex-end;
+}
+
+.orgasmic-chat-msg.is-mine .och-pick {
+  margin-right: auto;
+  order: -1;
+}
+
+.orgasmic-chat-msg.is-mine .och-avatar {
+  display: none;
+}
+
+.orgasmic-chat-msg.is-mine .och-author {
+  display: none;
+}
+
+.orgasmic-chat-msg.is-mine .och-msg-head {
+  justify-content: flex-end;
+}
+
+.och-cluster {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  max-width: min(78%, 560px);
+  min-width: 0;
+}
+
+.orgasmic-chat-msg.is-deletable {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.orgasmic-chat-msg.is-selected .och-bubble {
+  box-shadow: 0 0 0 2px var(--och-accent, #c4a35a);
 }
 
 .och-pick {
   display: none;
   width: 18px;
   height: 18px;
-  margin-top: 10px;
+  margin-bottom: 8px;
   border: 1.5px solid var(--och-muted, #9aa0a6);
   border-radius: 50%;
   background: transparent;
@@ -501,39 +514,34 @@ html.orgasmic-chat-keyboard body > *:not(#orgasmic-chat-root) {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .orgasmic-chat-msg.is-deletable {
-    grid-template-columns: 22px 40px minmax(0, 1fr);
-  }
   .orgasmic-chat-msg.is-deletable .och-pick {
     display: inline-block;
-    opacity: 0;
+    opacity: 0.55;
   }
   .orgasmic-chat-msg.is-deletable:hover .och-pick,
-  .orgasmic-chat.is-selecting .och-pick {
+  .orgasmic-chat.is-selecting .och-pick,
+  .orgasmic-chat-msg.is-selected .och-pick {
     opacity: 1;
   }
-}
-
-.orgasmic-chat.is-selecting .orgasmic-chat-msg.is-deletable {
-  grid-template-columns: 22px 40px minmax(0, 1fr);
 }
 
 .orgasmic-chat.is-selecting .och-pick {
   display: inline-block;
 }
 
-.orgasmic-chat-msg.is-mine {
-  margin-left: 0;
-}
-
 .orgasmic-chat-msg .och-bubble {
   position: relative;
-  background: transparent;
+  background: var(--och-theirs, #fff);
   border: 0;
-  border-radius: 0;
-  padding: 0;
-  box-shadow: none;
+  border-radius: 18px 18px 18px 4px;
+  padding: 8px 12px;
+  box-shadow: 0 1px 1px rgba(15, 23, 42, 0.06);
   min-width: 0;
+}
+
+.orgasmic-chat-msg.is-mine .och-bubble {
+  background: var(--och-mine, #efe4c8);
+  border-radius: 18px 18px 4px 18px;
 }
 
 .orgasmic-chat-msg .och-msg-head {
@@ -936,11 +944,11 @@ a[href="#orgasmic-chat"] .och-nav-badge {
   }
 
   .orgasmic-chat-messages {
-    padding: 14px 14px 10px;
+    padding: 14px 10px 10px;
   }
 
-  .orgasmic-chat-msg {
-    max-width: 100%;
+  .och-cluster {
+    max-width: 82%;
   }
 
   .orgasmic-chat-list-top h1 {
