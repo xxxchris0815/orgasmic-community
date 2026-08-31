@@ -84,40 +84,65 @@
       + '&preload=true&responsive=true&playerjs=true';
   }
 
+  function inFeedPost(node) {
+    if (!node || !node.closest) return false;
+    const post = node.closest('.each_feed, [class*="each_feed"], [class*="EachFeed"], [class*="single_feed"], .fcom_single_feed');
+    if (post) {
+      const w = post.clientWidth || 0;
+      if (w === 0 || (w >= 280 && w <= 1100)) return true;
+    }
+    let el = node;
+    for (let i = 0; i < 10 && el && el !== document.body; i += 1) {
+      const w = el.clientWidth || 0;
+      const h = el.offsetHeight || 0;
+      if (w >= 280 && w <= 1100 && h >= 150 && h < 2200
+        && el.querySelector
+        && el.querySelector(':scope > .feed_reaction_meta, :scope .feed_reaction_meta, :scope [class*="feed_reaction"]')) {
+        return true;
+      }
+      el = el.parentElement;
+    }
+    return false;
+  }
+
+  function isTrendingTitle(el) {
+    if (!el) return false;
+    const tag = el.tagName || '';
+    const text = el.textContent || '';
+    if (!/angesagte|popular|trending|featured|beliebte beitr/i.test(text)) return false;
+    if (text.length > 80) return false;
+    return /^H[1-4]$/.test(tag)
+      || (el.classList && el.classList.contains('widget_title'))
+      || /widget_title|WidgetTitle|sidebar_title/i.test(el.className || '');
+  }
+
+  function headingIsTrending(el) {
+    if (!el || !el.children) return false;
+    return [...el.children].some((child) => {
+      if (isTrendingTitle(child)) return true;
+      return [...(child.children || [])].some(isTrendingTitle);
+    });
+  }
+
   function isCompactContext(node) {
     if (!node || !node.closest) return false;
     if (node.closest('#orgasmic-chat-root, #orgasmic-cal-root, [contenteditable="true"]')) return false;
+    if (inFeedPost(node)) return false;
     if (node.closest([
-      '[class*="sidebar"]',
-      '[class*="Sidebar"]',
-      '[class*="widget"]',
-      '[class*="Widget"]',
-      '[class*="popular"]',
-      '[class*="Popular"]',
-      '[class*="featured"]',
-      '[class*="Featured"]',
-      '[class*="trending"]',
-      '[class*="angesagt"]',
-      '[class*="right_sidebar"]',
-      '[class*="right-sidebar"]',
-      '[class*="space_sidebar"]',
-      '[class*="portal-sidebar"]',
       '.fcom_right_sidebar',
       '.fcom-portal-sidebar',
-      'aside',
+      '.fcom_space_sidebar',
+      '[class*="popular_post"]',
+      '[class*="PopularPost"]',
+      '[class*="featured_post"]',
+      '[class*="FeaturedPost"]',
+      '[class*="trending_post"]',
     ].join(','))) {
       return true;
     }
-    return rowIsShort(node);
-  }
-
-  function rowIsShort(node) {
-    let el = node && node.parentElement;
-    for (let i = 0; i < 8 && el && el !== document.body; i++) {
-      const w = el.clientWidth || 0;
-      const h = el.offsetHeight || 0;
-      if (w >= 480) return false;
-      if (h > 0 && h < 120 && w > 80 && w < 480) return true;
+    let el = node;
+    for (let i = 0; i < 8 && el && el !== document.body; i += 1) {
+      if (headingIsTrending(el)) return true;
       el = el.parentElement;
     }
     return false;
@@ -150,18 +175,37 @@
     }
   }
 
+  function restorePlayer(wrap) {
+    if (!wrap || wrap.dataset.bunnyCompact !== '1') return;
+    const key = String(wrap.getAttribute('data-orgasmic-bunny') || '');
+    const parts = key.split('/');
+    if (parts.length < 2) return;
+    wrap.dataset.bunnyCompact = '';
+    delete wrap.dataset.bunnyCompact;
+    wrap.classList.remove('is-compact');
+    wrap.querySelectorAll('[data-orgasmic-bunny-chip]').forEach((el) => el.remove());
+    if (!wrap.querySelector('iframe')) {
+      const iframe = document.createElement('iframe');
+      iframe.src = embedSrc(parts[0], parts[1], autoplayEnabled());
+      iframe.allow = 'accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen';
+      iframe.allowFullscreen = true;
+      iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+      iframe.title = 'Video';
+      wrap.appendChild(iframe);
+    }
+  }
+
   function compactify() {
     document.querySelectorAll('.orgasmic-bunny-embed').forEach((wrap) => {
-      if (wrap.dataset.bunnyCompact === '1') return;
-      if (isCompactContext(wrap) || (wrap.offsetHeight > 0 && wrap.offsetHeight < 88)) {
-        toChip(wrap);
+      if (inFeedPost(wrap) || !isCompactContext(wrap)) {
+        if (wrap.dataset.bunnyCompact === '1') restorePlayer(wrap);
+        return;
       }
+      toChip(wrap);
     });
     document.querySelectorAll('iframe[src*="mediadelivery.net"]').forEach((iframe) => {
-      if (inComposer(iframe)) return;
+      if (inComposer(iframe) || inFeedPost(iframe) || !isCompactContext(iframe)) return;
       const wrap = iframe.closest('.orgasmic-bunny-embed');
-      if (wrap && wrap.dataset.bunnyCompact === '1') return;
-      if (!isCompactContext(iframe) && !rowIsShort(iframe)) return;
       if (wrap) {
         toChip(wrap);
         return;
@@ -169,6 +213,32 @@
       const parsed = parseHref(iframe.src);
       if (!parsed) return;
       iframe.replaceWith(compactWrap(parsed.library, parsed.video));
+    });
+  }
+
+  function scrubPlayUrls(root) {
+    if (!root || !root.querySelectorAll) return;
+    root.querySelectorAll('a[href*="mediadelivery.net"]').forEach((a) => {
+      if (inComposer(a) || a.closest('.orgasmic-bunny-embed')) return;
+      hide(a);
+    });
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        if (!node || !node.nodeValue || !RE.test(node.nodeValue)) return NodeFilter.FILTER_REJECT;
+        const el = node.parentElement;
+        if (!el || inComposer(el) || el.closest('.orgasmic-bunny-embed, script, style, textarea, input')) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    });
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach((textNode) => {
+      const next = String(textNode.nodeValue || '').replace(RE, ' ').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n');
+      textNode.nodeValue = next;
+      const el = textNode.parentElement;
+      if (el && !String(el.textContent || '').trim()) hide(el);
     });
   }
 
@@ -242,6 +312,10 @@
       : iframeEl(parsed.library, parsed.video, autoplayEnabled());
     target.insertAdjacentElement('afterend', embed);
     hidePreviewBits(root, parsed.video);
+    if (isCompactContext(node) || isCompactContext(embed)) {
+      const widget = node.closest('li, article, [class*="popular"], [class*="featured"], [class*="trending"]') || cluster(node);
+      scrubPlayUrls(widget);
+    }
     collapse();
   }
 
@@ -264,14 +338,16 @@
       const el = textNode.parentElement;
       if (!el) return;
       const block = el.closest('p, div, li, article, section') || el;
-      if (findPlayer(cluster(block), parsed.video)) {
-        hide(el);
+      const compact = isCompactContext(block);
+      if (findPlayer(cluster(block), parsed.video) || block.querySelector('[data-orgasmic-bunny-chip]')) {
+        textNode.nodeValue = String(textNode.nodeValue || '').replace(RE, ' ').replace(/[ \t]+/g, ' ');
+        if (!String(el.textContent || '').trim()) hide(el);
         return;
       }
       place(block, parsed);
-      if (/^\s*https?:\/\/\S+\s*$/.test(textNode.nodeValue || '')) {
-        hide(el);
-      }
+      textNode.nodeValue = String(textNode.nodeValue || '').replace(RE, ' ').replace(/[ \t]+/g, ' ');
+      if (compact) scrubPlayUrls(block);
+      else if (/^\s*$/.test(textNode.nodeValue || '')) hide(el);
     });
   }
 
@@ -304,8 +380,14 @@
     });
 
     enhanceLooseUrls();
-    collapse();
     compactify();
+    document.querySelectorAll('.fcom_right_sidebar, .fcom-portal-sidebar, .fcom_space_sidebar').forEach(scrubPlayUrls);
+    document.querySelectorAll('h2, h3, h4, .widget_title').forEach((title) => {
+      if (!/angesagte|popular|trending|featured|beliebte beitr/i.test(title.textContent || '')) return;
+      const box = title.closest('aside, section, div') || title.parentElement;
+      if (box) scrubPlayUrls(box);
+    });
+    collapse();
   }
 
   document.addEventListener('click', (e) => {

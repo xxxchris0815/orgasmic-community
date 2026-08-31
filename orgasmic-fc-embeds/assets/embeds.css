@@ -66,6 +66,12 @@
   border: 0 !important;
 }
 
+.fcom_right_sidebar a[href*="mediadelivery.net"],
+.fcom-portal-sidebar a[href*="mediadelivery.net"],
+.fcom_space_sidebar a[href*="mediadelivery.net"] {
+  display: none !important;
+}
+
 .orgasmic-bunny-composer,
 .orgasmic-bunny-object {
   margin: 8px 0 12px;

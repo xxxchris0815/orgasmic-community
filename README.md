@@ -10,7 +10,7 @@ Moved from `evolution-api` (`Extras/orgasmic-community`).
 | --- | --- | --- |
 | `orgasmic-fc-tracker/` | **1.2.1** | Engagement-Tracker, Dashboard, Evolution-Webhook |
 | `orgasmic-fc-events/` | **1.0.12** | Kalender im Portal (RSVP, Zoom, Markieren/Duplizieren/Löschen mobil+Desktop) |
-| `orgasmic-fc-embeds/` | **1.2.13** | Video-Player, nativer Composer-Upload, kompakte Chips in Sidebars |
+| `orgasmic-fc-embeds/` | **1.2.14** | Video-Player im Feed, kompakter Chip nur in Angesagte Beiträge |
 | `orgasmic-fc-chat/` | **1.1.16** | Space-Chat (letzte 40 Nachrichten, ältere per Scroll) |
 | `orgasmic-fc-app/` | **1.1.16** | PWA, Web Push, Mitglieder-Zuordnung, Homescreen-Logo, Push/E-Mail am Beitrag |
 
@@ -52,13 +52,13 @@ Plugin-Ordner: `orgasmic-fc-embeds/`
 - Klick auf **Video** im Composer öffnet den nativen Dateidialog (Handy + Desktop) und lädt zu Bunny Stream; der Player-Link landet automatisch im Beitrag
 - Handy / PWA / Capacitor laden in 1-MB-Stücken über WordPress (nicht direkt per TUS zu Bunny)
 - Der FluentCommunity-oEmbed-Dialog wird übersprungen
-- `player.mediadelivery.net/play/...` wird im Feed als offizieller Bunny-iframe angezeigt
-- In Sidebars / „Angesagte Beiträge“ nur ein kompakter **Video**-Chip statt des zusammengequetschten Players
+- `player.mediadelivery.net/play/...` wird im Feed und im Raum als offizieller Bunny-iframe angezeigt
+- In „Angesagte Beiträge“ nur der **Video**-Chip, ohne nackte Player-URL
 - Autoplay ein/aus unter **ORGASMIC Bunny → Einstellungen**
 - Tracking: wer spielt welches Video, Position in Sekunden, max. gesehen
 - Webhook: `video.play`, `video.pause`, `video.progress` (alle 15s), `video.ended`, `video.seeked`
 
-ZIP: [`orgasmic-fc-embeds-1.2.13.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-embeds-1.2.13.zip)
+ZIP: [`orgasmic-fc-embeds-1.2.14.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-embeds-1.2.14.zip)
 
 Falls der iframe leer bleibt: in Bunny Stream → Allowed Domains `community.orgasmic.live` eintragen.
 
