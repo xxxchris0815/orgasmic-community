@@ -57,7 +57,7 @@ class Orgasmic_Fc_App_Notify
         }
         $title = $this->heading($this->access->space_title($space_id), 'Chat');
         $body = $this->line($author, $preview, 'Neue Chat-Nachricht');
-        $recipients = array_values(array_diff($this->access->space_member_ids($space_id), [$actor_id]));
+        $recipients = array_values(array_diff($this->access->space_notify_ids($space_id), [$actor_id]));
         $recipients = $this->filter_prefs($recipients, 'chat');
         $this->store->enqueue(
             $recipients,
@@ -90,7 +90,7 @@ class Orgasmic_Fc_App_Notify
 
         $title = $this->heading($this->access->space_title($space_id), 'Beitrag');
         $body = $this->line($this->actor_name($actor), $excerpt, 'Neuer Beitrag');
-        $recipients = array_values(array_diff($this->access->space_member_ids($space_id), [$actor]));
+        $recipients = array_values(array_diff($this->access->space_notify_ids($space_id), [$actor]));
         $recipients = $this->filter_prefs($recipients, 'feed');
         $this->store->enqueue(
             $recipients,
@@ -149,7 +149,7 @@ class Orgasmic_Fc_App_Notify
         }
         $recipients = array_values(array_diff(array_unique($recipients), [$actor]));
         if ($space_id > 0) {
-            $allowed = $this->access->space_member_ids($space_id);
+            $allowed = $this->access->space_notify_ids($space_id);
             $recipients = array_values(array_intersect($recipients, $allowed));
         }
         $recipients = $this->filter_prefs($recipients, 'comment');
@@ -211,7 +211,7 @@ class Orgasmic_Fc_App_Notify
         $space_ids = $this->access->decode_ids($event['space_ids'] ?? []);
         $recipients = [];
         foreach ($space_ids as $space_id) {
-            $recipients = array_merge($recipients, $this->access->space_member_ids($space_id));
+            $recipients = array_merge($recipients, $this->access->space_notify_ids($space_id));
         }
         $recipients = array_values(array_diff(array_unique($recipients), [(int) $actor_id]));
         $recipients = $this->filter_prefs($recipients, 'event');

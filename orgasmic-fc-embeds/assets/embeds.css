@@ -22,6 +22,38 @@
   display: none !important;
 }
 
+.orgasmic-bunny-embed.is-compact {
+  padding-top: 0 !important;
+  width: auto;
+  max-width: 100%;
+  height: auto !important;
+  display: inline-flex;
+  align-items: center;
+  margin: 2px 0 4px;
+  background: #1a1625;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.orgasmic-bunny-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 5px 8px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.orgasmic-bunny-chip-play {
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 5px 0 5px 8px;
+  border-color: transparent transparent transparent #c4a35a;
+}
+
 .orgasmic-bunny-url-hide {
   position: absolute !important;
   width: 1px !important;

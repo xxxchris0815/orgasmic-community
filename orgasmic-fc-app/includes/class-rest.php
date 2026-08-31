@@ -77,11 +77,81 @@ class Orgasmic_Fc_App_Rest
             'permission_callback' => [$this, 'can_announce'],
             'callback' => [$this, 'announce'],
         ]);
+
+        register_rest_route($ns, '/spaces', [
+            'methods' => 'GET',
+            'permission_callback' => [$this, 'can_manage_or_key'],
+            'callback' => [$this, 'list_spaces'],
+        ]);
+
+        register_rest_route($ns, '/members/(?P<id>\d+)/spaces', [
+            [
+                'methods' => 'GET',
+                'permission_callback' => [$this, 'can_manage_or_key'],
+                'callback' => [$this, 'member_spaces'],
+            ],
+            [
+                'methods' => 'POST',
+                'permission_callback' => [$this, 'can_manage_or_key'],
+                'callback' => [$this, 'save_member_spaces'],
+            ],
+        ]);
     }
 
     public function can_announce(): bool
     {
         return $this->access->can_manage();
+    }
+
+    public function can_manage_or_key(WP_REST_Request $request): bool
+    {
+        return $this->access->can_manage() || $this->access->valid_api_key($request->get_header('x-orgasmic-key'));
+    }
+
+    public function list_spaces(): WP_REST_Response
+    {
+        return rest_ensure_response(['spaces' => $this->access->all_spaces()]);
+    }
+
+    public function member_spaces(WP_REST_Request $request): WP_REST_Response
+    {
+        $user_id = (int) $request['id'];
+        $owned = $this->access->user_space_ids($user_id);
+        $spaces = $this->access->all_spaces();
+        foreach ($spaces as &$space) {
+            $space['assigned'] = in_array((int) $space['id'], $owned, true);
+        }
+        unset($space);
+
+        return rest_ensure_response([
+            'user_id' => $user_id,
+            'space_ids' => $owned,
+            'spaces' => $spaces,
+        ]);
+    }
+
+    public function save_member_spaces(WP_REST_Request $request)
+    {
+        $user_id = (int) $request['id'];
+        if (!get_userdata($user_id)) {
+            return new WP_Error('not_found', 'Mitglied nicht gefunden.', ['status' => 404]);
+        }
+        $json = $request->get_json_params();
+        if (!is_array($json)) {
+            $json = [];
+        }
+        $ids = $json['space_ids'] ?? $request->get_param('space_ids');
+        $mode = sanitize_key((string) ($json['mode'] ?? $request->get_param('mode') ?: 'set'));
+        if (!is_array($ids)) {
+            $ids = [];
+        }
+        $owned = $this->access->enroll($user_id, $ids, $mode === 'add' ? 'add' : 'set');
+
+        return rest_ensure_response([
+            'ok' => true,
+            'user_id' => $user_id,
+            'space_ids' => $owned,
+        ]);
     }
 
     public function announce_intent(WP_REST_Request $request)

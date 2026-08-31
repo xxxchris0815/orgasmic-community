@@ -16,7 +16,10 @@
     error: '',
     saving: false,
     loading: false,
+    selectMode: false,
+    selected: {},
   };
+  let ignoreSelectClick = false;
 
   const CACHE_BOOT = 'orgasmic-cal-boot:';
   const CACHE_EVENTS = 'orgasmic-cal-events:';
@@ -434,8 +437,105 @@
     }[c]));
   }
 
+  function canManageEvents() {
+    return !!(state.bootstrap && state.bootstrap.can_manage);
+  }
+
+  function isFinePointer() {
+    try {
+      return window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    } catch (e) {
+      return window.innerWidth >= 900;
+    }
+  }
+
+  function selectedIds() {
+    return Object.keys(state.selected)
+      .filter((id) => state.selected[id])
+      .map((id) => parseInt(id, 10));
+  }
+
+  function overlayScroller() {
+    return document.querySelector('#orgasmic-cal-root .orgasmic-cal-overlay');
+  }
+
+  function renderListKeep(opts) {
+    return renderList(Object.assign({ keepScroll: true }, opts || {}));
+  }
+
+  function enterSelect(id) {
+    if (!canManageEvents()) return;
+    state.selectMode = true;
+    if (id) state.selected[String(id)] = true;
+    renderListKeep();
+  }
+
+  function exitSelect() {
+    state.selectMode = false;
+    state.selected = {};
+    renderListKeep();
+  }
+
+  function toggleSelect(id) {
+    const key = String(id);
+    if (state.selected[key]) delete state.selected[key];
+    else state.selected[key] = true;
+    if (!Object.keys(state.selected).length) {
+      exitSelect();
+      return;
+    }
+    state.selectMode = true;
+    renderListKeep();
+  }
+
+  async function deleteSelected() {
+    const ids = selectedIds();
+    if (!ids.length) return;
+    const label = ids.length === 1 ? 'Dieses Event wirklich löschen?' : ids.length + ' Events wirklich löschen?';
+    if (!confirm(label)) return;
+    try {
+      for (const id of ids) {
+        await api('events/' + id, { method: 'DELETE' });
+      }
+      state.events = (state.events || []).filter((ev) => ids.indexOf(ev.id) < 0);
+      persistCache();
+      exitSelect();
+      await refreshData().catch(() => {});
+      renderListKeep();
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  async function duplicateSelected() {
+    const ids = selectedIds();
+    if (!ids.length) return;
+    try {
+      let last = null;
+      for (const id of ids) {
+        last = await api('events/' + id + '/duplicate', { method: 'POST' });
+      }
+      state.selectMode = false;
+      state.selected = {};
+      state.events = [];
+      persistCache();
+      if (ids.length === 1 && last && last.id) {
+        location.hash = '#orgasmic-event-' + last.id + '-edit';
+        return;
+      }
+      await refreshData().catch(() => {});
+      renderList();
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
   function renderRoute(route) {
     updateNavIndicator();
+    if (route.view !== 'list' && state.selectMode) {
+      state.selectMode = false;
+      state.selected = {};
+    }
     if (route.view === 'list') return renderList();
     if (route.view === 'detail') return renderDetail(route.id);
     if (route.view === 'form') return renderForm(route.id, route.date);
@@ -503,15 +603,29 @@
   }
 
   function shell(inner) {
-    const canManage = !!(state.bootstrap && state.bootstrap.can_manage);
-    return '<div class="orgasmic-cal-overlay"><div class="orgasmic-cal">'
+    const manage = canManageEvents();
+    const n = selectedIds().length;
+    const actions = !manage
+      ? ''
+      : state.selectMode
+        ? '<div class="orgasmic-cal-actions orgasmic-cal-selectbar">'
+          + '<span class="oc-sub">' + n + ' markiert</span>'
+          + '<button type="button" class="oc-btn" data-oc-dup-sel' + (n ? '' : ' disabled') + '>Duplizieren</button>'
+          + '<button type="button" class="oc-btn oc-ghost" data-oc-del-sel' + (n ? '' : ' disabled') + '>Löschen</button>'
+          + '<button type="button" class="oc-ghost" data-oc-cancel-sel>Fertig</button>'
+          + '</div>'
+        : '<div class="orgasmic-cal-actions">'
+          + '<a class="oc-btn" href="#orgasmic-event-new">Neues Event</a>'
+          + (isFinePointer() ? '<button type="button" class="oc-ghost" data-oc-start-sel>Markieren</button>' : '')
+          + '</div>';
+    return '<div class="orgasmic-cal-overlay"><div class="orgasmic-cal' + (state.selectMode ? ' is-selecting' : '') + '">'
       + '<header class="orgasmic-cal-top"><div class="orgasmic-cal-heading">'
       + '<div><p class="oc-sub">ORGASMIC</p><h1>Kalender</h1>'
       + '<p class="oc-sub">' + escapeHtml(subtitleText()) + '</p></div>'
       + '<button type="button" class="oc-icon-close" data-oc-close aria-label="Schließen" title="Schließen">'
       + '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>'
       + '</button></div>'
-      + (canManage ? '<div class="orgasmic-cal-actions"><a class="oc-btn" href="#orgasmic-event-new">Neues Event</a></div>' : '')
+      + actions
       + '</header>'
       + (state.error ? '<p class="oc-sub">' + escapeHtml(state.error) + '</p>' : '')
       + (state.loading ? '<p class="oc-sub oc-sync">Aktualisiere…</p>' : '')
@@ -588,8 +702,17 @@
     const going = ev.rsvp && ev.rsvp.counts ? (ev.rsvp.counts.going || 0) : 0;
     const mine = ev.rsvp && ev.rsvp.mine;
     const chip = mine === 'going' ? '<span class="oc-rsvp-chip">Du bist dabei</span>' : '';
-    return '<a class="orgasmic-cal-card' + (isEventToday(ev) ? ' oc-today-card' : '') + '" href="#orgasmic-event-' + ev.id + '">'
-      + img
+    const manage = canManageEvents();
+    const on = !!state.selected[String(ev.id)];
+    const pick = manage
+      ? '<button type="button" class="orgasmic-cal-pick' + (on ? ' is-on' : '') + '" data-oc-pick="' + ev.id + '" aria-label="Markieren"></button>'
+      : '';
+    const cls = 'orgasmic-cal-card'
+      + (isEventToday(ev) ? ' oc-today-card' : '')
+      + (manage ? ' is-manageable' : '')
+      + (state.selectMode ? ' is-selecting' : '')
+      + (on ? ' is-picked' : '');
+    const inner = img
       + '<div class="oc-dateblock"><strong>' + escapeHtml(block.day) + '</strong><span>' + escapeHtml(block.month) + '</span></div>'
       + '<div class="oc-body">'
       + '<div class="orgasmic-cal-card-top"><h3>' + escapeHtml(ev.title) + todayBadge(ev) + '</h3>' + chip + '</div>'
@@ -597,7 +720,11 @@
       + '<div class="orgasmic-cal-spaces">' + spacesHtml(ev.spaces) + '</div>'
       + (ev.excerpt ? '<p class="oc-sub">' + escapeHtml(ev.excerpt) + '</p>' : '')
       + '<p class="oc-sub">' + going + (going === 1 ? ' Person sagt zu' : ' sagen zu') + '</p>'
-      + '</div></a>';
+      + '</div>';
+    if (!manage) {
+      return '<a class="' + cls + '" href="#orgasmic-event-' + ev.id + '">' + inner + '</a>';
+    }
+    return '<article class="' + cls + '" data-oc-event="' + ev.id + '">' + pick + inner + '</article>';
   }
 
   function commentHtml(c) {
@@ -632,10 +759,13 @@
       + '</section>';
   }
 
-  async function renderList() {
+  async function renderList(opts) {
     const root = document.getElementById('orgasmic-cal-root');
+    const scroller = overlayScroller();
+    const savedTop = scroller ? scroller.scrollTop : 0;
+    const keep = !!(opts && opts.keepScroll) || state.selectMode;
     const m = state.month;
-    const canManage = !!(state.bootstrap && state.bootstrap.can_manage);
+    const canManage = canManageEvents();
     const cells = monthCells(m, state.events);
     let grid = WEEKDAYS.map((d) => '<div class="oc-dow">' + d + '</div>').join('');
     cells.forEach((c) => {
@@ -667,12 +797,21 @@
         : (state.selectedDay ? 'Keine Events an diesem Tag.' : 'Noch keine Events in deinen Kreisen.'))
       + '</div>';
 
+    const hint = canManage
+      ? '<p class="orgasmic-cal-hint">'
+        + (isFinePointer()
+          ? 'Am Computer: Kästchen oder Strg/Cmd+Klick zum Markieren, dann duplizieren oder löschen.'
+          : 'Lange auf ein Event drücken zum Markieren, dann duplizieren oder löschen.')
+        + '</p>'
+      : '';
+
     mount(root, shell(
       '<div class="orgasmic-cal-list-layout">'
       + '<div class="orgasmic-cal-list-main">'
       + '<div class="orgasmic-cal-list-head"><h2>Events</h2>'
       + (state.selectedDay ? '<button type="button" class="oc-ghost" data-oc-clear-day>Alle Tage</button>' : '')
       + '</div>'
+      + hint
       + '<div class="orgasmic-cal-list">' + cards + '</div>'
       + '</div>'
       + '<aside class="orgasmic-cal-widget">'
@@ -723,6 +862,43 @@
         renderList();
       });
     });
+    const startSel = root.querySelector('[data-oc-start-sel]');
+    if (startSel) startSel.onclick = () => enterSelect();
+    const cancelSel = root.querySelector('[data-oc-cancel-sel]');
+    if (cancelSel) cancelSel.onclick = () => exitSelect();
+    const delSel = root.querySelector('[data-oc-del-sel]');
+    if (delSel) delSel.onclick = () => deleteSelected();
+    const dupSel = root.querySelector('[data-oc-dup-sel]');
+    if (dupSel) dupSel.onclick = () => duplicateSelected();
+    root.querySelectorAll('[data-oc-event]').forEach((card) => {
+      card.addEventListener('click', (e) => {
+        if (ignoreSelectClick) {
+          e.preventDefault();
+          return;
+        }
+        const id = parseInt(card.getAttribute('data-oc-event'), 10);
+        if (e.target.closest('[data-oc-pick]')) {
+          e.preventDefault();
+          toggleSelect(id);
+          return;
+        }
+        if (state.selectMode) {
+          e.preventDefault();
+          toggleSelect(id);
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && isFinePointer()) {
+          e.preventDefault();
+          toggleSelect(id);
+          return;
+        }
+        location.hash = '#orgasmic-event-' + id;
+      });
+    });
+    if (keep) {
+      const next = overlayScroller();
+      if (next) next.scrollTop = savedTop;
+    }
   }
 
   async function renderDetail(id) {
@@ -755,7 +931,11 @@
     }).join('');
     const people = (ev.attendees || []).map((p) => '<figure><img src="' + escapeHtml(p.avatar || '') + '" alt=""><figcaption>' + escapeHtml(p.display_name) + '<br>' + (p.status === 'going' ? 'dabei' : 'vielleicht') + '</figcaption></figure>').join('');
     const join = ev.join_url ? '<a class="oc-btn" href="' + escapeHtml(ev.join_url) + '" target="_blank" rel="noopener">Zoom öffnen</a>' : '<p class="oc-sub">Der Zoom-Link erscheint, sobald du „Ich bin dabei“ wählst.</p>';
-    const manage = ev.can_manage ? '<a class="oc-btn oc-ghost" href="#orgasmic-event-' + ev.id + '-edit">Bearbeiten</a> <button type="button" class="oc-ghost" data-oc-del>Löschen</button>' : '';
+    const manage = ev.can_manage
+      ? '<a class="oc-btn oc-ghost" href="#orgasmic-event-' + ev.id + '-edit">Bearbeiten</a>'
+        + ' <button type="button" class="oc-ghost" data-oc-dup>Duplizieren</button>'
+        + ' <button type="button" class="oc-ghost" data-oc-del>Löschen</button>'
+      : '';
 
     mount(root, shell(
       '<p><a class="oc-btn oc-ghost" href="#orgasmic-calendar">← Alle Events</a></p>'
@@ -810,6 +990,19 @@
         state.events = [];
         persistCache();
         location.hash = '#orgasmic-calendar';
+      };
+    }
+    const dup = root.querySelector('[data-oc-dup]');
+    if (dup) {
+      dup.onclick = async () => {
+        try {
+          const copy = await api('events/' + id + '/duplicate', { method: 'POST' });
+          state.events = [];
+          persistCache();
+          location.hash = '#orgasmic-event-' + copy.id + '-edit';
+        } catch (e) {
+          alert(e.message);
+        }
       };
     }
   }
@@ -1010,6 +1203,44 @@
     const href = a.getAttribute('href') || '';
     if (/#orgasmic-calendar|#orgasmic-event/.test(href) || a.closest('[data-orgasmic-calendar], .orgasmic-cal-nav')) return;
     if (isFluentBottomNav(a)) closeOverlay();
+  }, true);
+
+  let pressTimer = 0;
+  function clearPress() {
+    if (pressTimer) {
+      window.clearTimeout(pressTimer);
+      pressTimer = 0;
+    }
+  }
+  document.addEventListener('pointerdown', (ev) => {
+    const root = document.getElementById('orgasmic-cal-root');
+    if (!root || root.hidden) return;
+    if (!canManageEvents()) return;
+    if (isFinePointer()) return;
+    if (ev.target.closest('a, button, textarea, input, .orgasmic-cal-widget')) return;
+    const card = ev.target.closest('[data-oc-event]');
+    if (!card) return;
+    const id = parseInt(card.getAttribute('data-oc-event'), 10);
+    clearPress();
+    pressTimer = window.setTimeout(() => {
+      pressTimer = 0;
+      ignoreSelectClick = true;
+      enterSelect(id);
+      window.setTimeout(() => {
+        ignoreSelectClick = false;
+      }, 450);
+    }, 420);
+  }, true);
+  document.addEventListener('pointermove', (ev) => {
+    if (!pressTimer) return;
+    if (Math.abs(ev.movementX) + Math.abs(ev.movementY) > 10) clearPress();
+  }, true);
+  document.addEventListener('pointerup', clearPress, true);
+  document.addEventListener('pointercancel', clearPress, true);
+  document.addEventListener('contextmenu', (ev) => {
+    if (ev.target.closest && ev.target.closest('#orgasmic-cal-root [data-oc-event]')) {
+      ev.preventDefault();
+    }
   }, true);
   window.addEventListener('hashchange', bootFromHash);
   window.addEventListener('resize', () => {

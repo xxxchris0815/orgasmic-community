@@ -20,6 +20,7 @@ class Orgasmic_Fc_App_Admin
         add_action('admin_menu', [$this, 'menu']);
         add_action('admin_init', [$this, 'settings']);
         add_action('admin_post_orgasmic_fc_app_test_push', [$this, 'handle_test']);
+        add_action('admin_post_orgasmic_fc_app_enroll', [$this, 'handle_enroll']);
         add_action('admin_notices', [$this, 'php_notice']);
     }
 
@@ -133,6 +134,30 @@ class Orgasmic_Fc_App_Admin
         exit;
     }
 
+    public function handle_enroll(): void
+    {
+        if (!current_user_can('manage_options')) {
+            wp_die('Keine Berechtigung.');
+        }
+        check_admin_referer('orgasmic_fc_app_enroll');
+        $uid = (int) ($_POST['orgasmic_fc_app_user_id'] ?? 0);
+        $ids = array_map('intval', (array) ($_POST['space_ids'] ?? []));
+        if ($uid > 0 && get_userdata($uid)) {
+            $this->access_for_enroll()->enroll($uid, $ids, 'set');
+        }
+        wp_safe_redirect(add_query_arg([
+            'page' => 'orgasmic-fc-app',
+            'orgasmic_user' => $uid,
+            'orgasmic_fc_app_enroll' => '1',
+        ], admin_url('admin.php')));
+        exit;
+    }
+
+    private function access_for_enroll(): Orgasmic_Fc_App_Access
+    {
+        return new Orgasmic_Fc_App_Access();
+    }
+
     public function render(): void
     {
         if (!current_user_can('manage_options')) {
@@ -156,6 +181,9 @@ class Orgasmic_Fc_App_Admin
             $err = (string) get_transient('orgasmic_fc_app_test_err');
             delete_transient('orgasmic_fc_app_test_err');
             echo '<div class="notice notice-error"><p>Firebase hat den Test abgelehnt: <code>' . esc_html($err !== '' ? $err : 'unbekannt') . '</code></p></div>';
+        }
+        if (!empty($_GET['orgasmic_fc_app_enroll'])) {
+            echo '<div class="notice notice-success"><p>Räume, Kurse und Chats für dieses Mitglied gespeichert. Push folgt der Mitgliedschaft (Admins bekommen Chat/Beitrag/Event zusätzlich immer).</p></div>';
         }
 
         $mine = $this->store->channels_for_user(get_current_user_id());
@@ -336,6 +364,8 @@ class Orgasmic_Fc_App_Admin
         submit_button('Test-Push an ' . $member['display_name'] . ' senden', 'primary', 'submit', false);
         echo '</form>';
 
+        $this->render_enroll($uid);
+
         echo '<h3>Letzte Zustellungen</h3>';
         if ($queue === []) {
             echo '<p>Noch nichts in der Queue für dieses Konto. Dann war sie keine Empfängerin: eigene Nachricht, nicht im Raum, oder Art abgeschaltet. Zum Testen muss <em>jemand anderes</em> in denselben Raum schreiben — oder du nutzt den Test-Button oben.</p>';
@@ -352,6 +382,44 @@ class Orgasmic_Fc_App_Admin
             echo '</tbody></table>';
         }
         echo '</div>';
+    }
+
+    private function render_enroll(int $uid): void
+    {
+        $access = $this->access_for_enroll();
+        $spaces = $access->all_spaces();
+        $owned = $access->user_space_ids($uid);
+        $groups = [
+            'room' => 'Räume / Chats',
+            'course' => 'Kurse',
+            'other' => 'Weitere Spaces',
+        ];
+        echo '<h3>Zuordnung</h3>';
+        echo '<p>WordPress-Admin allein reicht nicht fürs Mitgliedsein. Häkchen setzen oder per API: <code>POST /wp-json/orgasmic-app/v1/members/'
+            . $uid . '/spaces</code> mit Header <code>X-Orgasmic-Key</code> (derselbe Schlüssel wie beim Kalender) und JSON <code>{"space_ids":[1,2],"mode":"set"}</code>. <code>mode: add</code> ergänzt, ohne andere Räume zu entfernen.</p>';
+        echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';
+        wp_nonce_field('orgasmic_fc_app_enroll');
+        echo '<input type="hidden" name="action" value="orgasmic_fc_app_enroll" />';
+        echo '<input type="hidden" name="orgasmic_fc_app_user_id" value="' . $uid . '" />';
+        foreach ($groups as $kind => $label) {
+            $chunk = array_values(array_filter($spaces, static fn(array $s): bool => ($s['kind'] ?? '') === $kind));
+            if ($chunk === []) {
+                continue;
+            }
+            echo '<p><strong>' . esc_html($label) . '</strong></p><div style="display:flex;flex-wrap:wrap;gap:8px 16px;margin:0 0 12px">';
+            foreach ($chunk as $space) {
+                $id = (int) $space['id'];
+                echo '<label style="min-width:180px"><input type="checkbox" name="space_ids[]" value="' . $id . '" '
+                    . checked(in_array($id, $owned, true), true, false) . ' /> '
+                    . esc_html((string) $space['title']) . '</label>';
+            }
+            echo '</div>';
+        }
+        if ($spaces === []) {
+            echo '<p>Keine FluentCommunity-Spaces gefunden.</p>';
+        }
+        submit_button('Zuordnung speichern', 'secondary');
+        echo '</form>';
     }
 
     private function checkbox(string $label, string $option, string $help): void

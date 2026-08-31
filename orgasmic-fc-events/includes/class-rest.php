@@ -62,6 +62,12 @@ class Orgasmic_Fc_Events_Rest
             ],
         ]);
 
+        register_rest_route($ns, '/events/(?P<id>\d+)/duplicate', [
+            'methods' => 'POST',
+            'permission_callback' => [$this, 'can_write'],
+            'callback' => [$this, 'duplicate_event'],
+        ]);
+
         register_rest_route($ns, '/events/(?P<id>\d+)/rsvp', [
             'methods' => 'POST',
             'permission_callback' => [$this, 'can_read'],
@@ -250,6 +256,54 @@ class Orgasmic_Fc_Events_Rest
         $this->repo->delete((int) $event['id']);
         do_action('orgasmic_fc/event/deleted', $event, get_current_user_id());
         return rest_ensure_response(['deleted' => true, 'id' => (int) $event['id']]);
+    }
+
+    public function duplicate_event(WP_REST_Request $request)
+    {
+        $src = $this->repo->find((int) $request['id']);
+        if (!$src) {
+            return new WP_Error('not_found', 'Event nicht gefunden.', ['status' => 404]);
+        }
+
+        $copy = $src;
+        unset($copy['id'], $copy['created_at'], $copy['updated_at']);
+        $copy['title'] = trim((string) ($src['title'] ?? '')) . ' (Kopie)';
+        $copy['slug'] = sanitize_title($copy['title']) . '-' . wp_generate_password(6, false, false);
+        $copy['feed_ids'] = [];
+        $copy['share_to_feed'] = 0;
+        $copy['zoom_meeting_id'] = '';
+        $copy['zoom_join_url'] = '';
+        $copy['zoom_start_url'] = '';
+        $copy['created_by'] = get_current_user_id() ?: (int) ($src['created_by'] ?? 0);
+
+        $start = strtotime((string) ($src['starts_at'] ?? ''));
+        if ($start) {
+            $copy['starts_at'] = gmdate('Y-m-d H:i:s', $start + WEEK_IN_SECONDS);
+        }
+        if (!empty($src['ends_at'])) {
+            $end = strtotime((string) $src['ends_at']);
+            if ($end) {
+                $copy['ends_at'] = gmdate('Y-m-d H:i:s', $end + WEEK_IN_SECONDS);
+            }
+        }
+
+        if (($copy['location_type'] ?? '') === 'zoom' && !empty($copy['zoom_user_email'])) {
+            $copy['create_zoom'] = 1;
+            $synced = $this->maybe_sync_zoom($copy, true);
+            if (!is_wp_error($synced)) {
+                $copy = $synced;
+            }
+            unset($copy['create_zoom']);
+        }
+
+        $id = $this->repo->create($copy);
+        $event = $this->repo->find($id);
+        if (!$event) {
+            return new WP_Error('create_failed', 'Kopie konnte nicht gespeichert werden.', ['status' => 500]);
+        }
+
+        do_action('orgasmic_fc/event/created', $event, get_current_user_id());
+        return new WP_REST_Response($this->present($event, get_current_user_id(), true, true), 201);
     }
 
     public function rsvp(WP_REST_Request $request)

@@ -84,6 +84,94 @@
       + '&preload=true&responsive=true&playerjs=true';
   }
 
+  function isCompactContext(node) {
+    if (!node || !node.closest) return false;
+    if (node.closest('#orgasmic-chat-root, #orgasmic-cal-root, [contenteditable="true"]')) return false;
+    if (node.closest([
+      '[class*="sidebar"]',
+      '[class*="Sidebar"]',
+      '[class*="widget"]',
+      '[class*="Widget"]',
+      '[class*="popular"]',
+      '[class*="Popular"]',
+      '[class*="featured"]',
+      '[class*="Featured"]',
+      '[class*="trending"]',
+      '[class*="angesagt"]',
+      '[class*="right_sidebar"]',
+      '[class*="right-sidebar"]',
+      '[class*="space_sidebar"]',
+      '[class*="portal-sidebar"]',
+      '.fcom_right_sidebar',
+      '.fcom-portal-sidebar',
+      'aside',
+    ].join(','))) {
+      return true;
+    }
+    return rowIsShort(node);
+  }
+
+  function rowIsShort(node) {
+    let el = node && node.parentElement;
+    for (let i = 0; i < 8 && el && el !== document.body; i++) {
+      const w = el.clientWidth || 0;
+      const h = el.offsetHeight || 0;
+      if (w >= 480) return false;
+      if (h > 0 && h < 120 && w > 80 && w < 480) return true;
+      el = el.parentElement;
+    }
+    return false;
+  }
+
+  function chipEl() {
+    const chip = document.createElement('span');
+    chip.className = 'orgasmic-bunny-chip';
+    chip.setAttribute('data-orgasmic-bunny-chip', '1');
+    chip.innerHTML = '<span class="orgasmic-bunny-chip-play" aria-hidden="true"></span> Video';
+    return chip;
+  }
+
+  function compactWrap(library, video) {
+    const wrap = document.createElement('div');
+    wrap.className = 'orgasmic-bunny-embed is-compact';
+    wrap.setAttribute('data-orgasmic-bunny', library + '/' + video);
+    wrap.dataset.bunnyCompact = '1';
+    wrap.appendChild(chipEl());
+    return wrap;
+  }
+
+  function toChip(wrap) {
+    if (!wrap || wrap.dataset.bunnyCompact === '1') return;
+    wrap.dataset.bunnyCompact = '1';
+    wrap.classList.add('is-compact');
+    wrap.querySelectorAll('iframe').forEach((f) => f.remove());
+    if (!wrap.querySelector('[data-orgasmic-bunny-chip]')) {
+      wrap.appendChild(chipEl());
+    }
+  }
+
+  function compactify() {
+    document.querySelectorAll('.orgasmic-bunny-embed').forEach((wrap) => {
+      if (wrap.dataset.bunnyCompact === '1') return;
+      if (isCompactContext(wrap) || (wrap.offsetHeight > 0 && wrap.offsetHeight < 88)) {
+        toChip(wrap);
+      }
+    });
+    document.querySelectorAll('iframe[src*="mediadelivery.net"]').forEach((iframe) => {
+      if (inComposer(iframe)) return;
+      const wrap = iframe.closest('.orgasmic-bunny-embed');
+      if (wrap && wrap.dataset.bunnyCompact === '1') return;
+      if (!isCompactContext(iframe) && !rowIsShort(iframe)) return;
+      if (wrap) {
+        toChip(wrap);
+        return;
+      }
+      const parsed = parseHref(iframe.src);
+      if (!parsed) return;
+      iframe.replaceWith(compactWrap(parsed.library, parsed.video));
+    });
+  }
+
   function iframeEl(library, video, autoplay) {
     const wrap = document.createElement('div');
     wrap.className = 'orgasmic-bunny-embed';
@@ -148,8 +236,11 @@
     }
 
     const card = node.closest && node.closest(CARD_SEL);
-    const target = (card && !card.querySelector('iframe[src*="mediadelivery.net"]')) ? card : node;
-    target.insertAdjacentElement('afterend', iframeEl(parsed.library, parsed.video, autoplayEnabled()));
+    const target = (card && !card.querySelector('iframe[src*="mediadelivery.net"], [data-orgasmic-bunny-chip]')) ? card : node;
+    const embed = isCompactContext(node)
+      ? compactWrap(parsed.library, parsed.video)
+      : iframeEl(parsed.library, parsed.video, autoplayEnabled());
+    target.insertAdjacentElement('afterend', embed);
     hidePreviewBits(root, parsed.video);
     collapse();
   }
@@ -214,6 +305,7 @@
 
     enhanceLooseUrls();
     collapse();
+    compactify();
   }
 
   document.addEventListener('click', (e) => {

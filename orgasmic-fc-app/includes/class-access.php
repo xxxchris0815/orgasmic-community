@@ -76,7 +76,7 @@ class Orgasmic_Fc_App_Access
     public function audience_ids(int $space_id): array
     {
         if ($space_id > 0) {
-            return $this->space_member_ids($space_id);
+            return $this->space_notify_ids($space_id);
         }
 
         return $this->community_member_ids();
@@ -99,6 +99,193 @@ class Orgasmic_Fc_App_Access
             'fields' => 'ID',
             'number' => 8000,
         ]));
+    }
+
+    public function site_admin_ids(): array
+    {
+        $query = new WP_User_Query([
+            'role' => 'administrator',
+            'fields' => 'ID',
+            'number' => 80,
+        ]);
+
+        return $this->normalize_ids($query->get_results() ?: []);
+    }
+
+    /**
+     * Push audience: room members plus site admins (admins can open every chat,
+     * but were missing from FCM unless they had also joined the space).
+     */
+    public function space_notify_ids(int $space_id): array
+    {
+        return array_values(array_unique(array_merge(
+            $this->space_member_ids($space_id),
+            $this->site_admin_ids()
+        )));
+    }
+
+    public function user_space_ids(int $user_id): array
+    {
+        if ($user_id < 1) {
+            return [];
+        }
+
+        global $wpdb;
+        $pivot = $this->pivot_table();
+        if ($pivot) {
+            $ids = $wpdb->get_col(
+                $wpdb->prepare(
+                    "SELECT space_id FROM {$pivot} WHERE user_id = %d AND (status IS NULL OR status = '' OR status NOT IN ('left','banned','pending','rejected','removed','declined'))",
+                    $user_id
+                )
+            );
+            $found = $this->normalize_ids($ids ?: []);
+            if ($found !== []) {
+                return $found;
+            }
+        }
+
+        foreach ([
+            ['FluentCommunity\\App\\Services\\Helper', 'getUserSpaceIds'],
+            ['FluentCommunity\\App\\Functions\\Utility', 'getUserSpaceIds'],
+        ] as [$class, $method]) {
+            if (class_exists($class) && method_exists($class, $method)) {
+                $ids = $this->normalize_ids($class::$method($user_id));
+                if ($ids !== []) {
+                    return $ids;
+                }
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * Rooms, courses, and other FC spaces for admin assignment.
+     *
+     * @return list<array{id:int,title:string,type:string,kind:string}>
+     */
+    public function all_spaces(): array
+    {
+        global $wpdb;
+        $table = $this->table_if_exists($wpdb->prefix . 'fcom_spaces');
+        if (!$table) {
+            return [];
+        }
+        $columns = $wpdb->get_col("SHOW COLUMNS FROM {$table}");
+        $columns = is_array($columns) ? $columns : [];
+        $select = ['id', 'title'];
+        foreach (['type', 'space_type', 'status', 'privacy'] as $optional) {
+            if (in_array($optional, $columns, true)) {
+                $select[] = $optional;
+            }
+        }
+        $rows = $wpdb->get_results('SELECT ' . implode(', ', $select) . " FROM {$table} ORDER BY title ASC", ARRAY_A) ?: [];
+        $out = [];
+        foreach ($rows as $row) {
+            $status = strtolower((string) ($row['status'] ?? ''));
+            if (in_array($status, ['draft', 'archived', 'deleted', 'trashed'], true)) {
+                continue;
+            }
+            $type = strtolower((string) ($row['type'] ?? $row['space_type'] ?? ''));
+            $kind = 'room';
+            if (in_array($type, ['course', 'courses'], true)) {
+                $kind = 'course';
+            } elseif (in_array($type, ['space_group', 'space-group', 'group', 'sidebar_link', 'link'], true)) {
+                $kind = 'other';
+            }
+            $out[] = [
+                'id' => (int) $row['id'],
+                'title' => (string) $row['title'],
+                'type' => $type,
+                'kind' => $kind,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param list<int> $space_ids
+     * @return list<int>
+     */
+    public function enroll(int $user_id, array $space_ids, string $mode = 'set'): array
+    {
+        if ($user_id < 1) {
+            return [];
+        }
+        $space_ids = array_values(array_unique(array_filter(array_map('intval', $space_ids))));
+        $mode = $mode === 'add' ? 'add' : 'set';
+        global $wpdb;
+        $pivot = $this->pivot_table();
+        if (!$pivot) {
+            return $this->user_space_ids($user_id);
+        }
+        $columns = $wpdb->get_col("SHOW COLUMNS FROM {$pivot}");
+        $columns = is_array($columns) ? $columns : [];
+        $has_status = in_array('status', $columns, true);
+        $has_role = in_array('role', $columns, true);
+        $now = current_time('mysql');
+
+        if ($mode === 'set') {
+            $current = $this->user_space_ids($user_id);
+            foreach (array_diff($current, $space_ids) as $sid) {
+                if ($has_status) {
+                    $wpdb->update($pivot, ['status' => 'left'], ['user_id' => $user_id, 'space_id' => (int) $sid]);
+                } else {
+                    $wpdb->delete($pivot, ['user_id' => $user_id, 'space_id' => (int) $sid]);
+                }
+            }
+        }
+
+        foreach ($space_ids as $sid) {
+            if ($sid < 1) {
+                continue;
+            }
+            $exists = (int) $wpdb->get_var(
+                $wpdb->prepare("SELECT COUNT(*) FROM {$pivot} WHERE user_id = %d AND space_id = %d", $user_id, $sid)
+            );
+            $row = ['user_id' => $user_id, 'space_id' => $sid];
+            if ($has_status) {
+                $row['status'] = 'active';
+            }
+            if ($has_role) {
+                $row['role'] = 'member';
+            }
+            if (in_array('updated_at', $columns, true)) {
+                $row['updated_at'] = $now;
+            }
+            if ($exists > 0) {
+                $wpdb->update($pivot, $row, ['user_id' => $user_id, 'space_id' => $sid]);
+            } else {
+                if (in_array('created_at', $columns, true)) {
+                    $row['created_at'] = $now;
+                }
+                $wpdb->insert($pivot, $row);
+            }
+        }
+
+        return $this->user_space_ids($user_id);
+    }
+
+    public function valid_api_key(?string $key): bool
+    {
+        $stored = '';
+        if (class_exists('Orgasmic_Fc_Events_Install')) {
+            $stored = (string) get_option(Orgasmic_Fc_Events_Install::OPTION_API_KEY, '');
+        }
+        return $stored !== '' && is_string($key) && $key !== '' && hash_equals($stored, $key);
+    }
+
+    private function pivot_table(): ?string
+    {
+        global $wpdb;
+        $pivot = $this->table_if_exists($wpdb->prefix . 'fcom_space_user');
+        if (!$pivot) {
+            $pivot = $this->table_if_exists($wpdb->prefix . 'fcom_space_users');
+        }
+
+        return $pivot;
     }
 
     public function space_title(int $space_id): string

@@ -474,6 +474,52 @@ html.orgasmic-chat-keyboard body > *:not(#orgasmic-chat-root) {
   max-width: min(760px, 100%);
   align-items: start;
   margin: 0;
+  position: relative;
+}
+
+.och-pick {
+  display: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 10px;
+  border: 1.5px solid var(--och-muted, #9aa0a6);
+  border-radius: 50%;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.och-pick:hover,
+.orgasmic-chat-msg.is-selected .och-pick {
+  border-color: var(--och-accent, #c4a35a);
+}
+
+.orgasmic-chat-msg.is-selected .och-pick {
+  background: var(--och-accent, #c4a35a);
+  box-shadow: inset 0 0 0 3px var(--och-chat-bg, #fff);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .orgasmic-chat-msg.is-deletable {
+    grid-template-columns: 22px 40px minmax(0, 1fr);
+  }
+  .orgasmic-chat-msg.is-deletable .och-pick {
+    display: inline-block;
+    opacity: 0;
+  }
+  .orgasmic-chat-msg.is-deletable:hover .och-pick,
+  .orgasmic-chat.is-selecting .och-pick {
+    opacity: 1;
+  }
+}
+
+.orgasmic-chat.is-selecting .orgasmic-chat-msg.is-deletable {
+  grid-template-columns: 22px 40px minmax(0, 1fr);
+}
+
+.orgasmic-chat.is-selecting .och-pick {
+  display: inline-block;
 }
 
 .orgasmic-chat-msg.is-mine {

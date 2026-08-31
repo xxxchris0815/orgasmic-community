@@ -9,10 +9,10 @@ Moved from `evolution-api` (`Extras/orgasmic-community`).
 | Plugin | Version | Aufgabe |
 | --- | --- | --- |
 | `orgasmic-fc-tracker/` | **1.2.1** | Engagement-Tracker, Dashboard, Evolution-Webhook |
-| `orgasmic-fc-events/` | **1.0.11** | Kalender im Portal (RSVP, Zoom, Event-Kommentare, Cache, MN-Layout) |
-| `orgasmic-fc-embeds/` | **1.2.12** | Video-Player, nativer Composer-Upload, Autoplay, Wiedergabe-Tracking + Webhook |
-| `orgasmic-fc-chat/` | **1.1.13** | Space-Chat (Mighty-Networks-Layout, Bild + Sprache, Offline-Cache) |
-| `orgasmic-fc-app/` | **1.1.12** | PWA, Web Push, Prefs im Profilmenü, Capacitor-Token-API + optional Firebase, Admin-Ankündigung per Push/E-Mail |
+| `orgasmic-fc-events/` | **1.0.12** | Kalender im Portal (RSVP, Zoom, Markieren/Duplizieren/Löschen mobil+Desktop) |
+| `orgasmic-fc-embeds/` | **1.2.13** | Video-Player, nativer Composer-Upload, kompakte Chips in Sidebars |
+| `orgasmic-fc-chat/` | **1.1.14** | Space-Chat (Mighty-Networks-Layout, Markieren ohne Scroll-Sprung) |
+| `orgasmic-fc-app/` | **1.1.13** | PWA, Web Push (Admins + Zuordnung Räume/Kurse/Chats per Admin/API) |
 
 ## ORGASMIC Community Kalender
 
@@ -27,13 +27,14 @@ Eventkalender **im FluentCommunity-Portal**:
 - Optionaler Post in den Activity Stream (im passenden Space, nicht öffentlich bei geheimen Kreisen)
 - Event-Unterhaltung im Kalender (FluentCommunity-Kommentare, wie im Feed/Kurs)
 - Reminder (z. B. 1 Tag / 1 Stunde vorher) als Tracker-Webhook `event.reminder`
-- REST API für Create / Update / Delete / RSVP
+- REST API für Create / Update / Delete / Duplicate / RSVP
+- Admins: Events markieren (Handy: langes Drücken, PC: Kästchen oder Strg/Cmd+Klick), dann duplizieren (+7 Tage) oder löschen
 
 Im Portal: Menüpunkt **Kalender** bzw. `#orgasmic-calendar`.
 
 WP-Admin: **ORGASMIC Kalender → Einstellungen** (Zoom, Untertitel, Erscheinungsbild, Akzentfarbe).
 
-ZIP: [`orgasmic-fc-events-1.0.11.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-events-1.0.11.zip)
+ZIP: [`orgasmic-fc-events-1.0.12.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-events-1.0.12.zip)
 
 ## ORGASMIC FluentCommunity Tracker
 
@@ -52,11 +53,12 @@ Plugin-Ordner: `orgasmic-fc-embeds/`
 - Handy / PWA / Capacitor laden in 1-MB-Stücken über WordPress (nicht direkt per TUS zu Bunny)
 - Der FluentCommunity-oEmbed-Dialog wird übersprungen
 - `player.mediadelivery.net/play/...` wird im Feed als offizieller Bunny-iframe angezeigt
+- In Sidebars / „Angesagte Beiträge“ nur ein kompakter **Video**-Chip statt des zusammengequetschten Players
 - Autoplay ein/aus unter **ORGASMIC Bunny → Einstellungen**
 - Tracking: wer spielt welches Video, Position in Sekunden, max. gesehen
 - Webhook: `video.play`, `video.pause`, `video.progress` (alle 15s), `video.ended`, `video.seeked`
 
-ZIP: [`orgasmic-fc-embeds-1.2.12.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-embeds-1.2.12.zip)
+ZIP: [`orgasmic-fc-embeds-1.2.13.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-embeds-1.2.13.zip)
 
 Falls der iframe leer bleibt: in Bunny Stream → Allowed Domains `community.orgasmic.live` eintragen.
 
@@ -70,13 +72,14 @@ Ersatz für den FluentCommunity-Pro-Chat:
 - Icon oben rechts im Portal, Ungelesen-Badge
 - Layout wie Mighty Networks: Liste + Thread, Avatare, Waveform, Composer
 - Text, Emoji, Bild, Sprachnachricht (max. 90 Sekunden, WebM/Opus)
+- Nachrichten markieren: Handy langes Drücken, PC Kästchen oder Strg/Cmd+Klick — Scrollposition bleibt
 - REST-API für Portal und Capacitor (`/wp-json/orgasmic-chat/v1/`)
 - Offline: letzte Räume und Nachrichten im localStorage (kein REST-Cache im Service Worker)
 - In einer Capacitor-App: natives Mikro (`capacitor-voice-recorder`) und Kamera (`@capacitor/camera`)
 
 WP-Admin: **ORGASMIC Chat → Einstellungen** (Farben, Untertitel, welche Spaces Chat haben).
 
-ZIP: [`orgasmic-fc-chat-1.1.13.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-chat-1.1.13.zip)
+ZIP: [`orgasmic-fc-chat-1.1.14.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-chat-1.1.14.zip)
 
 ## ORGASMIC App (PWA + Push)
 
@@ -87,13 +90,25 @@ Kein zweites Native-Frontend. Das FluentCommunity-Portal wird zur App:
 1. **Jetzt:** PWA (Homescreen, Service Worker Cache, Web Push)
 2. **Stores:** Capacitor um dieselbe URL — Token an `POST /wp-json/orgasmic-app/v1/push/token`, Versand über Firebase wenn der Service Account im Admin liegt
 
-Push geht nur an Mitglieder des jeweiligen Spaces. Format: **Raumname · Art** (Chat / Beitrag / Kommentar / Event / Ankündigung) plus Autor und Text — ohne generisches „Kreis“ oder „Termin“. Jedes Mitglied kann Chat / Beiträge / Kommentare / Events über **Profil → Benachrichtigungen** abschalten.
+Push geht an Mitglieder des jeweiligen Spaces **und an WordPress-Admins** (die sonst trotz Admin-Rolle nicht in `fcom_space_user` stehen). Format: **Raumname · Art** (Chat / Beitrag / Kommentar / Event / Ankündigung) plus Autor und Text — ohne generisches „Kreis“ oder „Termin“. Jedes Mitglied kann Chat / Beiträge / Kommentare / Events über **Profil → Benachrichtigungen** abschalten.
+
+Räume, Kurse und Chats (ein Chat pro Space) einem Konto zuordnen: **ORGASMIC App → Push prüfen → Mitglied → Zuordnung**, oder per API:
+
+```
+GET  /wp-json/orgasmic-app/v1/spaces
+GET  /wp-json/orgasmic-app/v1/members/{id}/spaces
+POST /wp-json/orgasmic-app/v1/members/{id}/spaces
+Header: X-Orgasmic-Key: <Kalender-API-Key>
+Body: { "space_ids": [1, 2, 3], "mode": "set" }
+```
+
+`mode: "add"` ergänzt, ohne andere Spaces zu entfernen.
 
 Admins sehen im Beitrags-Composer zwei Häkchen: **Per Push an alle Mitglieder senden** und **Per E-Mail an alle Mitglieder senden**. Empfänger sind nur Leute, die den Beitrag sehen dürfen (Raummitglieder bzw. Community-Feed). Geheime Kreise werden nicht nach außen geleakt. E-Mails laufen über `wp_mail` (Minute-Queue).
 
 WP-Admin: **ORGASMIC App**. Unter **Push prüfen** ein Mitglied suchen (z. B. Alexandra): Token, erlaubte Arten, letzte Queue-Zeilen inkl. Firebase-Fehler, Test-Push auf ihr Gerät. PHP 8.2+ für Web-Push (`openssl_pkey_derive`). Firebase-JSON nur für Store-Apps. Unter **Geräte mit App-Push** steht, wessen Handy ein FCM-Token gespeichert hat.
 
-ZIP: [`orgasmic-fc-app-1.1.12.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.1.12.zip)
+ZIP: [`orgasmic-fc-app-1.1.13.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.1.13.zip)
 
 ### Capacitor / Play Store (Android zuerst)
 
