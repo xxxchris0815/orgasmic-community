@@ -6,7 +6,9 @@ workflows:
     environment:
       groups:
         - firebase
+      ubuntu: 24.04
       node: 22
+      java: 21
       vars:
         PACKAGE_NAME: live.lo.community
     scripts:
@@ -28,6 +30,11 @@ workflows:
           npx cap sync android
       - name: Build debug APK
         script: |
+          if [ -d /usr/lib/jvm/java-1.21.0-openjdk-amd64 ]; then
+            export JAVA_HOME=/usr/lib/jvm/java-1.21.0-openjdk-amd64
+            export PATH="$JAVA_HOME/bin:$PATH"
+          fi
+          java -version
           cd orgasmic-native/android
           chmod +x gradlew
           ./gradlew assembleDebug
@@ -41,6 +48,8 @@ workflows:
     environment:
       groups:
         - android_keystore
+      ubuntu: 24.04
+      java: 21
     scripts:
       - name: Generate keystore
         script: |
@@ -70,7 +79,9 @@ workflows:
         - orgasmic_android
       groups:
         - firebase
+      ubuntu: 24.04
       node: 22
+      java: 21
       vars:
         PACKAGE_NAME: live.lo.community
     scripts:
@@ -92,6 +103,11 @@ workflows:
           npx cap sync android
       - name: Build release AAB + APK
         script: |
+          if [ -d /usr/lib/jvm/java-1.21.0-openjdk-amd64 ]; then
+            export JAVA_HOME=/usr/lib/jvm/java-1.21.0-openjdk-amd64
+            export PATH="$JAVA_HOME/bin:$PATH"
+          fi
+          java -version
           cd orgasmic-native/android
           chmod +x gradlew
           BUILD_NO="${BUILD_NUMBER:-1}"
@@ -112,7 +128,9 @@ workflows:
       groups:
         - firebase
         - google_play
+      ubuntu: 24.04
       node: 22
+      java: 21
       vars:
         PACKAGE_NAME: live.lo.community
     scripts:
@@ -130,6 +148,11 @@ workflows:
           npx cap sync android
       - name: Build AAB
         script: |
+          if [ -d /usr/lib/jvm/java-1.21.0-openjdk-amd64 ]; then
+            export JAVA_HOME=/usr/lib/jvm/java-1.21.0-openjdk-amd64
+            export PATH="$JAVA_HOME/bin:$PATH"
+          fi
+          java -version
           cd orgasmic-native/android
           chmod +x gradlew
           BUILD_NO="${BUILD_NUMBER:-1}"

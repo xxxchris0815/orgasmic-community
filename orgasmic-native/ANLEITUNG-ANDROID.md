@@ -142,6 +142,8 @@ Wenn eine Test-Push aus WP-Admin (**ORGASMIC App** → Test-Push) auf dem Handy 
 
 Debug-APK nicht in den Play Store laden.
 
+**Build-Fehler `invalid source release: 21`:** Capacitor 7 braucht JDK 21, Codemagic startet standardmäßig mit JDK 17. In `codemagic.yaml` steht dafür `ubuntu: 24.04` und `java: 21`. Den Workflow **Android Debug (testen)** auf dem aktuellen Feature-Branch nochmal starten — mehr Log-Zeilen brauchst du für diesen Fehler nicht.
+
 ---
 
 ## 6. Keystore einmal erzeugen (ohne eigenen PC)
