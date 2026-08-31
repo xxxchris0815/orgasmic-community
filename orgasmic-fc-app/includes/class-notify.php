@@ -106,7 +106,7 @@ class Orgasmic_Fc_App_Notify
 
     public function announce_feed($feed, bool $push, bool $email): array
     {
-        if (!$this->access->can_manage()) {
+        if (!$this->access->can_announce()) {
             return ['ok' => false, 'error' => 'Keine Berechtigung.'];
         }
         $space_id = (int) $this->access->prop($feed, 'space_id');
@@ -353,7 +353,7 @@ class Orgasmic_Fc_App_Notify
             }
         }
 
-        if ((!$push && !$email) || !$this->access->can_manage()) {
+        if ((!$push && !$email) || !$this->access->can_announce()) {
             return ['push' => false, 'email' => false];
         }
 

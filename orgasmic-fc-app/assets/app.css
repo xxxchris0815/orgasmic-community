@@ -272,6 +272,14 @@ html.orgasmic-native {
   font-size: 13px;
   line-height: 1.35;
   color: #1a1625;
+  position: relative;
+  z-index: 6;
+  pointer-events: auto;
+}
+
+.fcom_portal .oa-announce,
+.fluent_community .oa-announce {
+  display: flex !important;
 }
 
 .oa-announce label {

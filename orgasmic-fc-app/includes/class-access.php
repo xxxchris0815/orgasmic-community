@@ -69,6 +69,36 @@ class Orgasmic_Fc_App_Access
         return false;
     }
 
+    public function can_announce(?int $user_id = null): bool
+    {
+        if ($this->can_manage($user_id)) {
+            return true;
+        }
+        $user_id = $user_id ?: get_current_user_id();
+        if (!$user_id) {
+            return false;
+        }
+        if (!class_exists('FluentCommunity\\App\\Services\\Helper')) {
+            return false;
+        }
+        $helper = 'FluentCommunity\\App\\Services\\Helper';
+        if (method_exists($helper, 'isModerator') && $user_id === get_current_user_id() && $helper::isModerator()) {
+            return true;
+        }
+        if (method_exists($helper, 'getCurrentUser') && $user_id === get_current_user_id()) {
+            $user = $helper::getCurrentUser();
+            if (is_object($user)) {
+                foreach (['hasCommunityAdminAccess', 'hasCommunityModeratorAccess', 'isCommunityAdmin'] as $method) {
+                    if (method_exists($user, $method) && $user->{$method}()) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
     /**
      * People allowed to see this post. Space posts stay inside the room (no secret-circle leak).
      * Community feed (no space) goes to every FluentCommunity profile.

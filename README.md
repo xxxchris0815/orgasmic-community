@@ -12,7 +12,7 @@ Moved from `evolution-api` (`Extras/orgasmic-community`).
 | `orgasmic-fc-events/` | **1.0.12** | Kalender im Portal (RSVP, Zoom, Markieren/Duplizieren/Löschen mobil+Desktop) |
 | `orgasmic-fc-embeds/` | **1.2.13** | Video-Player, nativer Composer-Upload, kompakte Chips in Sidebars |
 | `orgasmic-fc-chat/` | **1.1.16** | Space-Chat (letzte 40 Nachrichten, ältere per Scroll) |
-| `orgasmic-fc-app/` | **1.1.15** | PWA, Web Push, Mitglieder-Zuordnung, Homescreen-Logo (Gold) |
+| `orgasmic-fc-app/` | **1.1.16** | PWA, Web Push, Mitglieder-Zuordnung, Homescreen-Logo, Push/E-Mail am Beitrag |
 
 ## ORGASMIC Community Kalender
 
@@ -109,7 +109,7 @@ Admins sehen im Beitrags-Composer zwei Häkchen: **Per Push an alle Mitglieder s
 
 WP-Admin: **ORGASMIC App**. Unter **Push prüfen** ein Mitglied suchen (z. B. Alexandra): Token, erlaubte Arten, letzte Queue-Zeilen inkl. Firebase-Fehler, Test-Push auf ihr Gerät. PHP 8.2+ für Web-Push (`openssl_pkey_derive`). Firebase-JSON nur für Store-Apps. Unter **Geräte mit App-Push** steht, wessen Handy ein FCM-Token gespeichert hat.
 
-ZIP: [`orgasmic-fc-app-1.1.15.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.1.15.zip)
+ZIP: [`orgasmic-fc-app-1.1.16.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.1.16.zip)
 
 ### Capacitor / Play Store (Android zuerst)
 

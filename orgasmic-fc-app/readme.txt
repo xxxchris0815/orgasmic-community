@@ -1,12 +1,15 @@
 === ORGASMIC App ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.1.15
+Stable tag: 1.1.16
 License: GPLv2 or later
 
 PWA, offline cache, and Web Push for chat, posts, comments, and calendar events.
 
 == Changelog ==
+
+= 1.1.16 =
+* Push and email checkboxes attach to the FluentCommunity post box (dialog, expanded editor, German publish labels)
 
 = 1.1.15 =
 * PWA and apple-touch icons use the gold LO mark instead of the placeholder circle

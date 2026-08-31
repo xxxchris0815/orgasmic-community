@@ -100,7 +100,7 @@ class Orgasmic_Fc_App_Rest
 
     public function can_announce(): bool
     {
-        return $this->access->can_manage();
+        return $this->access->can_announce();
     }
 
     public function can_manage_or_key(WP_REST_Request $request): bool
@@ -208,7 +208,7 @@ class Orgasmic_Fc_App_Rest
                 'event' => (bool) get_option(Orgasmic_Fc_App_Install::OPTION_EVENT, 1),
             ],
             'prefs' => Orgasmic_Fc_App_Install::prefs_for(get_current_user_id()),
-            'canAnnounce' => $this->access->can_manage(),
+            'canAnnounce' => $this->access->can_announce(),
             'native' => [
                 'capacitorReady' => true,
                 'fcmConfigured' => $this->fcm->can_send(),
@@ -228,7 +228,7 @@ class Orgasmic_Fc_App_Rest
             'prefs' => $uid > 0
                 ? Orgasmic_Fc_App_Install::prefs_for($uid)
                 : Orgasmic_Fc_App_Install::default_prefs(),
-            'canAnnounce' => $uid > 0 && $this->access->can_manage($uid),
+            'canAnnounce' => $uid > 0 && $this->access->can_announce($uid),
         ]);
     }
 

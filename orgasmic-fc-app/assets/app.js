@@ -328,6 +328,20 @@
     const announceState = { push: false, email: false };
     let intentTimer = 0;
     let wrapped = false;
+    const SKIP = '#orgasmic-chat-root, #orgasmic-cal-root, #orgasmic-app-prefs, #orgasmic-bunny-upload';
+    const COMMENT = '[class*="comment-form"], [class*="CommentForm"], [class*="comment_form"], [class*="ReplyBox"], [class*="each_comment"], .each_comment, .feed_comments';
+    const EDITOR = 'textarea, [contenteditable="true"], .ql-editor, .ProseMirror, .tiptap, .fcom_editor, .el-textarea__inner';
+    const ROOT_SEL = [
+      '[class*="composer"]', '[class*="Composer"]',
+      '[class*="create_post"]', '[class*="CreatePost"]',
+      '[class*="feed_form"]', '[class*="FeedForm"]',
+      '[class*="feed_write"]', '[class*="FeedWrite"]',
+      '[class*="write_box"]', '[class*="WriteBox"]',
+      '[class*="post_box"]', '[class*="PostBox"]', '[class*="post-box"]',
+      '[class*="FeedComposer"]',
+      '.fcom_feed_form', '.fcom-feed-form',
+      '.el-dialog',
+    ].join(',');
 
     function flagsHeader() {
       const parts = [];
@@ -372,47 +386,71 @@
       window.setTimeout(() => { bar.hidden = true; }, 2800);
     }
 
+    function editorPlaceholder(el) {
+      if (!el) return '';
+      return [
+        el.getAttribute('placeholder'),
+        el.getAttribute('data-placeholder'),
+        el.getAttribute('aria-placeholder'),
+        el.getAttribute('data-placeholder-text'),
+      ].filter(Boolean).join(' ').toLowerCase();
+    }
+
     function looksLikePublish(btn) {
       if (!btn || (btn.closest && btn.closest('[data-oa-announce]'))) return false;
       const text = (btn.textContent || '').replace(/\s+/g, ' ').trim();
-      if (/kommentar|comment|antwort|reply|abbrechen|cancel|schließen|close|video|bild|image/i.test(text)) return false;
-      if (/^(Posten|Post|Veröffentlichen|Publish|Teilen|Share)$/i.test(text)) return true;
-      return !!(btn.classList && btn.classList.contains('el-button--primary')
-        && text.length > 0 && text.length < 20
-        && /post|veröffent|share|teilen|senden/i.test(text));
+      const label = ((btn.getAttribute('aria-label') || '') + ' ' + (btn.getAttribute('title') || '') + ' ' + text).trim();
+      if (/kommentar|comment|antwort|reply|abbrechen|cancel|schließen|close|video|bild|image|umfrage|poll|gif/i.test(label)) return false;
+      if (/posten|veröffent|publish|teilen|share|senden|\bpost\b|beitrag/i.test(label)) return true;
+      return !!(btn.classList && btn.classList.contains('el-button--primary') && text.length > 0 && text.length < 48);
+    }
+
+    function isCommentArea(el) {
+      return !!(el && el.closest && el.closest(COMMENT));
+    }
+
+    function hasFeedEditor(root) {
+      return !!(root && root.querySelector && root.querySelector(EDITOR));
     }
 
     function isPostComposer(root) {
-      if (!root || root.closest('#orgasmic-chat-root, #orgasmic-cal-root, #orgasmic-app-prefs, #orgasmic-bunny-upload')) {
-        return false;
+      if (!root || !root.querySelector) return false;
+      if (root.closest && root.closest(SKIP)) return false;
+      if (isCommentArea(root)) return false;
+      if (!hasFeedEditor(root)) return false;
+      if ([...root.querySelectorAll('button, .el-button, [role="button"]')].some(looksLikePublish)) return true;
+      const editor = root.querySelector(EDITOR);
+      if (/kommentar|comment|antwort|reply/.test(editorPlaceholder(editor))) return false;
+      if (/was denkst|was machst|schreib|beitrag|what.?s on|share something|mind|nachricht|update|start a post/i.test(editorPlaceholder(editor))) {
+        return true;
       }
-      if (root.closest('[class*="comment-form"], [class*="CommentForm"], [class*="comment_form"], [class*="ReplyBox"]')) {
-        return false;
+      if (root.querySelector('[class*="toolbar"], [class*="Toolbar"], .el-upload, [class*="feed_link"], [class*="media"]')) return true;
+      if (root.classList && (root.classList.contains('el-dialog') || root.closest('.el-dialog'))) return true;
+      return false;
+    }
+
+    function climbToComposer(from) {
+      let node = from;
+      for (let i = 0; i < 12 && node && node !== document.body; i += 1) {
+        if (isPostComposer(node)) return node;
+        node = node.parentElement;
       }
-      if (!root.querySelector('textarea, [contenteditable="true"]')) return false;
-      return [...root.querySelectorAll('button, .el-button, [role="button"]')].some(looksLikePublish);
+      return null;
     }
 
     function composerRoots() {
       const out = [];
       const seen = new Set();
-      document.querySelectorAll([
-        '[class*="composer"]',
-        '[class*="Composer"]',
-        '[class*="create_post"]',
-        '[class*="CreatePost"]',
-        '[class*="feed_form"]',
-        '.fcom_feed_form',
-        '.fcom-feed-form',
-      ].join(',')).forEach((el) => {
-        let root = el;
-        if (root.closest('[data-oa-announce]')) return;
-        if (!isPostComposer(root) && root.parentElement && isPostComposer(root.parentElement)) {
-          root = root.parentElement;
-        }
-        if (!isPostComposer(root) || seen.has(root)) return;
+      const add = (root) => {
+        if (!root || seen.has(root) || !isPostComposer(root)) return;
         seen.add(root);
         out.push(root);
+      };
+      document.querySelectorAll(ROOT_SEL).forEach(add);
+      document.querySelectorAll(EDITOR).forEach((ed) => {
+        if (ed.closest && ed.closest(SKIP)) return;
+        if (isCommentArea(ed)) return;
+        add(climbToComposer(ed.parentElement));
       });
       return out;
     }
@@ -429,24 +467,41 @@
       });
     }
 
+    function makeBox() {
+      const box = document.createElement('div');
+      box.className = 'oa-announce';
+      box.setAttribute('data-oa-announce', '1');
+      box.innerHTML = '<label><input type="checkbox" data-oa-announce-push /> Per Push an alle Mitglieder senden</label>'
+        + '<label><input type="checkbox" data-oa-announce-email /> Per E-Mail an alle Mitglieder senden</label>'
+        + '<p class="oa-announce-help">Nur wer den Beitrag sehen darf. Geheime Räume bleiben geheim.</p>';
+      bindBox(box);
+      return box;
+    }
+
+    function insertBox(root) {
+      if (root.querySelector('[data-oa-announce]')) return;
+      const box = makeBox();
+      const footer = root.querySelector('.el-dialog__footer, [class*="dialog-footer"]');
+      if (footer && footer.parentElement) {
+        footer.parentElement.insertBefore(box, footer);
+        return;
+      }
+      const btn = [...root.querySelectorAll('button, .el-button, [role="button"]')].reverse().find(looksLikePublish);
+      const host = btn && (btn.closest('.el-form-item, [class*="footer"], [class*="actions"], [class*="toolbar"], [class*="Footer"], [class*="Actions"]') || btn.parentElement);
+      if (host && host.parentElement && host !== root) {
+        host.parentElement.insertBefore(box, host);
+        return;
+      }
+      const editor = root.querySelector(EDITOR);
+      if (editor && editor.parentElement) {
+        editor.parentElement.insertBefore(box, editor.nextSibling);
+        return;
+      }
+      root.appendChild(box);
+    }
+
     function injectAnnounce() {
-      composerRoots().forEach((root) => {
-        if (root.querySelector('[data-oa-announce]')) return;
-        const box = document.createElement('div');
-        box.className = 'oa-announce';
-        box.setAttribute('data-oa-announce', '1');
-        box.innerHTML = '<label><input type="checkbox" data-oa-announce-push /> Per Push an alle Mitglieder senden</label>'
-          + '<label><input type="checkbox" data-oa-announce-email /> Per E-Mail an alle Mitglieder senden</label>'
-          + '<p class="oa-announce-help">Nur wer den Beitrag sehen darf. Geheime Räume bleiben geheim.</p>';
-        bindBox(box);
-        const btn = [...root.querySelectorAll('button, .el-button, [role="button"]')].reverse().find(looksLikePublish);
-        const host = btn && (btn.closest('.el-form-item, [class*="footer"], [class*="actions"], [class*="toolbar"], [class*="Footer"]') || btn.parentElement);
-        if (host && host.parentElement && host !== root) {
-          host.parentElement.insertBefore(box, host);
-        } else {
-          root.appendChild(box);
-        }
-      });
+      composerRoots().forEach(insertBox);
     }
 
     function isFeedWrite(method, url) {
@@ -516,8 +571,15 @@
       if (announceState.push || announceState.email) syncIntent();
     }, true);
 
+    document.addEventListener('focusin', (ev) => {
+      const ed = ev.target && ev.target.closest && ev.target.closest(EDITOR);
+      if (!ed || isCommentArea(ed)) return;
+      injectAnnounce();
+    }, true);
+
     wrapNetwork();
     injectAnnounce();
+    [400, 1200, 2800].forEach((ms) => window.setTimeout(injectAnnounce, ms));
     let scheduled = 0;
     const obs = new MutationObserver(() => {
       if (scheduled) return;
