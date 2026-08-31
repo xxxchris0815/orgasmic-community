@@ -1,6 +1,6 @@
 # LO Community — Android (Codemagic)
 
-Die App ist keine zweite Website. Capacitor öffnet die bestehende Community-URL. Push läuft über Firebase. Gebaut wird online bei Codemagic.
+Die App ist keine zweite Website. Capacitor öffnet FluentCommunity unter `https://community.orgasmic.live/portal`. Push läuft über Firebase. Gebaut wird online bei Codemagic.
 
 ## Öffentliche Namen (Store + Homescreen)
 
@@ -19,6 +19,8 @@ Nicht in Titel, Kurztext, Screenshots, Icon-Schrift: orgasm, orgasmic, sex, xxx,
 Reihenfolge einhalten. Android zuerst. iOS kommt später mit demselben Firebase-Projekt.
 
 ---
+
+**Start-URL:** `https://community.orgasmic.live/portal` (FluentCommunity, nicht die WordPress-Startseite). Nach einer URL-Änderung muss die APK neu gebaut und installiert werden.
 
 ## 0. Was schon im Repo liegt
 

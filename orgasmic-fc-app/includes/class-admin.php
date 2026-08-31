@@ -167,7 +167,7 @@ class Orgasmic_Fc_App_Admin
         echo '</form>';
 
         echo '<h2>Capacitor (Store-Apps)</h2>';
-        echo '<p>Nicht die Community neu bauen. Ein Capacitor-Projekt lädt <code>community.orgasmic.live</code>. Plugins: <code>@capacitor/push-notifications</code>, <code>@capacitor/camera</code>, <code>capacitor-voice-recorder</code>. Die Website schickt das FCM-Token an <code>/wp-json/orgasmic-app/v1/push/token</code>. Chat nutzt Kamera und Mikro der App, falls vorhanden — sonst den Browser.</p>';
+        echo '<p>Nicht die Community neu bauen. Ein Capacitor-Projekt lädt <code>community.orgasmic.live/portal</code>. Plugins: <code>@capacitor/push-notifications</code>, <code>@capacitor/camera</code>, <code>capacitor-voice-recorder</code>. Die Website schickt das FCM-Token an <code>/wp-json/orgasmic-app/v1/push/token</code>. Chat nutzt Kamera und Mikro der App, falls vorhanden — sonst den Browser.</p>';
         echo '</div>';
     }
 
