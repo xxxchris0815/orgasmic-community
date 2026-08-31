@@ -323,31 +323,40 @@
   }
 
   function setupAnnounce() {
-    if (!cfg.canAnnounce) return;
+    if (!cfg.loggedIn && !cfg.canAnnounce) return;
 
     const announceState = { push: false, email: false };
     let intentTimer = 0;
     let wrapped = false;
-    const SKIP = '#orgasmic-chat-root, #orgasmic-cal-root, #orgasmic-app-prefs, #orgasmic-bunny-upload';
+    let ticking = false;
+    let cachedComposer = null;
+    const SKIP = '#oa-announce-host, #orgasmic-chat-root, #orgasmic-cal-root, #orgasmic-app-prefs, #orgasmic-bunny-upload';
     const COMMENT = '[class*="comment-form"], [class*="CommentForm"], [class*="comment_form"], [class*="ReplyBox"], [class*="each_comment"], .each_comment, .feed_comments';
-    const EDITOR = 'textarea, [contenteditable="true"], .ql-editor, .ProseMirror, .tiptap, .fcom_editor, .el-textarea__inner';
-    const ROOT_SEL = [
-      '[class*="composer"]', '[class*="Composer"]',
-      '[class*="create_post"]', '[class*="CreatePost"]',
-      '[class*="feed_form"]', '[class*="FeedForm"]',
-      '[class*="feed_write"]', '[class*="FeedWrite"]',
-      '[class*="write_box"]', '[class*="WriteBox"]',
-      '[class*="post_box"]', '[class*="PostBox"]', '[class*="post-box"]',
-      '[class*="FeedComposer"]',
-      '.fcom_feed_form', '.fcom-feed-form',
-      '.el-dialog',
-    ].join(',');
+    const EDITOR = 'textarea, [contenteditable="true"], [role="textbox"], .ql-editor, .ProseMirror, .tiptap, .fcom_editor, .el-textarea__inner';
+    const CREATE_TITLE = /beitrag erstellen|create post|create a post|neuen beitrag|write a post|was denkst du/i;
+    const PUBLISH_EXACT = /^(Beitrag|Posten|Post|Veröffentlichen|Publish|Teilen|Share)$/i;
 
     function flagsHeader() {
       const parts = [];
       if (announceState.push) parts.push('push');
       if (announceState.email) parts.push('email');
       return parts.join(',');
+    }
+
+    function normText(value) {
+      return String(value || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function textOf(el) {
+      return normText(el && (el.innerText || el.textContent));
+    }
+
+    function skipped(el) {
+      return !!(el && el.closest && el.closest(SKIP));
+    }
+
+    function isCommentArea(el) {
+      return !!(el && el.closest && el.closest(COMMENT));
     }
 
     function syncIntent() {
@@ -362,11 +371,20 @@
       intentTimer = window.setTimeout(syncIntent, 200);
     }
 
+    function shadowRoot() {
+      const host = document.getElementById('oa-announce-host');
+      return (host && (host.shadowRoot || host)) || null;
+    }
+
     function resetAnnounce() {
       announceState.push = false;
       announceState.email = false;
-      document.querySelectorAll('[data-oa-announce-push]').forEach((el) => { el.checked = false; });
-      document.querySelectorAll('[data-oa-announce-email]').forEach((el) => { el.checked = false; });
+      const root = shadowRoot();
+      if (!root) return;
+      const push = root.querySelector('[data-oa-announce-push]');
+      const email = root.querySelector('[data-oa-announce-email]');
+      if (push) push.checked = false;
+      if (email) email.checked = false;
     }
 
     function flashAnnounce() {
@@ -386,122 +404,161 @@
       window.setTimeout(() => { bar.hidden = true; }, 2800);
     }
 
-    function editorPlaceholder(el) {
-      if (!el) return '';
-      return [
-        el.getAttribute('placeholder'),
-        el.getAttribute('data-placeholder'),
-        el.getAttribute('aria-placeholder'),
-        el.getAttribute('data-placeholder-text'),
-      ].filter(Boolean).join(' ').toLowerCase();
-    }
-
-    function looksLikePublish(btn) {
-      if (!btn || (btn.closest && btn.closest('[data-oa-announce]'))) return false;
-      const text = (btn.textContent || '').replace(/\s+/g, ' ').trim();
-      const label = ((btn.getAttribute('aria-label') || '') + ' ' + (btn.getAttribute('title') || '') + ' ' + text).trim();
+    function looksLikePublish(el) {
+      if (!el || skipped(el) || isCommentArea(el)) return false;
+      const text = textOf(el);
+      if (!text || text.length > 32) return false;
+      const label = normText((el.getAttribute('aria-label') || '') + ' ' + (el.getAttribute('title') || '') + ' ' + text);
       if (/kommentar|comment|antwort|reply|abbrechen|cancel|schließen|close|video|bild|image|umfrage|poll|gif/i.test(label)) return false;
-      if (/posten|veröffent|publish|teilen|share|senden|\bpost\b|beitrag/i.test(label)) return true;
-      return !!(btn.classList && btn.classList.contains('el-button--primary') && text.length > 0 && text.length < 48);
+      return PUBLISH_EXACT.test(text);
     }
 
-    function isCommentArea(el) {
-      return !!(el && el.closest && el.closest(COMMENT));
-    }
-
-    function hasFeedEditor(root) {
-      return !!(root && root.querySelector && root.querySelector(EDITOR));
-    }
-
-    function isPostComposer(root) {
-      if (!root || !root.querySelector) return false;
-      if (root.closest && root.closest(SKIP)) return false;
-      if (isCommentArea(root)) return false;
-      if (!hasFeedEditor(root)) return false;
-      if ([...root.querySelectorAll('button, .el-button, [role="button"]')].some(looksLikePublish)) return true;
-      const editor = root.querySelector(EDITOR);
-      if (/kommentar|comment|antwort|reply/.test(editorPlaceholder(editor))) return false;
-      if (/was denkst|was machst|schreib|beitrag|what.?s on|share something|mind|nachricht|update|start a post/i.test(editorPlaceholder(editor))) {
-        return true;
-      }
-      if (root.querySelector('[class*="toolbar"], [class*="Toolbar"], .el-upload, [class*="feed_link"], [class*="media"]')) return true;
-      if (root.classList && (root.classList.contains('el-dialog') || root.closest('.el-dialog'))) return true;
-      return false;
-    }
-
-    function climbToComposer(from) {
-      let node = from;
-      for (let i = 0; i < 12 && node && node !== document.body; i += 1) {
-        if (isPostComposer(node)) return node;
-        node = node.parentElement;
+    function findTitleEl() {
+      if (!document.body) return null;
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      let node = walker.nextNode();
+      while (node) {
+        const text = normText(node.nodeValue);
+        if (text && text.length < 80 && CREATE_TITLE.test(text)) {
+          const el = node.parentElement;
+          if (el && !skipped(el) && !isCommentArea(el)) return el;
+        }
+        node = walker.nextNode();
       }
       return null;
     }
 
-    function composerRoots() {
-      const out = [];
-      const seen = new Set();
-      const add = (root) => {
-        if (!root || seen.has(root) || !isPostComposer(root)) return;
-        seen.add(root);
-        out.push(root);
-      };
-      document.querySelectorAll(ROOT_SEL).forEach(add);
-      document.querySelectorAll(EDITOR).forEach((ed) => {
-        if (ed.closest && ed.closest(SKIP)) return;
-        if (isCommentArea(ed)) return;
-        add(climbToComposer(ed.parentElement));
-      });
-      return out;
+    function findPublish(scope) {
+      const root = scope || document;
+      const nodes = root.querySelectorAll
+        ? root.querySelectorAll('button, .el-button, [role="button"], a, span, div, p')
+        : [];
+      for (let i = 0; i < nodes.length; i += 1) {
+        const el = nodes[i];
+        if (el.childElementCount > 4) continue;
+        if (!looksLikePublish(el)) continue;
+        return el.closest('button, .el-button, [role="button"], a') || el;
+      }
+      return null;
     }
 
-    function bindBox(box) {
-      const push = box.querySelector('[data-oa-announce-push]');
-      const email = box.querySelector('[data-oa-announce-email]');
+    function climbComposer(from) {
+      let node = from;
+      for (let i = 0; i < 18 && node && node !== document.body; i += 1) {
+        if (node.nodeType === 1 && node.querySelector) {
+          const editor = node.querySelector(EDITOR);
+          if (editor && !isCommentArea(editor)) return node;
+        }
+        node = node.parentElement;
+      }
+      return from && from.parentElement ? from.parentElement : from;
+    }
+
+    function findComposer() {
+      if (cachedComposer && cachedComposer.isConnected) {
+        const slice = textOf(cachedComposer).slice(0, 400);
+        if (CREATE_TITLE.test(slice) && cachedComposer.querySelector(EDITOR)) {
+          return cachedComposer;
+        }
+      }
+      const title = findTitleEl();
+      if (title) {
+        cachedComposer = climbComposer(title);
+        return cachedComposer;
+      }
+      const focused = document.activeElement;
+      if (focused && focused.matches && focused.matches(EDITOR) && !isCommentArea(focused) && !skipped(focused)) {
+        cachedComposer = climbComposer(focused);
+        return cachedComposer;
+      }
+      cachedComposer = null;
+      return null;
+    }
+
+    function ensureHost() {
+      let host = document.getElementById('oa-announce-host');
+      if (host && host.isConnected && (host.shadowRoot || host.querySelector('[data-oa-announce-push]'))) {
+        return host;
+      }
+      if (host && host.parentNode) host.parentNode.removeChild(host);
+      host = document.createElement('div');
+      host.id = 'oa-announce-host';
+      let root = host;
+      try {
+        root = host.attachShadow({ mode: 'open' });
+      } catch (e) {
+        root = host;
+      }
+      root.innerHTML = '<style>'
+        + ':host{position:fixed;z-index:2147483646;display:none;box-sizing:border-box;max-width:calc(100vw - 24px);font-family:system-ui,-apple-system,sans-serif;}'
+        + ':host([data-open="1"]){display:block;}'
+        + '.box{pointer-events:auto;display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:12px;'
+        + 'border:1px solid rgba(26,22,37,.18);background:#f6f3ee;color:#1a1625;font-size:13px;line-height:1.35;font-weight:650;'
+        + 'box-shadow:0 10px 28px rgba(15,23,42,.22);}'
+        + 'label{display:flex;gap:10px;align-items:flex-start;cursor:pointer;}'
+        + 'input{width:18px;height:18px;margin:1px 0 0;flex:0 0 auto;accent-color:#1a1625;}'
+        + '.help{margin:0;font-weight:400;font-size:12px;color:#6b6575;}'
+        + '</style>'
+        + '<div class="box" data-oa-announce="1">'
+        + '<label><input type="checkbox" data-oa-announce-push> Per Push an alle Mitglieder senden</label>'
+        + '<label><input type="checkbox" data-oa-announce-email> Per E-Mail an alle Mitglieder senden</label>'
+        + '<p class="help">Nur wer den Beitrag sehen darf. Geheime Räume bleiben geheim.</p>'
+        + '</div>';
+      const push = root.querySelector('[data-oa-announce-push]');
+      const email = root.querySelector('[data-oa-announce-email]');
       if (push) push.checked = !!announceState.push;
       if (email) email.checked = !!announceState.email;
-      box.addEventListener('change', () => {
+      root.addEventListener('change', () => {
         announceState.push = !!(push && push.checked);
         announceState.email = !!(email && email.checked);
         scheduleIntent();
       });
+      (document.body || document.documentElement).appendChild(host);
+      return host;
     }
 
-    function makeBox() {
-      const box = document.createElement('div');
-      box.className = 'oa-announce';
-      box.setAttribute('data-oa-announce', '1');
-      box.innerHTML = '<label><input type="checkbox" data-oa-announce-push /> Per Push an alle Mitglieder senden</label>'
-        + '<label><input type="checkbox" data-oa-announce-email /> Per E-Mail an alle Mitglieder senden</label>'
-        + '<p class="oa-announce-help">Nur wer den Beitrag sehen darf. Geheime Räume bleiben geheim.</p>';
-      bindBox(box);
-      return box;
+    function hideHost(host) {
+      if (!host) return;
+      host.removeAttribute('data-open');
+      host.style.display = 'none';
     }
 
-    function insertBox(root) {
-      if (root.querySelector('[data-oa-announce]')) return;
-      const box = makeBox();
-      const footer = root.querySelector('.el-dialog__footer, [class*="dialog-footer"]');
-      if (footer && footer.parentElement) {
-        footer.parentElement.insertBefore(box, footer);
+    function paintDock() {
+      const composer = findComposer();
+      if (!composer) {
+        hideHost(document.getElementById('oa-announce-host'));
         return;
       }
-      const btn = [...root.querySelectorAll('button, .el-button, [role="button"]')].reverse().find(looksLikePublish);
-      const host = btn && (btn.closest('.el-form-item, [class*="footer"], [class*="actions"], [class*="toolbar"], [class*="Footer"], [class*="Actions"]') || btn.parentElement);
-      if (host && host.parentElement && host !== root) {
-        host.parentElement.insertBefore(box, host);
+      const crect = composer.getBoundingClientRect();
+      if (!crect.width || crect.height < 40 || crect.bottom < 40 || crect.top > window.innerHeight - 20) {
+        hideHost(document.getElementById('oa-announce-host'));
         return;
       }
-      const editor = root.querySelector(EDITOR);
-      if (editor && editor.parentElement) {
-        editor.parentElement.insertBefore(box, editor.nextSibling);
-        return;
+      const host = ensureHost();
+      const btn = findPublish(composer);
+      const brect = btn ? btn.getBoundingClientRect() : null;
+      const width = Math.min(420, Math.max(240, (crect.width || 320) - 24));
+      let left = (crect.left || 12) + 12;
+      left = Math.min(Math.max(8, left), window.innerWidth - width - 8);
+      host.setAttribute('data-open', '1');
+      host.style.display = 'block';
+      host.style.position = 'fixed';
+      host.style.zIndex = '2147483646';
+      host.style.left = left + 'px';
+      host.style.width = width + 'px';
+      host.style.right = 'auto';
+      const height = host.offsetHeight || 88;
+      let top;
+      if (brect && brect.width) {
+        top = brect.top - height - 8;
+      } else if (crect.height) {
+        top = crect.bottom - height - 56;
+      } else {
+        top = window.innerHeight - height - 88;
       }
-      root.appendChild(box);
-    }
-
-    function injectAnnounce() {
-      composerRoots().forEach(insertBox);
+      if (top < 8) top = 8;
+      host.style.top = top + 'px';
+      host.style.bottom = 'auto';
     }
 
     function isFeedWrite(method, url) {
@@ -564,29 +621,53 @@
       };
     }
 
+    function startTick() {
+      if (ticking) return;
+      ticking = true;
+      const loop = () => {
+        const host = document.getElementById('oa-announce-host');
+        if (host && host.getAttribute('data-open') === '1' && cachedComposer && cachedComposer.isConnected) {
+          paintDock();
+          window.requestAnimationFrame(loop);
+        } else {
+          ticking = false;
+        }
+      };
+      window.requestAnimationFrame(loop);
+    }
+
     document.addEventListener('click', (ev) => {
       const btn = ev.target.closest && ev.target.closest('button, .el-button, [role="button"]');
       if (!btn || !looksLikePublish(btn)) return;
-      if (!btn.closest || !composerRoots().some((root) => root.contains(btn))) return;
+      const composer = findComposer();
+      if (!composer || !composer.contains(btn)) return;
       if (announceState.push || announceState.email) syncIntent();
     }, true);
 
     document.addEventListener('focusin', (ev) => {
       const ed = ev.target && ev.target.closest && ev.target.closest(EDITOR);
-      if (!ed || isCommentArea(ed)) return;
-      injectAnnounce();
+      if (!ed || isCommentArea(ed) || skipped(ed)) return;
+      paintDock();
+      startTick();
     }, true);
 
     wrapNetwork();
-    injectAnnounce();
-    [400, 1200, 2800].forEach((ms) => window.setTimeout(injectAnnounce, ms));
+    paintDock();
+    startTick();
+    [200, 600, 1200, 2500, 5000].forEach((ms) => window.setTimeout(() => {
+      paintDock();
+      startTick();
+    }, ms));
+    window.addEventListener('scroll', paintDock, true);
+    window.addEventListener('resize', paintDock);
     let scheduled = 0;
     const obs = new MutationObserver(() => {
       if (scheduled) return;
       scheduled = window.setTimeout(() => {
         scheduled = 0;
-        injectAnnounce();
-      }, 180);
+        paintDock();
+        startTick();
+      }, 80);
     });
     if (document.body) obs.observe(document.body, { childList: true, subtree: true });
   }
@@ -675,6 +756,7 @@
       if (payload && payload.nonce) cfg.nonce = payload.nonce;
       if (payload && payload.loggedIn) {
         cfg.loggedIn = true;
+        if (typeof payload.canAnnounce === 'boolean') cfg.canAnnounce = payload.canAnnounce;
         if (payload.prefs) {
           cfg.prefs = payload.prefs;
           applyPrefs(cfg.prefs);

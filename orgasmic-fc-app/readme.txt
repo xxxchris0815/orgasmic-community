@@ -1,12 +1,17 @@
 === ORGASMIC App ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.1.16
+Stable tag: 1.1.17
 License: GPLv2 or later
 
 PWA, offline cache, and Web Push for chat, posts, comments, and calendar events.
 
 == Changelog ==
+
+= 1.1.17 =
+* Push/E-Mail checkboxes sit in a body overlay above the publish button so Vue cannot remove them
+* Composer is detected by the German title “Beitrag erstellen”, not by CSS class names
+* Service worker fetches plugin JS/CSS from the network so updates apply immediately
 
 = 1.1.16 =
 * Push and email checkboxes attach to the FluentCommunity post box (dialog, expanded editor, German publish labels)

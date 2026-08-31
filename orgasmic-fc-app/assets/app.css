@@ -260,46 +260,10 @@ html.orgasmic-native {
   pointer-events: none;
 }
 
-.oa-announce {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 10px 0 6px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(26, 22, 37, 0.12);
-  background: #f6f3ee;
-  font-size: 13px;
-  line-height: 1.35;
-  color: #1a1625;
-  position: relative;
-  z-index: 6;
+#oa-announce-host {
+  position: fixed;
+  z-index: 2147483646;
   pointer-events: auto;
-}
-
-.fcom_portal .oa-announce,
-.fluent_community .oa-announce {
-  display: flex !important;
-}
-
-.oa-announce label {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-  cursor: pointer;
-  font-weight: 650;
-}
-
-.oa-announce input {
-  margin-top: 2px;
-  flex: 0 0 auto;
-}
-
-.oa-announce .oa-announce-help {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 400;
-  color: #6b6575;
 }
 
 #oa-announce-flash {

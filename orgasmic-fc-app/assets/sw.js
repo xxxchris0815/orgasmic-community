@@ -1,4 +1,4 @@
-const CACHE = 'orgasmic-app-v3';
+const CACHE = 'orgasmic-app-v4';
 const API_CACHE = 'orgasmic-api-v1';
 const PRECACHE = [
   '/orgasmic-manifest.json',
@@ -29,7 +29,11 @@ self.addEventListener('fetch', (event) => {
 
   const dest = req.destination;
   const upload = url.pathname.indexOf('/wp-content/uploads/') === 0;
-  if (dest === 'style' || dest === 'script' || dest === 'image' || dest === 'font' || dest === 'audio' || dest === 'video' || upload) {
+  if (dest === 'style' || dest === 'script') {
+    event.respondWith(networkFirst(req, CACHE));
+    return;
+  }
+  if (dest === 'image' || dest === 'font' || dest === 'audio' || dest === 'video' || upload) {
     event.respondWith(cacheFirst(req));
     return;
   }

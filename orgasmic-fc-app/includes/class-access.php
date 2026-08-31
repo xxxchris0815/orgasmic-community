@@ -82,16 +82,59 @@ class Orgasmic_Fc_App_Access
             return false;
         }
         $helper = 'FluentCommunity\\App\\Services\\Helper';
-        if (method_exists($helper, 'isModerator') && $user_id === get_current_user_id() && $helper::isModerator()) {
-            return true;
+        if (method_exists($helper, 'isModerator')) {
+            try {
+                if ($user_id === get_current_user_id() && $helper::isModerator()) {
+                    return true;
+                }
+            } catch (Throwable $e) {
+            }
         }
+
+        $user = null;
         if (method_exists($helper, 'getCurrentUser') && $user_id === get_current_user_id()) {
-            $user = $helper::getCurrentUser();
-            if (is_object($user)) {
-                foreach (['hasCommunityAdminAccess', 'hasCommunityModeratorAccess', 'isCommunityAdmin'] as $method) {
-                    if (method_exists($user, $method) && $user->{$method}()) {
+            try {
+                $user = $helper::getCurrentUser();
+            } catch (Throwable $e) {
+                $user = null;
+            }
+        }
+        if (!$user && class_exists('FluentCommunity\\App\\Models\\User')) {
+            try {
+                $user = FluentCommunity\App\Models\User::find($user_id);
+            } catch (Throwable $e) {
+                $user = null;
+            }
+        }
+        if (!is_object($user)) {
+            return false;
+        }
+
+        foreach ([
+            'hasCommunityAdminAccess',
+            'hasCommunityModeratorAccess',
+            'isCommunityAdmin',
+            'isCommunityModerator',
+            'hasSpaceManageAccess',
+            'isSpaceModerator',
+        ] as $method) {
+            if (!method_exists($user, $method)) {
+                continue;
+            }
+            try {
+                if ($user->{$method}()) {
+                    return true;
+                }
+            } catch (Throwable $e) {
+            }
+        }
+        if (method_exists($user, 'hasCommunityPermission')) {
+            foreach (['community_admin', 'community_moderator'] as $perm) {
+                try {
+                    if ($user->hasCommunityPermission($perm)) {
                         return true;
                     }
+                } catch (Throwable $e) {
                 }
             }
         }
