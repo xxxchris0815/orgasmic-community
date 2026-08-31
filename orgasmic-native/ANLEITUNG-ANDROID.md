@@ -381,8 +381,11 @@ Fehlt der Menüpunkt: App noch nicht angelegt → Abschnitt 1. Oder du stehst au
 Name/Texte/Bilder allein reichen nicht. Play will Kategorie und Support-Mail.
 
 1. Links bleiben: **Mehr Nutzer gewinnen** → **App-Präsenz im Play Store** → **Play Store-Einstellungen** (nicht der Haupteintrag).
-2. **App-Kategorie:** z. B. **Social** / Soziales oder **Kommunikation** — passt zu Community/Chat. Nicht „Dating“, nicht Erwachsenen-Kategorie.
-3. **Tags:** weglassen oder harmlos (Community, Chat).
+2. **App-Kategorie:** **Soziales** (engl. **Social**). Das ist die richtige Schublade für eine Mitglieder-Community mit Feed, Chat und Kalender.
+   - Nicht **Kommunikation** — das ist WhatsApp/Telegram, nicht euer Portal.
+   - Nicht **Dating** — extra Richtlinien, 18+-Schublade, falsches Publikum.
+   - Nicht **Veranstaltungen**, nicht **Lifestyle** als Ausweichkategorie.
+3. **Tags:** weglassen, oder nur Harmloses wie Community. Keine Sex-/Dating-Tags.
 4. Runter zu **Kontaktdaten**:
    - **E-Mail** (Pflicht): eine Adresse, die du liest
    - **Website:** `https://community.orgasmic.live/portal` (oder die öffentliche Info-Seite)
