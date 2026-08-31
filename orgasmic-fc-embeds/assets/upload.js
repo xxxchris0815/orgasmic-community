@@ -15,6 +15,7 @@
   let picking = false;
   let pickerArmed = false;
   let lastEditor = null;
+  let mediaPermAsked = false;
   const pendingPlayUrls = [];
 
   function fileInput() {
@@ -115,25 +116,27 @@
     rememberEditor(document.activeElement);
     closeAttachDialogs();
     picking = true;
-    ensureMediaPermission();
-    const input = fileInput();
-    input.style.pointerEvents = 'auto';
-    try {
-      if (typeof input.showPicker === 'function') {
-        input.showPicker();
-      } else {
-        input.click();
-      }
-    } catch (e) {
+    const open = () => {
+      const input = fileInput();
+      input.style.pointerEvents = 'auto';
       try {
-        input.click();
-      } catch (err) {
-        picking = false;
+        if (typeof input.showPicker === 'function') {
+          input.showPicker();
+        } else {
+          input.click();
+        }
+      } catch (e) {
+        try {
+          input.click();
+        } catch (err) {
+          picking = false;
+        }
       }
-    }
-    window.setTimeout(() => {
-      picking = false;
-    }, 4000);
+      window.setTimeout(() => {
+        picking = false;
+      }, 4000);
+    };
+    ensureMediaPermission().then(open).catch(open);
   }
 
   function interceptVideoControl(ev) {
@@ -167,33 +170,40 @@
       btn.style.position = 'relative';
     }
     const label = document.createElement('label');
-    label.setAttribute('for', 'orgasmic-bunny-file');
     label.setAttribute('data-orgasmic-bunny-overlay', '1');
     label.setAttribute('aria-label', 'Video hochladen');
     label.style.cssText = 'position:absolute;inset:0;z-index:6;margin:0;cursor:pointer;background:transparent;';
     label.addEventListener('click', (ev) => {
+      ev.preventDefault();
       ev.stopPropagation();
       if (typeof ev.stopImmediatePropagation === 'function') {
         ev.stopImmediatePropagation();
       }
       pickerArmed = true;
-      picking = true;
       rememberEditor(btn);
+      pickFile();
       window.setTimeout(closeAttachDialogs, 0);
       window.setTimeout(closeAttachDialogs, 80);
       window.setTimeout(() => {
         pickerArmed = false;
-        picking = false;
-      }, 4000);
+      }, 1200);
     }, true);
     btn.appendChild(label);
   }
 
   function bindToolbarOverlays() {
     fileInput();
+    let found = false;
     document.querySelectorAll('button, [role="button"], .el-button, a.el-button, .el-dropdown-item').forEach((el) => {
-      if (looksLikeVideoControl(el)) overlayNativePicker(el);
+      if (looksLikeVideoControl(el)) {
+        overlayNativePicker(el);
+        found = true;
+      }
     });
+    if (found && isNativeShell() && !mediaPermAsked) {
+      mediaPermAsked = true;
+      ensureMediaPermission().catch(() => {});
+    }
   }
 
   function panel() {
@@ -249,10 +259,19 @@
   }
 
   async function ensureMediaPermission() {
-    const Cap = window.Capacitor && window.Capacitor.Plugins;
-    if (!Cap || !Cap.Camera || !Cap.Camera.requestPermissions) return;
+    if (!isNativeShell()) return;
+    const Plugins = window.Capacitor && window.Capacitor.Plugins;
+    if (!Plugins) return;
     try {
-      await Cap.Camera.requestPermissions({ permissions: ['photos'] });
+      if (Plugins.OrgasmicNative && typeof Plugins.OrgasmicNative.requestVideoRead === 'function') {
+        await Plugins.OrgasmicNative.requestVideoRead();
+        return;
+      }
+    } catch (e) {}
+    try {
+      if (Plugins.Camera && Plugins.Camera.requestPermissions) {
+        await Plugins.Camera.requestPermissions({ permissions: ['photos'] });
+      }
     } catch (e) {}
   }
 
@@ -268,7 +287,7 @@
     });
   }
 
-  async function readAsBuffer(blob) {
+  async function readAsBufferOnce(blob) {
     if (!blob) throw new Error('Datei konnte nicht gelesen werden.');
     if (typeof blob.arrayBuffer === 'function') {
       try {
@@ -287,6 +306,24 @@
       }
     } catch (e) {}
     return readViaFileReader(blob);
+  }
+
+  async function readAsBuffer(blob) {
+    let lastErr = null;
+    const tries = isNativeShell() ? 4 : 1;
+    for (let i = 0; i < tries; i++) {
+      try {
+        const buf = await readAsBufferOnce(blob);
+        if (buf && buf.byteLength) return buf;
+      } catch (e) {
+        lastErr = e;
+      }
+      if (i + 1 < tries) {
+        await new Promise((resolve) => setTimeout(resolve, 250 * (i + 1)));
+      }
+    }
+    if (lastErr) throw lastErr;
+    throw new Error('Datei konnte nicht gelesen werden.');
   }
 
   async function parseReply(res, fallback) {
