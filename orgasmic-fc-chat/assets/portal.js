@@ -7,6 +7,7 @@
   const state = {
     rooms: [],
     messages: [],
+    authors: {},
     spaceId: 0,
     me: cfg.me || { id: 0 },
     portal: {
@@ -89,6 +90,29 @@
       return '<img class="' + cls + '" src="' + escapeHtml(url) + '" alt="" data-och-fallback="' + initial(name) + '" />';
     }
     return '<span class="' + cls + '" aria-hidden="true">' + initial(name) + '</span>';
+  }
+
+  function rememberAuthors(items) {
+    (items || []).forEach((item) => {
+      if (item && item.author && item.user_id) {
+        state.authors[item.user_id] = item.author;
+      }
+      const last = item && item.last_message;
+      if (last && last.author && last.user_id) {
+        state.authors[last.user_id] = last.author;
+      }
+    });
+    if (state.me && state.me.id) {
+      state.authors[state.me.id] = {
+        id: state.me.id,
+        display_name: state.me.display_name || 'Du',
+        avatar: state.me.avatar || (state.authors[state.me.id] && state.authors[state.me.id].avatar) || '',
+      };
+    }
+  }
+
+  function authorFor(msg) {
+    return (msg && state.authors[msg.user_id]) || (msg && msg.author) || {};
   }
 
   function bindAvatarFallback(root) {
@@ -458,20 +482,54 @@
     ));
   }
 
+  let pageLockY = 0;
+
+  function lockPageForOverlay() {
+    pageLockY = window.scrollY || window.pageYOffset || 0;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = '-' + pageLockY + 'px';
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
+  }
+
+  function unlockPageForOverlay() {
+    document.documentElement.style.overflow = '';
+    document.body.style.overflow = '';
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.left = '';
+    document.body.style.right = '';
+    document.body.style.width = '';
+    window.scrollTo(0, pageLockY || 0);
+  }
+
   function pinOverlayToViewport() {
     const root = document.getElementById('orgasmic-chat-root');
     if (!root || root.hidden) return;
     applyMobileBarInset();
     const vv = window.visualViewport;
-    if (!vv) return;
+    const visTop = vv ? vv.offsetTop : 0;
+    const visH = vv ? vv.height : window.innerHeight;
     let bar = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--orgasmic-mobile-bar')) || 0;
-    const covered = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    const covered = Math.max(0, window.innerHeight - visH - visTop);
     if (covered > 80) bar = 0;
-    root.style.top = vv.offsetTop + 'px';
     root.style.left = '0px';
     root.style.right = '0px';
+    root.style.width = '100%';
     root.style.bottom = 'auto';
-    root.style.height = Math.max(120, vv.height - bar) + 'px';
+    root.style.top = visTop + 'px';
+    root.style.height = Math.max(120, visH - bar) + 'px';
+    root.style.transform = 'none';
+    window.requestAnimationFrame(() => {
+      if (!root || root.hidden || !window.visualViewport) return;
+      const want = window.visualViewport.offsetTop;
+      const got = root.getBoundingClientRect().top;
+      const drift = got - want;
+      root.style.transform = Math.abs(drift) > 2 ? ('translateY(' + (-drift) + 'px)') : 'none';
+    });
   }
 
   function clearOverlayPin() {
@@ -482,6 +540,8 @@
     root.style.right = '';
     root.style.bottom = '';
     root.style.height = '';
+    root.style.width = '';
+    root.style.transform = '';
   }
 
   function openOverlay() {
@@ -489,8 +549,7 @@
     if (!root) return;
     applyMobileBarInset();
     root.hidden = false;
-    document.body.style.overflow = 'hidden';
-    document.documentElement.style.overflow = 'hidden';
+    lockPageForOverlay();
     pinOverlayToViewport();
   }
 
@@ -500,8 +559,7 @@
     clearOverlayPin();
     root.hidden = true;
     root.innerHTML = '';
-    document.body.style.overflow = '';
-    document.documentElement.style.overflow = '';
+    unlockPageForOverlay();
     state.spaceId = 0;
     state.messages = [];
     lastId = 0;
@@ -847,7 +905,7 @@
       html += '<div class="och-day">' + escapeHtml(day) + '</div>';
     }
     const mine = state.me && msg.user_id === state.me.id;
-    const author = msg.author || {};
+    const author = authorFor(msg);
     const canDelete = mine || state.canManage;
     const name = author.display_name || (mine ? 'Du' : 'Mitglied');
     html += '<article class="orgasmic-chat-msg' + (mine ? ' is-mine' : '') + '" data-och-msg="' + msg.id + '" data-och-uid="' + msg.user_id + '">';
@@ -1073,6 +1131,7 @@
     if (cached && Array.isArray(cached) && cached.length) {
       state.messages = cached;
       lastId = cached[cached.length - 1].id;
+      rememberAuthors(cached);
       return true;
     }
     state.messages = [];
@@ -1099,6 +1158,7 @@
       state.canManage = !!data.can_manage;
       applyPortal(data.portal);
       updateNavBadge(data.unread || 0);
+      rememberAuthors(state.rooms);
       cacheSet('orgasmic-chat-rooms:' + cacheUid(), {
         rooms: state.rooms,
         me: state.me,
@@ -1133,6 +1193,7 @@
     try {
       const data = await api(path);
       const items = data.items || [];
+      rememberAuthors(items);
       const incoming = [];
       if (reset) {
         state.messages = items;
@@ -1270,6 +1331,7 @@
         method: 'POST',
         body: JSON.stringify(payload),
       });
+      if (msg) rememberAuthors([msg]);
       if (box) {
         box.value = '';
         box.style.height = '';
@@ -1651,6 +1713,13 @@
     window.visualViewport.addEventListener('resize', pinOverlayToViewport);
     window.visualViewport.addEventListener('scroll', pinOverlayToViewport);
   }
+  document.addEventListener('focusin', () => {
+    pinOverlayToViewport();
+  }, true);
+  document.addEventListener('focusout', () => {
+    window.setTimeout(pinOverlayToViewport, 50);
+    window.setTimeout(pinOverlayToViewport, 320);
+  }, true);
   pollUnread();
   if (hashRoute()) bootFromHash();
 })();

@@ -1,12 +1,16 @@
 === ORGASMIC Chat ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.1.10
+Stable tag: 1.1.11
 License: GPLv2 or later
 
 Space chat for FluentCommunity. One room per space, members only, header icon with unread badge, REST API.
 
 == Changelog ==
+
+= 1.1.11 =
+* Keep the chat overlay covering the feed when the keyboard opens
+* Use FluentCommunity profile photos in chat and refresh them after a change
 
 = 1.1.10 =
 * Close chat when tapping Home on the FluentCommunity bar; keep overlay opaque above the keyboard

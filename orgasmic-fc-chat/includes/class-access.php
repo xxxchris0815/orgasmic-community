@@ -177,8 +177,33 @@ class Orgasmic_Fc_Chat_Access
         return [
             'id' => $user_id,
             'display_name' => (string) $user->display_name,
-            'avatar' => get_avatar_url($user_id, ['size' => 96]) ?: '',
+            'avatar' => $this->user_avatar_url($user_id),
         ];
+    }
+
+    private function user_avatar_url(int $user_id): string
+    {
+        global $wpdb;
+        $url = '';
+        $table = $wpdb->prefix . 'fcom_xprofile';
+        $suppress = $wpdb->suppress_errors(true);
+        $row = $wpdb->get_row(
+            $wpdb->prepare("SELECT avatar FROM {$table} WHERE user_id = %d", $user_id),
+            ARRAY_A
+        );
+        $wpdb->suppress_errors($suppress);
+        if (is_array($row)) {
+            $url = $this->normalize_logo((string) ($row['avatar'] ?? ''));
+        }
+        if ($url === '') {
+            $url = (string) (get_avatar_url($user_id, ['size' => 96]) ?: '');
+        }
+        if ($url === '') {
+            return '';
+        }
+        $url .= (strpos($url, '?') === false ? '?' : '&') . 'ochv=' . rawurlencode(substr(sha1($url), 0, 8));
+
+        return $url;
     }
 
     private function space_image_url(array $row): string
