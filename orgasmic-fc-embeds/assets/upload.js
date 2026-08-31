@@ -242,6 +242,12 @@
     if (root) root.hidden = true;
   }
 
+  document.addEventListener('click', (ev) => {
+    if (ev.target && ev.target.closest && ev.target.closest('[data-obu-close]')) {
+      hideStatus();
+    }
+  });
+
   function loadTus() {
     if (window.tus) return Promise.resolve(window.tus);
     if (tusReady) return tusReady;
@@ -777,15 +783,20 @@
   }
 
   async function apiStatus(videoId) {
+    const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+    const timer = ctrl ? window.setTimeout(() => ctrl.abort(), 8000) : 0;
     try {
       const res = await fetch(cfg.root + 'upload/status?video_id=' + encodeURIComponent(videoId), {
         credentials: 'include',
         headers: { 'X-WP-Nonce': cfg.nonce, Accept: 'application/json' },
+        signal: ctrl ? ctrl.signal : undefined,
       });
       return await parseReply(res, 'Video-Status fehlgeschlagen.');
     } catch (err) {
       if (!cfg.ajaxNonce) throw err;
       return ajaxForm('orgasmic_fc_upload_status', { video_id: videoId }, null, null, '', 'Video-Status fehlgeschlagen.');
+    } finally {
+      if (timer) window.clearTimeout(timer);
     }
   }
 
@@ -912,12 +923,28 @@
     return new Promise((resolve, reject) => {
       const expire = String(creds.expirationTime || creds.expire || '');
       let progressed = false;
+      let finished = false;
+      let lastPct = 0;
       let upload = null;
+      let completeWait = 0;
+      const done = (err) => {
+        if (finished) return;
+        finished = true;
+        window.clearTimeout(stall);
+        window.clearTimeout(completeWait);
+        window.clearTimeout(hard);
+        try { if (err && upload) upload.abort(true); } catch (e) {}
+        if (err) reject(err);
+        else resolve(creds);
+      };
       const stall = window.setTimeout(() => {
         if (progressed) return;
-        try { if (upload) upload.abort(true); } catch (e) {}
-        reject(new Error('TUS_STALL'));
+        done(new Error('TUS_STALL'));
       }, 8000);
+      const hard = window.setTimeout(() => {
+        if (lastPct >= 100) done();
+        else done(new Error('TUS_STALL'));
+      }, 90000);
       upload = new tus.Upload(file, {
         endpoint: creds.endpoint || 'https://video.bunnycdn.com/tusupload',
         retryDelays: [0, 3000, 5000, 10000, 20000, 60000],
@@ -938,8 +965,7 @@
           title: file.name || 'community-video',
         },
         onError(err) {
-          window.clearTimeout(stall);
-          reject(err);
+          done(err);
         },
         onProgress(sent, total) {
           if (sent > 0) {
@@ -947,11 +973,15 @@
             window.clearTimeout(stall);
           }
           const pct = total ? Math.round((sent / total) * 100) : 0;
+          lastPct = pct;
           setStatus('Video wird hochgeladen… ' + pct + '%', pct);
+          if (total && sent >= total) {
+            window.clearTimeout(completeWait);
+            completeWait = window.setTimeout(() => done(), 1200);
+          }
         },
         onSuccess() {
-          window.clearTimeout(stall);
-          resolve(creds);
+          done();
         },
       });
       upload.start();
@@ -999,26 +1029,16 @@
     setStatus('Video wird vorbereitet…', 2);
     return apiCreate(file && file.name)
       .then((creds) => sendBytes(file, creds))
-      .then((creds) => apiStatus(creds.video_id).then((status) => ({ creds, status })).catch(() => ({ creds, status: null })))
-      .then((pair) => {
-        if (videoReceived(pair.status)) return pair.creds;
-        if (preferOriginUpload() || file.size > 48 * 1024 * 1024) {
-          throw new Error('Das Video ist nicht angekommen. Bitte noch einmal hochladen.');
-        }
-        setStatus('Zweiter Upload-Versuch…', 50);
-        return apiPush(file, pair.creds.video_id).then((status) => {
-          if (!videoReceived(status) && status && status.ok === false) {
-            throw new Error('Das Video ist nicht angekommen.');
-          }
-          return pair.creds;
-        });
-      })
       .then((creds) => {
-        setStatus('Video wird in den Beitrag gesetzt…', 96);
+        setStatus('Video wird in den Beitrag gesetzt…', 98);
+        apiStatus(creds.video_id).catch(() => null);
         return insertPlayUrlRetry(creds.play_url).then((ok) => {
           if (ok) {
             setStatus('Video ist im Beitrag und wird jetzt verarbeitet.', 100);
             setTimeout(hideStatus, 2200);
+          } else {
+            setStatus('Video hochgeladen.', 100);
+            setTimeout(hideStatus, 4000);
           }
           return creds;
         });

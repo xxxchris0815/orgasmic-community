@@ -124,7 +124,7 @@ class Orgasmic_Fc_Bunny_Embeds
         echo '<script src="' . esc_url(ORGASMIC_FC_EMBEDS_URL . 'assets/track.js?ver=' . rawurlencode(ORGASMIC_FC_EMBEDS_VERSION)) . '" defer></script>';
         if (!empty($data['uploadEnabled'])) {
             echo '<script src="' . esc_url(ORGASMIC_FC_EMBEDS_URL . 'assets/upload.js?ver=' . rawurlencode(ORGASMIC_FC_EMBEDS_VERSION)) . '" defer></script>';
-            echo '<div id="orgasmic-bunny-upload" hidden><div class="obu-card"><p class="obu-title">Video hochladen</p><p class="obu-status" data-obu-status>Wird hochgeladen…</p><div class="obu-bar"><i data-obu-bar></i></div></div></div>';
+            echo '<div id="orgasmic-bunny-upload" hidden><div class="obu-card"><button type="button" class="obu-close" data-obu-close aria-label="Schließen">×</button><p class="obu-title">Video hochladen</p><p class="obu-status" data-obu-status>Wird hochgeladen…</p><div class="obu-bar"><i data-obu-bar></i></div></div></div>';
         }
     }
 }
