@@ -377,7 +377,7 @@ Paketname `live.lo.community` steht **nicht** auf der Listing-Seite. Den setzt P
 
    | Feld | Pflicht | Format |
    | --- | --- | --- |
-   | **App-Symbol** / App icon | ja | PNG, **genau 512×512**, kein Alpha nötig, ohne Sex-Wörter in der Schrift |
+   | **App-Symbol** / App icon | ja | Datei aus dem Repo: [`orgasmic-native/store/play-icon-512.png`](../store/play-icon-512.png) — **genau 512×512**, Gold-Logo auf Schwarz, ohne Schrift |
    | **Feature-Grafik** / Feature graphic | ja | **1024×500**, JPEG oder PNG |
    | **Handy-Screenshots** / Phone screenshots | ja, **mindestens 2** (bis 8) | JPEG oder PNG, kürzeste Seite mindestens 320 px, längste höchstens 3840 px. z. B. Feed + Chat, Texte im Bild ebenfalls ohne kritische Wörter |
    | Tablet-Screenshots, TV, Wear | nein | weglassen |
