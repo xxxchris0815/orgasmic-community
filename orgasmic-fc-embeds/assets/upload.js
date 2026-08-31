@@ -17,6 +17,9 @@
   let lastEditor = null;
   let mediaPermAsked = false;
   const pendingPlayUrls = [];
+  const clearedVideos = new Set();
+  let insertTimers = [];
+  let insertRetryTimer = 0;
 
   function fileInput() {
     let input = document.getElementById('orgasmic-bunny-file');
@@ -143,6 +146,9 @@
 
   function interceptVideoControl(ev) {
     if (ev.target && ev.target.closest && ev.target.closest('[data-orgasmic-bunny-overlay]')) {
+      return;
+    }
+    if (ev.target && ev.target.closest && ev.target.closest('[data-orgasmic-bunny-remove]')) {
       return;
     }
     const control = findVideoControl(ev.target);
@@ -565,7 +571,90 @@
     return false;
   }
 
+  function videoKey(url) {
+    const parsed = parsePlay(url);
+    return parsed ? parsed.video : String(url || '');
+  }
+
+  function isCleared(url) {
+    const key = videoKey(url);
+    return !!(key && clearedVideos.has(key));
+  }
+
+  function forgetPending(url) {
+    if (!url) {
+      pendingPlayUrls.length = 0;
+      return;
+    }
+    const key = videoKey(url);
+    for (let i = pendingPlayUrls.length - 1; i >= 0; i -= 1) {
+      if (pendingPlayUrls[i] === url || videoKey(pendingPlayUrls[i]) === key) {
+        pendingPlayUrls.splice(i, 1);
+      }
+    }
+  }
+
+  function cancelInsertRetries() {
+    insertTimers.forEach((id) => window.clearTimeout(id));
+    insertTimers = [];
+    if (insertRetryTimer) {
+      window.clearInterval(insertRetryTimer);
+      insertRetryTimer = 0;
+    }
+  }
+
+  function composerHasVideo(url) {
+    if (!url) return false;
+    const parsed = parsePlay(url);
+    const root = composerRoot(lastEditor);
+    if (!root) return false;
+    if (parsed && root.querySelector('[data-orgasmic-bunny-object][data-bunny-play*="' + parsed.video + '"]')) {
+      return true;
+    }
+    return editorsIn(root).some((el) => editorContains(el, url));
+  }
+
+  function prunePending() {
+    for (let i = pendingPlayUrls.length - 1; i >= 0; i -= 1) {
+      const url = pendingPlayUrls[i];
+      if (isCleared(url) || (!busy && !composerHasVideo(url))) {
+        pendingPlayUrls.splice(i, 1);
+      }
+    }
+  }
+
+  function pendingUrlForSubmit() {
+    prunePending();
+    return pendingPlayUrls.length ? pendingPlayUrls[pendingPlayUrls.length - 1] : '';
+  }
+
+  function removeInsertedVideo(url) {
+    const parsed = parsePlay(url);
+    if (parsed) clearedVideos.add(parsed.video);
+    else if (url) clearedVideos.add(url);
+    cancelInsertRetries();
+    forgetPending(url);
+    const objects = [...document.querySelectorAll('[data-orgasmic-bunny-object]')];
+    objects.forEach((el) => {
+      const play = el.getAttribute('data-bunny-play') || '';
+      const same = !url
+        || play === url
+        || (parsed && play.indexOf(parsed.video) !== -1)
+        || (parsed && el.getAttribute('data-orgasmic-bunny-object') === parsed.library + '/' + parsed.video);
+      if (!same) return;
+      const root = composerRoot(el);
+      el.remove();
+      if (play) stripAllUrls(root, play);
+    });
+    if (url) {
+      editorsIn(composerRoot(lastEditor)).forEach((el) => stripUrlFromEditor(el, url));
+      stripAllUrls(composerRoot(lastEditor), url);
+    }
+    editorsIn(composerRoot(lastEditor)).forEach((el) => fireInput(el));
+  }
+
   function alreadyInserted(url) {
+    if (isCleared(url)) return false;
     const root = composerRoot(lastEditor);
     if (root && root.querySelector('[data-orgasmic-bunny-object]')) return true;
     const parsed = parsePlay(url);
@@ -635,6 +724,14 @@
     keep.className = 'orgasmic-bunny-url-hide';
     keep.textContent = url;
     wrap.appendChild(keep);
+    const rm = document.createElement('button');
+    rm.type = 'button';
+    rm.className = 'orgasmic-bunny-remove';
+    rm.setAttribute('data-orgasmic-bunny-remove', '1');
+    rm.setAttribute('contenteditable', 'false');
+    rm.setAttribute('aria-label', 'Video entfernen');
+    rm.textContent = '×';
+    wrap.appendChild(rm);
     return wrap;
   }
 
@@ -646,7 +743,7 @@
   }
 
   function insertPlayerObject(el, url) {
-    if (!el || !url) return false;
+    if (!el || !url || isCleared(url)) return false;
     const root = composerRoot(el);
     stripAllUrls(root, url);
 
@@ -688,16 +785,19 @@
   }
 
   function finishInsert(el, url) {
+    if (isCleared(url)) return false;
     rememberPlayUrl(url);
     const ok = insertPlayerObject(el, url);
     [50, 160, 400, 900].forEach((ms) => {
-      window.setTimeout(() => insertPlayerObject(el, url), ms);
+      insertTimers.push(window.setTimeout(() => {
+        if (!isCleared(url)) insertPlayerObject(el, url);
+      }, ms));
     });
     return ok;
   }
 
   function insertPlayUrl(url) {
-    if (!url) return false;
+    if (!url || isCleared(url)) return false;
     if (alreadyInserted(url)) {
       rememberPlayUrl(url);
       const root = composerRoot(lastEditor);
@@ -740,7 +840,8 @@
       window.fetch = function (input, init) {
         const href = typeof input === 'string' ? input : (input && input.url) || '';
         if (pendingPlayUrls.length && init && init.method && /post|put|patch/i.test(init.method) && /\/feeds(\b|\/|\?)/.test(href) && typeof init.body === 'string') {
-          init = Object.assign({}, init, { body: injectPlayIntoPayload(init.body, pendingPlayUrls[pendingPlayUrls.length - 1]) });
+          const play = pendingUrlForSubmit();
+          if (play) init = Object.assign({}, init, { body: injectPlayIntoPayload(init.body, play) });
         }
         return orig.call(this, input, init);
       };
@@ -755,7 +856,8 @@
       };
       window.XMLHttpRequest.prototype.send = function (body) {
         if (this.__orgasmicBunnyFeed && pendingPlayUrls.length && typeof body === 'string') {
-          body = injectPlayIntoPayload(body, pendingPlayUrls[pendingPlayUrls.length - 1]);
+          const play = pendingUrlForSubmit();
+          if (play) body = injectPlayIntoPayload(body, play);
         }
         return send.call(this, body);
       };
@@ -764,15 +866,24 @@
   }
 
   function insertPlayUrlRetry(url) {
+    if (isCleared(url)) return Promise.resolve(false);
     if (insertPlayUrl(url)) return Promise.resolve(true);
     return new Promise((resolve) => {
       let tries = 0;
-      const timer = window.setInterval(() => {
+      if (insertRetryTimer) window.clearInterval(insertRetryTimer);
+      insertRetryTimer = window.setInterval(() => {
         tries += 1;
+        if (isCleared(url)) {
+          window.clearInterval(insertRetryTimer);
+          insertRetryTimer = 0;
+          resolve(false);
+          return;
+        }
         const ok = insertPlayUrl(url);
         if (ok || tries >= 8) {
-          window.clearInterval(timer);
-          if (!ok) {
+          window.clearInterval(insertRetryTimer);
+          insertRetryTimer = 0;
+          if (!ok && !isCleared(url)) {
             try { navigator.clipboard.writeText(url); } catch (e) {}
             setStatus('Video hochgeladen.', 100);
           }
@@ -1025,6 +1136,8 @@
       return Promise.reject(new Error('Video ist größer als 512 MB.'));
     }
     busy = true;
+    cancelInsertRetries();
+    pendingPlayUrls.length = 0;
     closeAttachDialogs();
     setStatus('Video wird vorbereitet…', 2);
     return apiCreate(file && file.name)
@@ -1053,6 +1166,30 @@
       });
   }
 
+  function decoratePlayers() {
+    document.querySelectorAll('[data-orgasmic-bunny-object]').forEach((wrap) => {
+      if (wrap.querySelector('[data-orgasmic-bunny-remove]')) return;
+      const rm = document.createElement('button');
+      rm.type = 'button';
+      rm.className = 'orgasmic-bunny-remove';
+      rm.setAttribute('data-orgasmic-bunny-remove', '1');
+      rm.setAttribute('contenteditable', 'false');
+      rm.setAttribute('aria-label', 'Video entfernen');
+      rm.textContent = '×';
+      wrap.appendChild(rm);
+    });
+  }
+
+  document.addEventListener('click', (ev) => {
+    const btn = ev.target && ev.target.closest && ev.target.closest('[data-orgasmic-bunny-remove]');
+    if (!btn) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (typeof ev.stopImmediatePropagation === 'function') ev.stopImmediatePropagation();
+    const wrap = btn.closest('[data-orgasmic-bunny-object]');
+    removeInsertedVideo(wrap ? wrap.getAttribute('data-bunny-play') : '');
+  }, true);
+
   document.addEventListener('focusin', (ev) => {
     if (ev.target && isUsableEditor(ev.target) && inComposerArea(ev.target) && !isTitleEditor(ev.target)) {
       rememberEditor(ev.target);
@@ -1079,6 +1216,8 @@
       const open = [...document.querySelectorAll('.el-dialog, [role="dialog"]')].some(isAttachDialog);
       if (open) closeAttachDialogs();
       bindToolbarOverlays();
+      decoratePlayers();
+      prunePending();
     });
     if (document.body) obs.observe(document.body, { childList: true, subtree: true });
   }
@@ -1086,4 +1225,5 @@
   hookFeedSubmit();
   fileInput();
   bindToolbarOverlays();
+  decoratePlayers();
 })();

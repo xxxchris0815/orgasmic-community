@@ -10,7 +10,7 @@ Moved from `evolution-api` (`Extras/orgasmic-community`).
 | --- | --- | --- |
 | `orgasmic-fc-tracker/` | **1.2.1** | Engagement-Tracker, Dashboard, Evolution-Webhook |
 | `orgasmic-fc-events/` | **1.0.12** | Kalender im Portal (RSVP, Zoom, Markieren/Duplizieren/Löschen mobil+Desktop) |
-| `orgasmic-fc-embeds/` | **1.2.15** | Video-Player im Feed, Upload schließt nach 100%, kompakter Chip nur in Angesagte Beiträge |
+| `orgasmic-fc-embeds/` | **1.2.16** | Video-Player im Feed, Video im Entwurf wieder entfernbar |
 | `orgasmic-fc-chat/` | **1.1.16** | Space-Chat (letzte 40 Nachrichten, ältere per Scroll) |
 | `orgasmic-fc-app/` | **1.1.19** | PWA, Web Push, Megafon-Icon für Push/E-Mail am Beitrag |
 
@@ -58,7 +58,7 @@ Plugin-Ordner: `orgasmic-fc-embeds/`
 - Tracking: wer spielt welches Video, Position in Sekunden, max. gesehen
 - Webhook: `video.play`, `video.pause`, `video.progress` (alle 15s), `video.ended`, `video.seeked`
 
-ZIP: [`orgasmic-fc-embeds-1.2.15.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-embeds-1.2.15.zip)
+ZIP: [`orgasmic-fc-embeds-1.2.16.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-embeds-1.2.16.zip)
 
 Falls der iframe leer bleibt: in Bunny Stream → Allowed Domains `community.orgasmic.live` eintragen.
 
