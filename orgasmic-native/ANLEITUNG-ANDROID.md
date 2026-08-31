@@ -116,14 +116,22 @@ Wenn die yaml erst auf dem Feature-Branch liegt: in Codemagic diesen Branch scan
 
 ## 4. `google-services.json` bei Codemagic hinterlegen
 
-1. Codemagic → Team / App → **Environment variables** (oder Teams → Global variables).
-2. **Gruppe anlegen:** Name genau `firebase` (wie in der yaml).
-3. Variable:
+Das ist die Android-Datei aus Firebase (**Deine Apps**), **nicht** der private Schlüssel unter Dienstkonten.
+
+Mehrzeiliges JSON zerbricht in Codemagic oft den Build. Am sichersten: **eine Zeile**.
+
+1. `google-services.json` in einem Editor öffnen.
+2. Alle Zeilenumbrüche entfernen, sodass der Text mit `{` beginnt und mit `}` endet (eine lange Zeile).
+3. Codemagic → App → **Environment variables** (oder Teams → Global variables).
+4. Variable:
    - Name: `GOOGLE_SERVICES_JSON`
-   - Value: **kompletter Inhalt** der `google-services.json` (alles von `{` bis `}`)
+   - Value: diese **eine** Zeile
    - **Secret** anhaken
-   - Gruppe: `firebase`
-4. Speichern.
+   - Gruppe: **`firebase`** (Name exakt so)
+5. Speichern. Alte Variable gleichen Namens vorher löschen, falls sie mehrzeilig war.
+6. **Android Debug (testen)** neu starten.
+
+Im Log bei **Write google-services.json** muss stehen: `google-services.json geschrieben … package live.lo.community`.
 
 ---
 
@@ -145,6 +153,8 @@ Wenn eine Test-Push aus WP-Admin (**ORGASMIC App** → Test-Push) auf dem Handy 
 Debug-APK nicht in den Play Store laden.
 
 **Build-Fehler `invalid source release: 21`:** Capacitor 7 braucht JDK 21, Codemagic startet standardmäßig mit JDK 17. In `codemagic.yaml` steht dafür `ubuntu: 24.04` und `java: 21`. Den Workflow **Android Debug (testen)** auf dem aktuellen Feature-Branch nochmal starten — mehr Log-Zeilen brauchst du für diesen Fehler nicht.
+
+**Build bricht bei google-services.json ab:** Die Variable war fast immer **mehrzeilig**. Inhalt als **eine Zeile** erneut speichern (siehe Abschnitt 4), Branch mit dem aktuellen `codemagic.yaml` bauen.
 
 ---
 

@@ -19,14 +19,7 @@ workflows:
       - name: Write google-services.json
         script: |
           cd orgasmic-native
-          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
-            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
-          else
-            echo "GOOGLE_SERVICES_JSON fehlt — Debug baut, Push geht noch nicht."
-          fi
-          if [ -f android/app/google-services.json ]; then
-            echo "google-services.json vorhanden ($(wc -c < android/app/google-services.json) bytes)"
-          fi
+          python3 scripts/write-google-services.py android/app/google-services.json
       - name: Sync Capacitor
         script: |
           cd orgasmic-native
@@ -95,11 +88,7 @@ workflows:
       - name: Write google-services.json
         script: |
           cd orgasmic-native
-          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
-            echo "GOOGLE_SERVICES_JSON fehlt in der Gruppe firebase."
-            exit 1
-          fi
-          printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          python3 scripts/write-google-services.py --required android/app/google-services.json
       - name: Sync Capacitor
         script: |
           cd orgasmic-native
@@ -144,7 +133,7 @@ workflows:
       - name: Write google-services.json
         script: |
           cd orgasmic-native
-          printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          python3 scripts/write-google-services.py --required android/app/google-services.json
       - name: Sync Capacitor
         script: |
           cd orgasmic-native
