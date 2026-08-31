@@ -160,26 +160,149 @@ Debug-APK nicht in den Play Store laden.
 
 ## 6. Keystore einmal erzeugen (ohne eigenen PC)
 
-Für den Store brauchst du einen Signing-Schlüssel. **Einmal** erzeugen, **für immer** behalten. Verloren = keine Updates mehr unter derselben Play-App.
+Der Keystore ist der **Unterschriften-Stift** der App. Play Store akzeptiert Updates nur mit **demselben** Stift. Einmal erzeugen, **für immer** behalten. Verloren = neue Play-App, alle Installationen tot.
 
-1. Codemagic → Environment variables → Gruppe **`android_keystore`**.
-2. Variable `KEYSTORE_PASSWORD`: ein langes Passwort, **Secret**, Gruppe `android_keystore`.
-3. Passwort in einem Passwort-Manager speichern.
-4. Workflow **Android Keystore einmal erzeugen** starten.
-5. Artifact **`orgasmic-release.keystore`** herunterladen.
-6. Datei an zwei sichere Orte kopieren (nicht ins Git).
-7. Diesen Workflow **nie wieder** starten.
+Du brauchst **kein** Android Studio. Codemagic erzeugt die Datei. Danach lädst du sie in Codemagic als Signing-Identity hoch, damit der Workflow **Android Release** sie findet.
 
-### Keystore in Codemagic hochladen
+Namen müssen **exakt** so heißen (Copy-Paste):
 
-1. Codemagic → **Teams** → dein Team → **codemagic.yaml settings** → **Code signing identities**.
-2. Tab **Android keystores**.
-3. Datei `orgasmic-release.keystore` hochladen.
-4. Keystore password: dasselbe wie `KEYSTORE_PASSWORD`.
-5. Key alias: `orgasmic`
-6. Key password: dasselbe Passwort.
-7. Reference name **genau:** `orgasmic_android`
-8. **Add keystore**.
+| Was | Wert | Wo |
+| --- | --- | --- |
+| Environment-Gruppe | `android_keystore` | Variablen (Schritt A) |
+| Variable | `KEYSTORE_PASSWORD` | Variablen (Schritt A) |
+| Key alias | `orgasmic` | Signing Identity (Schritt D) |
+| Reference name | `orgasmic_android` | Signing Identity (Schritt D) |
+| Dateiname | `orgasmic-release.keystore` | Artifact nach dem Build |
+
+Das Passwort für Keystore und Key ist **dasselbe** (`KEYSTORE_PASSWORD`).
+
+Reihenfolge: **6A → 6B → 6C → 6D**. Nicht überspringen. 6D ist der Schritt, den die meisten verpassen — ohne ihn schlägt **Android Release** fehl, obwohl die Datei schon existiert.
+
+### Wo klicke ich? (Codemagic-Karte)
+
+Codemagic hat **zwei verschiedene Orte**. Environment-Variablen sitzen an der **App**, der Keystore-Upload sitzt am **Team**. Das ist Absicht.
+
+Nach dem Login (`https://codemagic.io`):
+
+1. **Apps** (linke Leiste oder Startseite) → die App mit dem GitHub-Repo **orgasmic-community** öffnen.  
+   Dort oben siehst du Tabs wie **Builds**, **codemagic.yaml**, **Environment variables**, manchmal ein Zahnrad.  
+   **Hier machst du 6A, 6B und 6E.**
+2. **Teams** (linke Leiste, neben Apps — nicht in der App selbst). Team anklicken (oft nur **Personal** / dein Name). Dann **Team settings** / Einstellungen.  
+   Darin: **codemagic.yaml settings** → **Code signing identities**.  
+   **Hier machst du 6D.**  
+   Siehst du kein „Teams“: oben rechts auf dein Profilbild → **Team settings**.
+
+| Schritt | Ort | Was du tust |
+| --- | --- | --- |
+| 6A | **App** → Tab **Environment variables** | Passwort als Secret, Gruppe `android_keystore` |
+| 6B | **App** → **Start new build** | Workflow **Android Keystore einmal erzeugen** |
+| 6C | Build → **Artifacts** + dein Rechner | `orgasmic-release.keystore` zweimal sichern, nie ins Git |
+| 6D | **Teams** → Team settings → **Code signing identities** → Android | Datei hochladen, Reference `orgasmic_android` |
+| 6E | **App** → **Start new build** | Workflow **Android Release (AAB + APK)** |
+
+---
+
+### 6A. Passwort in Codemagic anlegen
+
+Das Passwort ist **nicht** der Firebase-JSON und **nicht** `GOOGLE_SERVICES_JSON`. Nur ein geheimes Passwort für den Keystore.
+
+1. [codemagic.io](https://codemagic.io) öffnen, einloggen.
+2. Die App **orgasmic-community** anklicken (nicht Teams zuerst — direkt die App).
+3. Oben die Tabs: **Builds** | **codemagic.yaml** | **Environment variables** | …  
+   Tab **Environment variables** öffnen.  
+   (Falls du nur Teams siehst: **Teams** → dein Team / Personal Account → **Global variables and secrets**. Funktioniert genauso, Gruppe muss trotzdem `android_keystore` heißen.)
+4. Formular **Add variable** / Variable hinzufügen:
+
+   | Feld in der UI | Eintrag |
+   | --- | --- |
+   | **Variable name** | `KEYSTORE_PASSWORD` |
+   | **Variable value** | ein langes Passwort, z. B. 20+ Zeichen, Mix aus Buchstaben/Zahlen. **Kein** Leerzeichen am Anfang/Ende. |
+   | **Select group** / Group | `android_keystore` eintippen. Wenn die Gruppe noch nicht existiert: Enter bzw. **Create group** `android_keystore`. |
+   | **Secret** | Haken **an** (Schloss / „Secret“) |
+
+5. **Add** / **Add variable** klicken.
+6. Falls Codemagic fragt, **für welche Apps** die Gruppe gilt: **orgasmic-community** anhaken. Eine nur globale Variable ohne App-Zuordnung sieht der Workflow nicht.
+7. In der Liste muss stehen: Name `KEYSTORE_PASSWORD`, Gruppe `android_keystore`, Secret ja. Der Wert ist danach nicht mehr lesbar — deshalb **sofort** ins Passwort-Safe (1Password, Bitwarden, Papier im Tresor). Ohne dieses Passwort kannst du den Keystore später nicht mehr verwenden.
+
+Wenn der Workflow später sagt `KEYSTORE_PASSWORD fehlt`: Gruppe heißt nicht genau `android_keystore` (Tippfehler, Großbuchstaben), die Variable liegt in einer anderen Gruppe (`firebase` z. B.), oder die Gruppe ist der App nicht zugeordnet.
+
+---
+
+### 6B. Workflow starten (Keystore erzeugen)
+
+1. In derselben App (nicht Teams) oben **Start new build** — großer Button, oft rechts.
+2. Es öffnet sich ein Dialog mit zwei wichtigen Feldern:
+   - **Workflow:** Dropdown aufklappen. Es müssen vier Einträge aus der `codemagic.yaml` stehen. Wähle **Android Keystore einmal erzeugen** (nicht Debug, nicht Release).
+   - **Branch:** `cursor/migrate-community-plugins-d4ba` — solange die yaml nur auf diesem Branch liegt. `main` hat sie ggf. noch nicht.
+3. **Start new build** / Start bestätigen.
+4. Warte, bis der Build grün ist (meist unter einer Minute). Rot → Log öffnen, nach `KEYSTORE_PASSWORD` suchen → zurück zu 6A.
+5. In der Build-Seite nach unten zu **Artifacts**. Datei **`orgasmic-release.keystore`** herunterladen.  
+   Sieht unscheinbar aus, oft ein paar KB. Das **ist** der Schlüssel. Ohne Download ist der Schlüssel weg, sobald Codemagic das Artifact löscht.
+
+Schlägt der Build fehl mit der Meldung zu `KEYSTORE_PASSWORD`: zurück zu 6A.
+
+---
+
+### 6C. Datei sichern (jetzt, bevor du irgendwas löschst)
+
+Codemagic lässt den hochgeladenen Keystore **nicht** wieder herunterladen. Nur diese eine Artifact-Datei zählt.
+
+1. `orgasmic-release.keystore` auf den Rechner speichern.
+2. Kopie 1: Passwort-Manager als Anhang, oder verschlüsselter USB.
+3. Kopie 2: zweiter Ort (z. B. anderer Cloud-Ordner, nicht das öffentliche GitHub-Repo).
+4. **Nicht** ins Git, **nicht** in Slack, **nicht** in die Play-Console als Text.
+
+Diesen Workflow **nie wieder** starten. Ein zweiter Lauf erzeugt einen **anderen** Schlüssel — Play nimmt den nicht für dieselbe App.
+
+---
+
+### 6D. Keystore als Code-Signing-Identity hochladen
+
+Erst danach kann **Android Release** signieren. Environment-Variable allein reicht nicht — Release liest `android_signing: orgasmic_android`.
+
+1. Die App **verlassen**. Links in der Leiste (nicht in den App-Tabs) auf **Teams** klicken.  
+   Alternative: oben rechts Profilbild → **Team settings**.
+2. Dein Team anklicken. Als Einzelperson oft **Personal Account** / dein Name.
+3. **Team settings** / Team-Einstellungen (Zahnrad oder der Team-Name).
+4. Abschnitt **codemagic.yaml settings** (manchmal unter **Settings** → **codemagic.yaml**).  
+   Alternative UI: direkt **Code signing identities** in den Team settings, ohne den yaml-Unterpunkt.
+5. **Code signing identities** öffnen.
+6. Tab **Android keystores** (nicht iOS Certificates).
+7. **Add keystore** / **Choose a file** / Datei in den Rahmen ziehen: die heruntergeladene `orgasmic-release.keystore` vom Rechner (nicht `google-services.json`).
+8. Felder ausfüllen — Copy-Paste, nichts „ähnlich“:
+
+   | Feld in der UI | Wert |
+   | --- | --- |
+   | **Keystore password** | dasselbe wie `KEYSTORE_PASSWORD` aus 6A |
+   | **Key alias** | `orgasmic` |
+   | **Key password** | **dasselbe** Passwort nochmal (nicht leer lassen) |
+   | **Reference name** | `orgasmic_android` |
+
+9. **Add keystore**.
+10. In der Liste erscheint ein Eintrag `orgasmic_android` mit Ablaufdatum (sehr weit in der Zukunft). Fertig.
+
+Hochladen braucht **Team-Admin**. Wenn der Button fehlt: mit dem Konto einloggen, das das Team angelegt hat.
+
+Häufige Fehler in diesem Schritt:
+
+- Reference name `orgasmic` oder `android` statt `orgasmic_android` → Release-Build findet den Keystore nicht.
+- Alias `ORGASMIC` oder `key0` statt `orgasmic` → Signatur schlägt fehl.
+- Anderes Passwort als in 6A → Codemagic nimmt die Datei nicht an oder der Release-Build bricht ab.
+- Die `.keystore` mit der `google-services.json` verwechselt.
+
+---
+
+### 6E. Kontrolle: Release bauen
+
+1. Zurück zur App **orgasmic-community**.
+2. **Start new build** → Workflow **Android Release (AAB + APK)** → Branch `cursor/migrate-community-plugins-d4ba`.
+3. Gruppe `firebase` muss weiterhin `GOOGLE_SERVICES_JSON` haben (wie beim Debug).
+4. Bei Erfolg: Artifacts **`.aab`** (für Play) und **`.apk`** (zum Selbstinstallieren).
+5. Debug-App auf dem Handy **deinstallieren**, dann die Release-APK installieren (andere Signatur, sonst „App nicht installiert“).
+
+Wenn der Release-Build sagt, Signing / keystore / `orgasmic_android` fehlt: 6D, Reference name nochmal prüfen.
+
+Danach weiter mit Abschnitt 7 (Play-Listing) und AAB in den internen Test hochladen.
 
 ---
 
