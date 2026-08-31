@@ -492,16 +492,19 @@
       root.innerHTML = '<style>'
         + ':host{position:fixed;z-index:2147483646;display:none;box-sizing:border-box;max-width:calc(100vw - 24px);font-family:system-ui,-apple-system,sans-serif;}'
         + ':host([data-open="1"]){display:block;}'
-        + '.box{pointer-events:auto;display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:12px;'
-        + 'border:1px solid rgba(26,22,37,.18);background:#f6f3ee;color:#1a1625;font-size:13px;line-height:1.35;font-weight:650;'
-        + 'box-shadow:0 10px 28px rgba(15,23,42,.22);}'
-        + 'label{display:flex;gap:10px;align-items:flex-start;cursor:pointer;}'
-        + 'input{width:18px;height:18px;margin:1px 0 0;flex:0 0 auto;accent-color:#1a1625;}'
-        + '.help{margin:0;font-weight:400;font-size:12px;color:#6b6575;}'
+        + '.box{pointer-events:auto;display:flex;flex-direction:column;gap:4px;padding:8px 10px;border-radius:12px;'
+        + 'border:1px solid rgba(26,22,37,.18);background:#f6f3ee;color:#1a1625;font-size:13px;line-height:1.3;font-weight:650;'
+        + 'box-shadow:0 8px 22px rgba(15,23,42,.18);}'
+        + '.row{display:flex;flex-wrap:wrap;gap:6px 16px;}'
+        + 'label{display:flex;gap:8px;align-items:center;cursor:pointer;}'
+        + 'input{width:16px;height:16px;margin:0;flex:0 0 auto;accent-color:#1a1625;}'
+        + '.help{margin:0;font-weight:400;font-size:11px;color:#6b6575;}'
         + '</style>'
         + '<div class="box" data-oa-announce="1">'
+        + '<div class="row">'
         + '<label><input type="checkbox" data-oa-announce-push> Per Push an alle Mitglieder senden</label>'
         + '<label><input type="checkbox" data-oa-announce-email> Per E-Mail an alle Mitglieder senden</label>'
+        + '</div>'
         + '<p class="help">Nur wer den Beitrag sehen darf. Geheime Räume bleiben geheim.</p>'
         + '</div>';
       const push = root.querySelector('[data-oa-announce-push]');
@@ -536,9 +539,16 @@
       }
       const host = ensureHost();
       const btn = findPublish(composer);
+      const editor = composer.querySelector(EDITOR);
       const brect = btn ? btn.getBoundingClientRect() : null;
-      const width = Math.min(420, Math.max(240, (crect.width || 320) - 24));
-      let left = (crect.left || 12) + 12;
+      const erect = editor ? editor.getBoundingClientRect() : null;
+      const toolbarBottom = Math.max(
+        brect && brect.width ? brect.bottom : 0,
+        erect && erect.height ? erect.bottom : 0,
+        crect.bottom
+      );
+      const width = Math.min(520, Math.max(260, (crect.width || 320) - 16));
+      let left = (crect.left || 12) + 8;
       left = Math.min(Math.max(8, left), window.innerWidth - width - 8);
       host.setAttribute('data-open', '1');
       host.style.display = 'block';
@@ -547,16 +557,21 @@
       host.style.left = left + 'px';
       host.style.width = width + 'px';
       host.style.right = 'auto';
-      const height = host.offsetHeight || 88;
+      const height = host.offsetHeight || 56;
+      const below = toolbarBottom + 8;
+      const aboveCard = crect.top - height - 8;
       let top;
-      if (brect && brect.width) {
-        top = brect.top - height - 8;
-      } else if (crect.height) {
-        top = crect.bottom - height - 56;
+      if (below + height <= window.innerHeight - 8) {
+        top = below;
+      } else if (aboveCard >= 8) {
+        top = aboveCard;
       } else {
-        top = window.innerHeight - height - 88;
+        top = Math.max(8, window.innerHeight - height - 8);
       }
-      if (top < 8) top = 8;
+      if (erect && erect.height && top < erect.bottom + 4 && top + height > erect.top - 4) {
+        top = Math.min(window.innerHeight - height - 8, erect.bottom + 8);
+        if (top < erect.bottom + 4 && aboveCard >= 8) top = aboveCard;
+      }
       host.style.top = top + 'px';
       host.style.bottom = 'auto';
     }
