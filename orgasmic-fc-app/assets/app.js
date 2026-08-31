@@ -259,6 +259,51 @@
   watchNavIcons();
   if ((location.hash || '') === '#orgasmic-notify') openPrefs();
 
+  function isNativeShell() {
+    return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  }
+
+  function isFluentBottomNav(node) {
+    return !!(node && node.closest && node.closest(
+      '.fcom_mobile_menu, .fcom-mobile-menu, .fcom_mobile_nav, .fcom-mobile-nav, .fluent_community_mobile_menu, [class*="mobile_menu"], [class*="mobile-menu"], [class*="bottom-nav"], [class*="bottom_nav"]'
+    ));
+  }
+
+  async function setupNativeChrome() {
+    if (!isNativeShell()) return;
+    document.documentElement.classList.add('orgasmic-native');
+    const vp = document.querySelector('meta[name="viewport"]');
+    if (vp) {
+      const content = vp.getAttribute('content') || '';
+      if (!/viewport-fit/.test(content)) {
+        vp.setAttribute('content', content.replace(/\s+$/, '') + ', viewport-fit=cover');
+      }
+    }
+    const Cap = window.Capacitor && window.Capacitor.Plugins;
+    if (Cap && Cap.StatusBar) {
+      try {
+        if (Cap.StatusBar.setOverlaysWebView) {
+          await Cap.StatusBar.setOverlaysWebView({ overlay: false });
+        }
+        if (Cap.StatusBar.setBackgroundColor) {
+          await Cap.StatusBar.setBackgroundColor({ color: '#ffffff' });
+        }
+        if (Cap.StatusBar.setStyle) {
+          await Cap.StatusBar.setStyle({ style: 'LIGHT' });
+        }
+      } catch (e) {}
+    }
+  }
+
+  document.addEventListener('click', (ev) => {
+    const a = ev.target.closest && ev.target.closest('a');
+    if (!a || a.closest('#orgasmic-app-prefs')) return;
+    if (/#orgasmic-notify/.test(a.getAttribute('href') || '')) return;
+    if (isFluentBottomNav(a)) closePrefs();
+  }, true);
+
+  setupNativeChrome();
+
   async function firebaseReady() {
     const Cap = window.Capacitor && window.Capacitor.Plugins;
     if (!Cap || !Cap.OrgasmicNative || !Cap.OrgasmicNative.pushReady) return false;

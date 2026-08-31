@@ -179,3 +179,67 @@ a.oa-profile-notify svg {
 .orgasmic-app-prefs-card .oa-prefs-status.is-error {
   color: #b45309;
 }
+
+.el-dropdown-menu .oa-profile-notify-item,
+.el-dropdown-menu__item.oa-profile-notify,
+li.oa-profile-notify-item {
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+}
+
+.el-dropdown-menu .oa-profile-notify-item a,
+.el-dropdown-menu a.oa-profile-notify,
+li.oa-profile-notify-item a {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit !important;
+  text-decoration: none !important;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.el-dropdown-menu .oa-profile-notify-item svg,
+.el-dropdown-menu a.oa-profile-notify svg,
+li.oa-profile-notify-item svg {
+  width: 14px !important;
+  height: 14px !important;
+  min-width: 14px !important;
+  margin: 0 !important;
+  flex-shrink: 0;
+}
+
+html.orgasmic-native {
+  --orgasmic-native-top: env(safe-area-inset-top, 0px);
+  --orgasmic-native-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (max-width: 760px) {
+  html.orgasmic-native .fcom_header,
+  html.orgasmic-native .fcom-header,
+  html.orgasmic-native .fcom_top_bar,
+  html.orgasmic-native .fcom_navbar,
+  html.orgasmic-native .fluent_community_header,
+  html.orgasmic-native [class*="fcom_header"],
+  html.orgasmic-native [class*="fcom-header"] {
+    padding-top: max(6px, var(--orgasmic-native-top)) !important;
+  }
+
+  html.orgasmic-native .fcom_mobile_menu,
+  html.orgasmic-native .fcom-mobile-menu,
+  html.orgasmic-native .fcom_mobile_nav,
+  html.orgasmic-native .fluent_community_mobile_menu,
+  html.orgasmic-native [class*="mobile_menu"],
+  html.orgasmic-native [class*="mobile-menu"],
+  html.orgasmic-native [class*="bottom-nav"],
+  html.orgasmic-native [class*="bottom_nav"] {
+    bottom: 0 !important;
+    padding-bottom: var(--orgasmic-native-bottom) !important;
+    z-index: 100000 !important;
+  }
+}

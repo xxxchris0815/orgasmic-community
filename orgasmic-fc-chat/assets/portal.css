@@ -4,6 +4,7 @@
   bottom: var(--orgasmic-mobile-bar, 0px);
   z-index: 99991;
   overflow: hidden !important;
+  background: var(--och-list, #fff);
 }
 
 #orgasmic-chat-root[hidden] {

@@ -1,8 +1,20 @@
-.orgasmic-cal-overlay {
+#orgasmic-cal-root {
   position: fixed;
   inset: 0;
   bottom: var(--orgasmic-mobile-bar, 0px);
   z-index: 99990;
+  overflow: hidden;
+  background: var(--oc-bg, #fff);
+}
+
+#orgasmic-cal-root[hidden] {
+  display: none !important;
+}
+
+.orgasmic-cal-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
   overflow: auto;
   font-family: inherit;
   background: var(--oc-bg, var(--el-bg-color-page, var(--el-bg-color, #fff)));
@@ -728,7 +740,7 @@ a[href="#orgasmic-calendar"].has-today {
 }
 
 @media (max-width: 760px) {
-  .orgasmic-cal-overlay {
+  #orgasmic-cal-root {
     bottom: var(--orgasmic-mobile-bar, calc(56px + env(safe-area-inset-bottom, 0px)));
   }
 }

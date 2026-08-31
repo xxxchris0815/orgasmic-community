@@ -9,10 +9,10 @@ Moved from `evolution-api` (`Extras/orgasmic-community`).
 | Plugin | Version | Aufgabe |
 | --- | --- | --- |
 | `orgasmic-fc-tracker/` | **1.2.1** | Engagement-Tracker, Dashboard, Evolution-Webhook |
-| `orgasmic-fc-events/` | **1.0.9** | Kalender im Portal (RSVP, Zoom, Event-Kommentare, Cache, MN-Layout) |
-| `orgasmic-fc-embeds/` | **1.2.9** | Video-Player, nativer Composer-Upload, Autoplay, Wiedergabe-Tracking + Webhook |
-| `orgasmic-fc-chat/` | **1.1.9** | Space-Chat (Mighty-Networks-Layout, Bild + Sprache, Offline-Cache) |
-| `orgasmic-fc-app/` | **1.1.7** | PWA, Web Push, Prefs im Profilmenü, Capacitor-Token-API + optional Firebase |
+| `orgasmic-fc-events/` | **1.0.10** | Kalender im Portal (RSVP, Zoom, Event-Kommentare, Cache, MN-Layout) |
+| `orgasmic-fc-embeds/` | **1.2.10** | Video-Player, nativer Composer-Upload, Autoplay, Wiedergabe-Tracking + Webhook |
+| `orgasmic-fc-chat/` | **1.1.10** | Space-Chat (Mighty-Networks-Layout, Bild + Sprache, Offline-Cache) |
+| `orgasmic-fc-app/` | **1.1.8** | PWA, Web Push, Prefs im Profilmenü, Capacitor-Token-API + optional Firebase |
 
 ## ORGASMIC Community Kalender
 
@@ -33,7 +33,7 @@ Im Portal: Menüpunkt **Kalender** bzw. `#orgasmic-calendar`.
 
 WP-Admin: **ORGASMIC Kalender → Einstellungen** (Zoom, Untertitel, Erscheinungsbild, Akzentfarbe).
 
-ZIP: [`orgasmic-fc-events-1.0.9.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-events-1.0.9.zip)
+ZIP: [`orgasmic-fc-events-1.0.10.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-events-1.0.10.zip)
 
 ## ORGASMIC FluentCommunity Tracker
 
@@ -56,7 +56,7 @@ Plugin-Ordner: `orgasmic-fc-embeds/`
 - Tracking: wer spielt welches Video, Position in Sekunden, max. gesehen
 - Webhook: `video.play`, `video.pause`, `video.progress` (alle 15s), `video.ended`, `video.seeked`
 
-ZIP: [`orgasmic-fc-embeds-1.2.9.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-embeds-1.2.9.zip)
+ZIP: [`orgasmic-fc-embeds-1.2.10.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-embeds-1.2.10.zip)
 
 Falls der iframe leer bleibt: in Bunny Stream → Allowed Domains `community.orgasmic.live` eintragen.
 
@@ -76,7 +76,7 @@ Ersatz für den FluentCommunity-Pro-Chat:
 
 WP-Admin: **ORGASMIC Chat → Einstellungen** (Farben, Untertitel, welche Spaces Chat haben).
 
-ZIP: [`orgasmic-fc-chat-1.1.9.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-chat-1.1.9.zip)
+ZIP: [`orgasmic-fc-chat-1.1.10.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-chat-1.1.10.zip)
 
 ## ORGASMIC App (PWA + Push)
 
@@ -91,7 +91,7 @@ Push geht nur an Mitglieder des jeweiligen Spaces. Chat-Text ist standardmäßig
 
 WP-Admin: **ORGASMIC App**. PHP 8.2+ für Web-Push (`openssl_pkey_derive`). Firebase-JSON nur für Store-Apps.
 
-ZIP: [`orgasmic-fc-app-1.1.7.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.1.7.zip)
+ZIP: [`orgasmic-fc-app-1.1.8.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.1.8.zip)
 
 ### Capacitor / Play Store (Android zuerst)
 

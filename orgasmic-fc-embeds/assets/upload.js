@@ -30,6 +30,7 @@
       const file = input.files && input.files[0];
       input.value = '';
       picking = false;
+      input.style.pointerEvents = 'none';
       if (file && isVideoFile(file)) uploadFile(file).catch(() => {});
     });
     document.body.appendChild(input);
@@ -114,7 +115,9 @@
     rememberEditor(document.activeElement);
     closeAttachDialogs();
     picking = true;
+    ensureMediaPermission();
     const input = fileInput();
+    input.style.pointerEvents = 'auto';
     try {
       if (typeof input.showPicker === 'function') {
         input.showPicker();
@@ -241,13 +244,49 @@
     return cfg.ajax || '/wp-admin/admin-ajax.php';
   }
 
-  function readAsBuffer(blob) {
+  function isNativeShell() {
+    return !!(window.Capacitor || window.capacitor || window.CapacitorWebView);
+  }
+
+  async function ensureMediaPermission() {
+    const Cap = window.Capacitor && window.Capacitor.Plugins;
+    if (!Cap || !Cap.Camera || !Cap.Camera.requestPermissions) return;
+    try {
+      await Cap.Camera.requestPermissions({ permissions: ['photos'] });
+    } catch (e) {}
+  }
+
+  function readViaFileReader(blob) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
+      reader.onload = () => {
+        if (!reader.result) reject(new Error('Datei konnte nicht gelesen werden.'));
+        else resolve(reader.result);
+      };
       reader.onerror = () => reject(new Error('Datei konnte nicht gelesen werden.'));
       reader.readAsArrayBuffer(blob);
     });
+  }
+
+  async function readAsBuffer(blob) {
+    if (!blob) throw new Error('Datei konnte nicht gelesen werden.');
+    if (typeof blob.arrayBuffer === 'function') {
+      try {
+        const buf = await blob.arrayBuffer();
+        if (buf && buf.byteLength) return buf;
+      } catch (e) {}
+    }
+    try {
+      const url = URL.createObjectURL(blob);
+      try {
+        const res = await fetch(url);
+        const buf = await res.arrayBuffer();
+        if (buf && buf.byteLength) return buf;
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    } catch (e) {}
+    return readViaFileReader(blob);
   }
 
   async function parseReply(res, fallback) {
@@ -778,12 +817,25 @@
   async function originUpload(file, videoId) {
     const total = file.size;
     const chunkSize = preferOriginUpload() ? 256 * 1024 : 1024 * 1024;
+    let bytes = null;
+    try {
+      bytes = new Uint8Array(await readAsBuffer(file));
+    } catch (e) {
+      throw new Error(
+        isNativeShell()
+          ? 'Datei konnte nicht gelesen werden. Fotos/Videos in den App-Einstellungen erlauben und eine andere Datei wählen.'
+          : 'Datei konnte nicht gelesen werden.'
+      );
+    }
+    if (!bytes.byteLength) {
+      throw new Error('Datei konnte nicht gelesen werden.');
+    }
     let offset = 0;
     let last = {};
     setStatus('Video wird hochgeladen… 0%', 4);
     while (offset < total) {
       const end = Math.min(offset + chunkSize, total);
-      const blob = file.slice(offset, end);
+      const blob = new Blob([bytes.subarray(offset, end)], { type: 'application/octet-stream' });
       let attempt = 0;
       let data = null;
       while (attempt < 3) {

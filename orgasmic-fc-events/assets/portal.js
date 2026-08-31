@@ -356,21 +356,55 @@
     document.documentElement.style.setProperty('--orgasmic-mobile-bar', height + 'px');
   }
 
+  function isFluentBottomNav(node) {
+    return !!(node && node.closest && node.closest(
+      '.fcom_mobile_menu, .fcom-mobile-menu, .fcom_mobile_nav, .fcom-mobile-nav, .fluent_community_mobile_menu, [class*="mobile_menu"], [class*="mobile-menu"], [class*="bottom-nav"], [class*="bottom_nav"]'
+    ));
+  }
+
+  function pinOverlayToViewport() {
+    const root = document.getElementById('orgasmic-cal-root');
+    if (!root || root.hidden) return;
+    applyMobileBarInset();
+    const vv = window.visualViewport;
+    if (!vv) return;
+    let bar = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--orgasmic-mobile-bar')) || 0;
+    const covered = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    if (covered > 80) bar = 0;
+    root.style.top = vv.offsetTop + 'px';
+    root.style.left = '0px';
+    root.style.right = '0px';
+    root.style.bottom = 'auto';
+    root.style.height = Math.max(120, vv.height - bar) + 'px';
+  }
+
+  function clearOverlayPin() {
+    const root = document.getElementById('orgasmic-cal-root');
+    if (!root) return;
+    root.style.top = '';
+    root.style.left = '';
+    root.style.right = '';
+    root.style.bottom = '';
+    root.style.height = '';
+  }
+
   function openOverlay() {
     const root = document.getElementById('orgasmic-cal-root');
     if (!root) return;
     applyMobileBarInset();
     root.hidden = false;
     document.body.style.overflow = 'hidden';
+    pinOverlayToViewport();
   }
 
   function closeOverlay() {
     const root = document.getElementById('orgasmic-cal-root');
     if (!root) return;
+    clearOverlayPin();
     root.hidden = true;
     root.innerHTML = '';
     document.body.style.overflow = '';
-    if ((location.hash || '').indexOf('orgasmic-') === 1) {
+    if (/#orgasmic-calendar|#orgasmic-event/.test(location.hash || '')) {
       history.replaceState(null, '', location.pathname + location.search);
     }
   }
@@ -969,9 +1003,26 @@
   }
 
   document.addEventListener('click', intercept);
+  document.addEventListener('click', (ev) => {
+    const a = ev.target.closest && ev.target.closest('a');
+    if (!a || a.closest('#orgasmic-cal-root')) return;
+    const href = a.getAttribute('href') || '';
+    if (/#orgasmic-calendar|#orgasmic-event/.test(href) || a.closest('[data-orgasmic-calendar], .orgasmic-cal-nav')) return;
+    if (isFluentBottomNav(a)) closeOverlay();
+  }, true);
   window.addEventListener('hashchange', bootFromHash);
-  window.addEventListener('resize', applyMobileBarInset);
-  window.addEventListener('orientationchange', applyMobileBarInset);
+  window.addEventListener('resize', () => {
+    applyMobileBarInset();
+    pinOverlayToViewport();
+  });
+  window.addEventListener('orientationchange', () => {
+    applyMobileBarInset();
+    pinOverlayToViewport();
+  });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', pinOverlayToViewport);
+    window.visualViewport.addEventListener('scroll', pinOverlayToViewport);
+  }
   applyMobileBarInset();
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', start);
