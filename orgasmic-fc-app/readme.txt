@@ -1,12 +1,15 @@
 === ORGASMIC App ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.1.6
+Stable tag: 1.1.7
 License: GPLv2 or later
 
 PWA, offline cache, and Web Push for chat, posts, comments, and calendar events.
 
 == Changelog ==
+
+= 1.1.7 =
+* Test-push reports missing FCM token vs missing Firebase service account
 
 = 1.1.6 =
 * Do not call Capacitor PushNotifications.register until Firebase is initialized (prevents Android crash after login)

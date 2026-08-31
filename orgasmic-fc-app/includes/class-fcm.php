@@ -36,7 +36,7 @@ class Orgasmic_Fc_App_Fcm
                 'message' => [
                     'token' => $token,
                     'notification' => [
-                        'title' => (string) ($payload['title'] ?? 'ORGASMIC'),
+                        'title' => (string) ($payload['title'] ?? 'LO Community'),
                         'body' => (string) ($payload['body'] ?? ''),
                     ],
                     'data' => [

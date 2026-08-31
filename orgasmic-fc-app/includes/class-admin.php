@@ -87,19 +87,46 @@ class Orgasmic_Fc_App_Admin
             wp_die('Keine Berechtigung.');
         }
         check_admin_referer('orgasmic_fc_app_test_push');
+        $uid = get_current_user_id();
+        $mine = $this->store->channels_for_user($uid);
+        if ($mine['fcm'] < 1) {
+            wp_safe_redirect(add_query_arg([
+                'page' => 'orgasmic-fc-app',
+                'orgasmic_fc_app_test' => 'no_token',
+            ], admin_url('admin.php')));
+            exit;
+        }
+        if (!$this->fcm->can_send()) {
+            wp_safe_redirect(add_query_arg([
+                'page' => 'orgasmic-fc-app',
+                'orgasmic_fc_app_test' => 'no_fcm',
+            ], admin_url('admin.php')));
+            exit;
+        }
+
+        $start = (string) get_option(Orgasmic_Fc_App_Install::OPTION_START_URL, '/portal');
+        if ($start === '' || $start === '/') {
+            $start = '/portal';
+        }
         $this->store->enqueue(
-            [get_current_user_id()],
+            [$uid],
             'system',
-            'ORGASMIC',
+            'LO Community',
             'Test-Benachrichtigung',
-            home_url((string) get_option(Orgasmic_Fc_App_Install::OPTION_START_URL, '/')),
+            home_url($start),
             'test',
             []
         );
         do_action('orgasmic_fc_app_send');
+        $last = $this->store->last_queue_for($uid);
+        $result = '1';
+        if (is_array($last) && empty($last['sent_at']) && !empty($last['last_error'])) {
+            $result = 'err';
+            set_transient('orgasmic_fc_app_test_err', (string) $last['last_error'], 60);
+        }
         wp_safe_redirect(add_query_arg([
             'page' => 'orgasmic-fc-app',
-            'orgasmic_fc_app_test' => '1',
+            'orgasmic_fc_app_test' => $result,
         ], admin_url('admin.php')));
         exit;
     }
@@ -112,16 +139,28 @@ class Orgasmic_Fc_App_Admin
 
         $counts = $this->store->counts();
         echo '<div class="wrap"><h1>ORGASMIC App</h1>';
-        echo '<p>PWA fürs Homescreen plus Push für Chat, Beiträge, Kommentare und Events. Mitglieder steuern ihre eigenen Arten über die Glocke im Portal. Dieselbe REST-API nutzt später Capacitor für Play Store / App Store.</p>';
+        echo '<p>PWA fürs Homescreen plus Push für Chat, Beiträge, Kommentare und Events. Mitglieder steuern ihre eigenen Arten über die Glocke im Portal. Store-Apps brauchen Firebase in der APK <em>und</em> das Dienstkonto hier.</p>';
 
-        if (isset($_GET['orgasmic_fc_app_test'])) {
-            echo '<div class="notice notice-success"><p>Test wurde in die Queue gelegt. Am Handy/Browser muss Push erlaubt sein.</p></div>';
+        $test = isset($_GET['orgasmic_fc_app_test']) ? sanitize_key((string) $_GET['orgasmic_fc_app_test']) : '';
+        if ($test === '1') {
+            echo '<div class="notice notice-success"><p>Test an dein FCM-Gerät gesendet. Handy entsperren, nicht im Flugmodus.</p></div>';
+        } elseif ($test === 'no_token') {
+            echo '<div class="notice notice-error"><p><strong>Kein App-Token für dein WP-Konto.</strong> Die Debug-APK hat Push absichtlich nicht registriert, solange Firebase fehlt. In Codemagic <code>GOOGLE_SERVICES_JSON</code> (Android, Paket <code>live.lo.community</code>) hinterlegen, Debug-APK neu bauen, einloggen, Benachrichtigungen erlauben. Danach muss unter den Zählern mindestens <strong>1 FCM</strong> stehen.</p></div>';
+        } elseif ($test === 'no_fcm') {
+            echo '<div class="notice notice-error"><p><strong>Firebase-Dienstkonto fehlt in WordPress.</strong> Firebase → Projekteinstellungen → Dienstkonten → JSON hier unter „FCM Service Account“ einfügen und speichern. Das ist eine andere Datei als <code>google-services.json</code>.</p></div>';
+        } elseif ($test === 'err') {
+            $err = (string) get_transient('orgasmic_fc_app_test_err');
+            delete_transient('orgasmic_fc_app_test_err');
+            echo '<div class="notice notice-error"><p>Firebase hat den Test abgelehnt: <code>' . esc_html($err !== '' ? $err : 'unbekannt') . '</code></p></div>';
         }
 
+        $mine = $this->store->channels_for_user(get_current_user_id());
         echo '<p><strong>' . (int) $counts['users'] . '</strong> Mitglieder mit Gerät, '
-            . '<strong>' . (int) $counts['devices'] . '</strong> Subscriptions, '
+            . '<strong>' . (int) ($counts['fcm'] ?? 0) . '</strong> FCM (App), '
+            . '<strong>' . (int) ($counts['web'] ?? 0) . '</strong> Web/PWA, '
             . '<strong>' . (int) $counts['queued'] . '</strong> in der Queue, '
-            . '<strong>' . (int) $counts['sent'] . '</strong> gesendet.</p>';
+            . '<strong>' . (int) $counts['sent'] . '</strong> gesendet. '
+            . 'Dein Konto: <strong>' . (int) $mine['fcm'] . '</strong> FCM, <strong>' . (int) $mine['web'] . '</strong> Web.</p>';
 
         echo '<form method="post" action="options.php">';
         settings_fields('orgasmic_fc_app');
@@ -138,7 +177,7 @@ class Orgasmic_Fc_App_Admin
         echo '<tr><th>Start-URL</th><td><input class="regular-text" name="'
             . esc_attr(Orgasmic_Fc_App_Install::OPTION_START_URL) . '" value="'
             . esc_attr((string) get_option(Orgasmic_Fc_App_Install::OPTION_START_URL, '/')) . '" />';
-        echo '<p class="description">Meist <code>/</code>. Wenn das Portal unter einem Pfad liegt, z. B. <code>/community/</code>.</p></td></tr>';
+        echo '<p class="description">Für diese Community: <code>/portal</code>.</p></td></tr>';
         $theme = (string) get_option(Orgasmic_Fc_App_Install::OPTION_THEME, '#121c30');
         echo '<tr><th>Theme-Farbe</th><td><input type="color" name="'
             . esc_attr(Orgasmic_Fc_App_Install::OPTION_THEME) . '" value="'

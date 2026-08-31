@@ -248,18 +248,22 @@ Wenn die App in Play noch `draft` ist, bleibt `submit_as_draft: true` in der yam
 
 ## 10. Push auf dem Handy prüfen
 
-1. Release- oder Debug-App (mit echter `google-services.json`) installieren.
-2. In der Community einloggen.
-3. Systemdialog „Benachrichtigungen zulassen“ bestätigen.
-4. WordPress → **ORGASMIC App** → **Test-Push an mich senden**.
-5. Handy nicht im Flugmodus, App darf im Hintergrund sein.
+Ohne **beide** Firebase-Dateien kommt nichts an. 1.1.6 verhindert den Absturz, indem die App **kein Token** speichert — WordPress hat dann kein Ziel.
 
-Kommt nichts:
+| Wo | Datei | Zweck |
+| --- | --- | --- |
+| Codemagic, Gruppe `firebase`, Variable `GOOGLE_SERVICES_JSON` | Android-`google-services.json`, Paket `live.lo.community` | Gerät bekommt FCM-Token |
+| WordPress → ORGASMIC App → FCM Service Account | Dienstkonto-JSON (Firebase → Dienstkonten) | Server **sendet** an das Token |
 
-- Firebase JSON in WordPress hinterlegt?  
-- `GOOGLE_SERVICES_JSON` in Codemagic die **Android**-Datei, Paketname `live.lo.community`?  
-- In Firebase dieselbe Android-App?  
-- Nutzer in der App wirklich eingeloggt (Token geht nur an eingeloggte Mitglieder)?
+Das sind **zwei verschiedene** JSON-Dateien.
+
+1. `GOOGLE_SERVICES_JSON` in Codemagic setzen (kompletter Dateiinhalt, Secret).
+2. Workflow **Android Debug (testen)** neu bauen, APK installieren.
+3. App öffnen, einloggen, **Benachrichtigungen erlauben** (jetzt darf der Dialog kommen).
+4. WP-Admin → **ORGASMIC App**: bei deinem Konto muss **1 FCM** stehen. Dienstkonto **hinterlegt**.
+5. **Test-Push an mich senden**.
+
+Kommt der Test mit „Kein App-Token“, fehlt Schritt 1–3. Kommt „Dienstkonto fehlt“, fehlt Schritt 4.
 
 ---
 

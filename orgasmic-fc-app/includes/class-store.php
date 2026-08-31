@@ -194,10 +194,40 @@ class Orgasmic_Fc_App_Store
         $queue = Orgasmic_Fc_App_Install::queue_table();
         return [
             'devices' => (int) $wpdb->get_var("SELECT COUNT(*) FROM {$subs}"),
+            'fcm' => (int) $wpdb->get_var("SELECT COUNT(*) FROM {$subs} WHERE channel IN ('fcm','apns')"),
+            'web' => (int) $wpdb->get_var("SELECT COUNT(*) FROM {$subs} WHERE channel = 'web' OR channel = ''"),
             'users' => (int) $wpdb->get_var("SELECT COUNT(DISTINCT user_id) FROM {$subs}"),
             'queued' => (int) $wpdb->get_var("SELECT COUNT(*) FROM {$queue} WHERE sent_at IS NULL"),
             'sent' => (int) $wpdb->get_var("SELECT COUNT(*) FROM {$queue} WHERE sent_at IS NOT NULL"),
         ];
+    }
+
+    public function channels_for_user(int $user_id): array
+    {
+        $out = ['fcm' => 0, 'web' => 0];
+        foreach ($this->subscriptions_for_users([$user_id]) as $sub) {
+            $channel = (string) ($sub['channel'] ?? 'web');
+            if ($channel === 'fcm' || $channel === 'apns') {
+                $out['fcm']++;
+            } else {
+                $out['web']++;
+            }
+        }
+        return $out;
+    }
+
+    public function last_queue_for(int $user_id): ?array
+    {
+        global $wpdb;
+        $table = Orgasmic_Fc_App_Install::queue_table();
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT * FROM {$table} WHERE user_id = %d ORDER BY id DESC LIMIT 1",
+                $user_id
+            ),
+            ARRAY_A
+        );
+        return is_array($row) ? $row : null;
     }
 
     private function clip(string $value, int $max): string
