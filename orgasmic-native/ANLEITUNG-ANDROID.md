@@ -10,7 +10,7 @@ Im Store und unter dem App-Icon **keine** sexuellen oder expliziten Wörter (auc
 | --- | --- |
 | App-Name auf dem Handy | **LO Community** |
 | Play-Store-Titel (max. 30 Zeichen) | **LO Community** |
-| Kurzbeschreibung | Mitglieder-Community: Feed, Chat, Kalender und Push. Konto erforderlich. |
+| Kurzbeschreibung | Weiblichkeit. Verbindung. Schwesternschaft. Für Mitglieder. |
 | Entwicklername | Firmenname oder **LO Community** — ohne Sex-Wörter |
 | Android-Paketname (technisch) | `live.lo.community` — so in Firebase und Play anlegen |
 
@@ -351,22 +351,20 @@ Paketname `live.lo.community` steht **nicht** auf der Listing-Seite. Den setzt P
    | **Kurze Beschreibung** / Short description | Text unter „Short“ | 80 Zeichen |
    | **Vollständige Beschreibung** / Full description | Text unter „Long“ | 4000 Zeichen |
 
-   **Short** (Copy-Paste, 72 Zeichen):
+   **Short** (Copy-Paste, 59 Zeichen):
 
    ```
-   Mitglieder-Community: Feed, Chat, Kalender und Push. Konto erforderlich.
+   Weiblichkeit. Verbindung. Schwesternschaft. Für Mitglieder.
    ```
 
    **Long** (Copy-Paste):
 
    ```
-   LO Community ist die App für Mitglieder: Beiträge im Feed, Chat in den Räumen und ein gemeinsamer Kalender. Push-Benachrichtigungen halten dich zu neuen Nachrichten und Terminen auf dem Laufenden.
+   LO Community ist die App für Mitglieder.
 
-   Funktionen
-   • Feed mit Beiträgen und Kommentaren
-   • Chat in den Community-Räumen
-   • Gemeinsamer Kalender für Treffen und Events
-   • Push für neue Nachrichten und Termine
+   Weiblichkeit. Verbindung. Schwesternschaft.
+
+   Hier triffst du dich mit anderen Mitgliedern: austauschen, teilen und gemeinsame Termine wahrnehmen. Push-Benachrichtigungen halten dich auf dem Laufenden.
 
    Die App öffnet die bestehende Community auf dem Handy. Die Nutzung setzt ein Mitglieder-Konto voraus. Neue Konten werden über die Community vergeben, nicht über den Play Store.
    ```
@@ -395,7 +393,7 @@ Fehlt der Menüpunkt: App noch nicht angelegt → Abschnitt 1. Oder du stehst au
 Name/Texte/Bilder allein reichen nicht. Play will Kategorie und Support-Mail.
 
 1. Links bleiben: **Mehr Nutzer gewinnen** → **App-Präsenz im Play Store** → **Play Store-Einstellungen** (nicht der Haupteintrag).
-2. **App-Kategorie:** **Soziales** (engl. **Social**). Das ist die richtige Schublade für eine Mitglieder-Community mit Feed, Chat und Kalender.
+2. **App-Kategorie:** **Soziales** (engl. **Social**). Das ist die richtige Schublade für eine Mitglieder-Community.
    - Nicht **Kommunikation** — das ist WhatsApp/Telegram, nicht euer Portal.
    - Nicht **Dating** — extra Richtlinien, 18+-Schublade, falsches Publikum.
    - Nicht **Veranstaltungen**, nicht **Lifestyle** als Ausweichkategorie.
