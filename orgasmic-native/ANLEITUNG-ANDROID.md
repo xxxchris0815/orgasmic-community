@@ -10,7 +10,7 @@ Im Store und unter dem App-Icon **keine** sexuellen oder expliziten Wörter (auc
 | --- | --- |
 | App-Name auf dem Handy | **LO Community** |
 | Play-Store-Titel (max. 30 Zeichen) | **LO Community** |
-| Kurzbeschreibung | Mitglieder-Community mit Chat, Beiträgen und Kalender |
+| Kurzbeschreibung | Mitglieder-Community: Feed, Chat, Kalender und Push. Konto erforderlich. |
 | Entwicklername | Firmenname oder **LO Community** — ohne Sex-Wörter |
 | Android-Paketname (technisch) | `live.lo.community` — so in Firebase und Play anlegen |
 
@@ -348,13 +348,27 @@ Paketname `live.lo.community` steht **nicht** auf der Listing-Seite. Den setzt P
    | Feld in der UI | Wert | Limit |
    | --- | --- | --- |
    | **App-Name** | `LO Community` | 30 Zeichen |
-   | **Kurze Beschreibung** / Short description | `Mitglieder-Community mit Chat, Beiträgen und Kalender.` | 80 Zeichen |
-   | **Vollständige Beschreibung** / Full description | Text unten | 4000 Zeichen |
+   | **Kurze Beschreibung** / Short description | Text unter „Short“ | 80 Zeichen |
+   | **Vollständige Beschreibung** / Full description | Text unter „Long“ | 4000 Zeichen |
 
-   Ausführliche Beschreibung zum Einfügen:
+   **Short** (Copy-Paste, 72 Zeichen):
 
    ```
-   LO Community ist der Treffpunkt für Mitglieder: Beiträge im Feed, Chat in den Räumen und ein gemeinsamer Kalender. Push-Benachrichtigungen für neue Nachrichten und Termine. Die Nutzung setzt ein bestehendes Konto voraus.
+   Mitglieder-Community: Feed, Chat, Kalender und Push. Konto erforderlich.
+   ```
+
+   **Long** (Copy-Paste):
+
+   ```
+   LO Community ist die App für Mitglieder: Beiträge im Feed, Chat in den Räumen und ein gemeinsamer Kalender. Push-Benachrichtigungen halten dich zu neuen Nachrichten und Terminen auf dem Laufenden.
+
+   Funktionen
+   • Feed mit Beiträgen und Kommentaren
+   • Chat in den Community-Räumen
+   • Gemeinsamer Kalender für Treffen und Events
+   • Push für neue Nachrichten und Termine
+
+   Die App öffnet die bestehende Community auf dem Handy. Die Nutzung setzt ein Mitglieder-Konto voraus. Neue Konten werden über die Community vergeben, nicht über den Play Store.
    ```
 
    In **keinem** dieser Felder und auf **keinem** Bild: orgasm, orgasmic, sex, xxx, nackt, escort, fetish, interne Marke. Play lehnt das ab oder hängt 18+ an.
