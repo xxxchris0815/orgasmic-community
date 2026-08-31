@@ -87,20 +87,25 @@ class Orgasmic_Fc_App_Admin
             wp_die('Keine Berechtigung.');
         }
         check_admin_referer('orgasmic_fc_app_test_push');
-        $uid = get_current_user_id();
-        $mine = $this->store->channels_for_user($uid);
-        if ($mine['fcm'] < 1) {
-            wp_safe_redirect(add_query_arg([
-                'page' => 'orgasmic-fc-app',
-                'orgasmic_fc_app_test' => 'no_token',
-            ], admin_url('admin.php')));
+        $uid = (int) ($_POST['orgasmic_fc_app_user_id'] ?? 0);
+        if ($uid < 1) {
+            $uid = get_current_user_id();
+        }
+        $q = [
+            'page' => 'orgasmic-fc-app',
+            'orgasmic_user' => $uid,
+        ];
+        if (!get_userdata($uid)) {
+            wp_safe_redirect(add_query_arg($q + ['orgasmic_fc_app_test' => 'no_user'], admin_url('admin.php')));
             exit;
         }
-        if (!$this->fcm->can_send()) {
-            wp_safe_redirect(add_query_arg([
-                'page' => 'orgasmic-fc-app',
-                'orgasmic_fc_app_test' => 'no_fcm',
-            ], admin_url('admin.php')));
+        $mine = $this->store->channels_for_user($uid);
+        if ($mine['fcm'] < 1 && $mine['web'] < 1) {
+            wp_safe_redirect(add_query_arg($q + ['orgasmic_fc_app_test' => 'no_token'], admin_url('admin.php')));
+            exit;
+        }
+        if ($mine['fcm'] > 0 && !$this->fcm->can_send()) {
+            wp_safe_redirect(add_query_arg($q + ['orgasmic_fc_app_test' => 'no_fcm'], admin_url('admin.php')));
             exit;
         }
 
@@ -124,10 +129,7 @@ class Orgasmic_Fc_App_Admin
             $result = 'err';
             set_transient('orgasmic_fc_app_test_err', (string) $last['last_error'], 60);
         }
-        wp_safe_redirect(add_query_arg([
-            'page' => 'orgasmic-fc-app',
-            'orgasmic_fc_app_test' => $result,
-        ], admin_url('admin.php')));
+        wp_safe_redirect(add_query_arg($q + ['orgasmic_fc_app_test' => $result], admin_url('admin.php')));
         exit;
     }
 
@@ -143,11 +145,13 @@ class Orgasmic_Fc_App_Admin
 
         $test = isset($_GET['orgasmic_fc_app_test']) ? sanitize_key((string) $_GET['orgasmic_fc_app_test']) : '';
         if ($test === '1') {
-            echo '<div class="notice notice-success"><p>Test an dein FCM-Gerät gesendet. Handy entsperren, nicht im Flugmodus.</p></div>';
+            echo '<div class="notice notice-success"><p>Test-Push in die Queue gelegt und sofort zugestellt. Handy entsperren, nicht im Flugmodus. Eigenen Chat/Beitrag bekommt niemand selbst.</p></div>';
         } elseif ($test === 'no_token') {
-            echo '<div class="notice notice-error"><p><strong>Kein App-Token für dein WP-Konto.</strong> Die Debug-APK hat Push absichtlich nicht registriert, solange Firebase fehlt. In Codemagic <code>GOOGLE_SERVICES_JSON</code> (Android, Paket <code>live.lo.community</code>) hinterlegen, Debug-APK neu bauen, einloggen, Benachrichtigungen erlauben. Danach muss unter den Zählern mindestens <strong>1 FCM</strong> stehen.</p></div>';
+            echo '<div class="notice notice-error"><p><strong>Kein Gerät für dieses Konto.</strong> Die Person muss die App mit Firebase öffnen, eingeloggt sein und Benachrichtigungen erlauben. Danach erscheint sie unter „Push prüfen“ mit mindestens 1 FCM.</p></div>';
         } elseif ($test === 'no_fcm') {
             echo '<div class="notice notice-error"><p><strong>Firebase-Dienstkonto fehlt in WordPress.</strong> Firebase → Projekteinstellungen → Dienstkonten → JSON hier unter „FCM Service Account“ einfügen und speichern. Das ist eine andere Datei als <code>google-services.json</code>.</p></div>';
+        } elseif ($test === 'no_user') {
+            echo '<div class="notice notice-error"><p>Mitglied nicht gefunden.</p></div>';
         } elseif ($test === 'err') {
             $err = (string) get_transient('orgasmic_fc_app_test_err');
             delete_transient('orgasmic_fc_app_test_err');
@@ -204,18 +208,25 @@ class Orgasmic_Fc_App_Admin
         echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';
         wp_nonce_field('orgasmic_fc_app_test_push');
         echo '<input type="hidden" name="action" value="orgasmic_fc_app_test_push" />';
+        echo '<input type="hidden" name="orgasmic_fc_app_user_id" value="' . (int) get_current_user_id() . '" />';
         submit_button('Test-Push an mich senden', 'secondary');
         echo '</form>';
 
+        $this->render_debug();
+
         echo '<h2>Geräte mit App-Push</h2>';
-        $devices = $this->store->recent_fcm(20);
+        $devices = $this->store->recent_fcm(50);
         if ($devices === []) {
             echo '<p>Noch kein FCM-Token gespeichert. Die Person muss die Store-/Debug-APK mit Firebase öffnen, sich einloggen und Benachrichtigungen erlauben. Danach erscheint sie hier — nicht nur unter „Dein Konto“.</p>';
         } else {
             echo '<p>Fehlt ein Mitglied, hat das Handy das Token noch nicht an WordPress geschickt (APK ohne Firebase, Login vor der Registrierung, oder Benachrichtigungen abgelehnt).</p>';
             echo '<table class="widefat striped" style="max-width:720px"><thead><tr><th>Mitglied</th><th>E-Mail</th><th>Plattform</th><th>Token zuletzt</th></tr></thead><tbody>';
             foreach ($devices as $row) {
-                echo '<tr><td>' . esc_html($row['display']) . ' <code>#' . (int) $row['user_id'] . '</code></td><td>'
+                $inspect = add_query_arg([
+                    'page' => 'orgasmic-fc-app',
+                    'orgasmic_user' => (int) $row['user_id'],
+                ], admin_url('admin.php'));
+                echo '<tr><td><a href="' . esc_url($inspect) . '">' . esc_html($row['display']) . '</a> <code>#' . (int) $row['user_id'] . '</code></td><td>'
                     . esc_html($row['email']) . '</td><td>' . esc_html($row['platform'] !== '' ? $row['platform'] : '—')
                     . '</td><td>' . esc_html($row['updated']) . '</td></tr>';
             }
@@ -224,6 +235,122 @@ class Orgasmic_Fc_App_Admin
 
         echo '<h2>Capacitor (Store-Apps)</h2>';
         echo '<p>Nicht die Community neu bauen. Ein Capacitor-Projekt lädt <code>community.orgasmic.live/portal</code>. Plugins: <code>@capacitor/push-notifications</code>, <code>@capacitor/camera</code>, <code>capacitor-voice-recorder</code>. Die Website schickt das FCM-Token an <code>/wp-json/orgasmic-app/v1/push/token</code>. Chat nutzt Kamera und Mikro der App, falls vorhanden — sonst den Browser. Ohne <code>google-services.json</code> in der APK wird Push nicht registriert (sonst stürzt Android nach dem Login ab).</p>';
+        echo '</div>';
+    }
+
+    private function render_debug(): void
+    {
+        $q = isset($_GET['s']) ? sanitize_text_field(wp_unslash((string) $_GET['s'])) : '';
+        $picked = (int) ($_GET['orgasmic_user'] ?? 0);
+        echo '<h2>Push prüfen</h2>';
+        echo '<p>Mitglied suchen (Name oder E-Mail). Danach siehst du: Gerätetoken, welche Arten sie erlaubt hat, und ob Chat/Beitrag überhaupt in der Queue landete — plus Firebase-Fehler.</p>';
+        echo '<form method="get" action="' . esc_url(admin_url('admin.php')) . '">';
+        echo '<input type="hidden" name="page" value="orgasmic-fc-app" />';
+        echo '<p><input type="search" class="regular-text" name="s" value="' . esc_attr($q) . '" placeholder="z. B. Alexandra" /> ';
+        submit_button('Suchen', 'secondary', '', false);
+        echo '</p></form>';
+
+        $matches = [];
+        if ($picked > 0 && $q === '') {
+            $user = get_userdata($picked);
+            if ($user) {
+                $matches[] = [
+                    'ID' => (int) $user->ID,
+                    'display_name' => (string) $user->display_name,
+                    'user_email' => (string) $user->user_email,
+                    'user_login' => (string) $user->user_login,
+                ];
+            }
+        } elseif ($q !== '') {
+            $matches = $this->store->search_members($q, 8);
+        }
+        if ($q !== '' && $matches === []) {
+            echo '<p>Kein Mitglied zu <code>' . esc_html($q) . '</code>.</p>';
+            return;
+        }
+        if ($matches === []) {
+            return;
+        }
+
+        if (count($matches) > 1 && $picked < 1) {
+            echo '<ul>';
+            foreach ($matches as $row) {
+                $url = add_query_arg([
+                    'page' => 'orgasmic-fc-app',
+                    'orgasmic_user' => (int) $row['ID'],
+                    's' => $q,
+                ], admin_url('admin.php'));
+                echo '<li><a href="' . esc_url($url) . '">' . esc_html($row['display_name']) . '</a> '
+                    . esc_html($row['user_email']) . ' <code>#' . (int) $row['ID'] . '</code></li>';
+            }
+            echo '</ul>';
+            return;
+        }
+
+        $member = $matches[0];
+        foreach ($matches as $row) {
+            if ($picked > 0 && (int) $row['ID'] === $picked) {
+                $member = $row;
+                break;
+            }
+        }
+        $uid = (int) $member['ID'];
+        $channels = $this->store->channels_for_user($uid);
+        $prefs = Orgasmic_Fc_App_Install::prefs_for($uid);
+        $subs = $this->store->subscriptions_for_users([$uid]);
+        $queue = $this->store->queue_for_user($uid, 12);
+        $labels = ['chat' => 'Chat', 'feed' => 'Beiträge', 'comment' => 'Kommentare', 'event' => 'Events'];
+
+        echo '<div class="card" style="max-width:760px;padding:12px 16px">';
+        echo '<p><strong>' . esc_html($member['display_name']) . '</strong> · '
+            . esc_html($member['user_email']) . ' · <code>#' . $uid . '</code></p>';
+        echo '<p>Geräte: <strong>' . (int) $channels['fcm'] . '</strong> FCM (App), <strong>'
+            . (int) $channels['web'] . '</strong> Web/PWA.</p>';
+        if ($channels['fcm'] < 1 && $channels['web'] < 1) {
+            echo '<p><strong>Ursache:</strong> WordPress hat kein Token. App öffnen, einloggen, Benachrichtigungen erlauben, App einmal in den Hintergrund und wieder nach vorn. Danach diese Seite neu laden.</p>';
+        } elseif ($channels['fcm'] > 0 && !$this->fcm->can_send()) {
+            echo '<p><strong>Ursache:</strong> Token ist da, aber das Firebase-Dienstkonto fehlt oben auf dieser Seite.</p>';
+        }
+
+        echo '<p>Erlaubte Arten: ';
+        $bits = [];
+        foreach ($labels as $key => $label) {
+            $bits[] = $label . ': ' . (!empty($prefs[$key]) ? 'an' : 'aus');
+        }
+        echo esc_html(implode(' · ', $bits)) . '. Aus = sie filtert diese Art selbst raus (Profil → Benachrichtigungen).</p>';
+
+        if ($subs !== []) {
+            echo '<table class="widefat striped"><thead><tr><th>Kanal</th><th>Plattform</th><th>Token zuletzt</th></tr></thead><tbody>';
+            foreach ($subs as $sub) {
+                echo '<tr><td>' . esc_html((string) ($sub['channel'] ?? '')) . '</td><td>'
+                    . esc_html((string) ($sub['platform'] ?? '—')) . '</td><td>'
+                    . esc_html((string) ($sub['updated_at'] ?? '')) . '</td></tr>';
+            }
+            echo '</tbody></table>';
+        }
+
+        echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" style="margin:12px 0">';
+        wp_nonce_field('orgasmic_fc_app_test_push');
+        echo '<input type="hidden" name="action" value="orgasmic_fc_app_test_push" />';
+        echo '<input type="hidden" name="orgasmic_fc_app_user_id" value="' . $uid . '" />';
+        submit_button('Test-Push an ' . $member['display_name'] . ' senden', 'primary', 'submit', false);
+        echo '</form>';
+
+        echo '<h3>Letzte Zustellungen</h3>';
+        if ($queue === []) {
+            echo '<p>Noch nichts in der Queue für dieses Konto. Dann war sie keine Empfängerin: eigene Nachricht, nicht im Raum, oder Art abgeschaltet. Zum Testen muss <em>jemand anderes</em> in denselben Raum schreiben — oder du nutzt den Test-Button oben.</p>';
+        } else {
+            echo '<table class="widefat striped"><thead><tr><th>Art</th><th>Titel</th><th>Versuche</th><th>Gesendet</th><th>Fehler</th></tr></thead><tbody>';
+            foreach ($queue as $row) {
+                $sent = (string) ($row['sent_at'] ?? '');
+                echo '<tr><td>' . esc_html((string) ($row['kind'] ?? '')) . '</td><td>'
+                    . esc_html((string) ($row['title'] ?? '')) . '</td><td>'
+                    . (int) ($row['attempts'] ?? 0) . '</td><td>'
+                    . esc_html($sent !== '' ? $sent : 'offen') . '</td><td>'
+                    . esc_html((string) ($row['last_error'] ?? '')) . '</td></tr>';
+            }
+            echo '</tbody></table>';
+        }
         echo '</div>';
     }
 

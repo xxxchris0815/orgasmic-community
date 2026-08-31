@@ -12,7 +12,7 @@ Moved from `evolution-api` (`Extras/orgasmic-community`).
 | `orgasmic-fc-events/` | **1.0.11** | Kalender im Portal (RSVP, Zoom, Event-Kommentare, Cache, MN-Layout) |
 | `orgasmic-fc-embeds/` | **1.2.12** | Video-Player, nativer Composer-Upload, Autoplay, Wiedergabe-Tracking + Webhook |
 | `orgasmic-fc-chat/` | **1.1.13** | Space-Chat (Mighty-Networks-Layout, Bild + Sprache, Offline-Cache) |
-| `orgasmic-fc-app/` | **1.1.11** | PWA, Web Push, Prefs im Profilmenü, Capacitor-Token-API + optional Firebase, Admin-Ankündigung per Push/E-Mail |
+| `orgasmic-fc-app/` | **1.1.12** | PWA, Web Push, Prefs im Profilmenü, Capacitor-Token-API + optional Firebase, Admin-Ankündigung per Push/E-Mail |
 
 ## ORGASMIC Community Kalender
 
@@ -91,9 +91,9 @@ Push geht nur an Mitglieder des jeweiligen Spaces. Format: **Raumname · Art** (
 
 Admins sehen im Beitrags-Composer zwei Häkchen: **Per Push an alle Mitglieder senden** und **Per E-Mail an alle Mitglieder senden**. Empfänger sind nur Leute, die den Beitrag sehen dürfen (Raummitglieder bzw. Community-Feed). Geheime Kreise werden nicht nach außen geleakt. E-Mails laufen über `wp_mail` (Minute-Queue).
 
-WP-Admin: **ORGASMIC App**. PHP 8.2+ für Web-Push (`openssl_pkey_derive`). Firebase-JSON nur für Store-Apps. Unter **Geräte mit App-Push** steht, wessen Handy ein FCM-Token gespeichert hat.
+WP-Admin: **ORGASMIC App**. Unter **Push prüfen** ein Mitglied suchen (z. B. Alexandra): Token, erlaubte Arten, letzte Queue-Zeilen inkl. Firebase-Fehler, Test-Push auf ihr Gerät. PHP 8.2+ für Web-Push (`openssl_pkey_derive`). Firebase-JSON nur für Store-Apps. Unter **Geräte mit App-Push** steht, wessen Handy ein FCM-Token gespeichert hat.
 
-ZIP: [`orgasmic-fc-app-1.1.11.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.1.11.zip)
+ZIP: [`orgasmic-fc-app-1.1.12.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.1.12.zip)
 
 ### Capacitor / Play Store (Android zuerst)
 

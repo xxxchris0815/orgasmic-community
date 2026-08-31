@@ -222,7 +222,7 @@ class Orgasmic_Fc_App_Store
      *
      * @return list<array{user_id:int,display:string,email:string,platform:string,updated:string}>
      */
-    public function recent_fcm(int $limit = 20): array
+    public function recent_fcm(int $limit = 50): array
     {
         global $wpdb;
         $table = Orgasmic_Fc_App_Install::subs_table();
@@ -336,16 +336,74 @@ class Orgasmic_Fc_App_Store
 
     public function last_queue_for(int $user_id): ?array
     {
+        $rows = $this->queue_for_user($user_id, 1);
+
+        return $rows[0] ?? null;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function queue_for_user(int $user_id, int $limit = 12): array
+    {
+        if ($user_id < 1) {
+            return [];
+        }
         global $wpdb;
         $table = Orgasmic_Fc_App_Install::queue_table();
-        $row = $wpdb->get_row(
+        $n = max(1, min(50, $limit));
+
+        return $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT * FROM {$table} WHERE user_id = %d ORDER BY id DESC LIMIT 1",
+                "SELECT id, kind, title, body, attempts, available_at, sent_at, last_error
+                 FROM {$table} WHERE user_id = %d ORDER BY id DESC LIMIT {$n}",
                 $user_id
             ),
             ARRAY_A
-        );
-        return is_array($row) ? $row : null;
+        ) ?: [];
+    }
+
+    /**
+     * @return list<array{ID:int,display_name:string,user_email:string,user_login:string}>
+     */
+    public function search_members(string $q, int $limit = 8): array
+    {
+        $q = trim($q);
+        if ($q === '') {
+            return [];
+        }
+        $n = max(1, min(20, $limit));
+        if (ctype_digit($q)) {
+            $user = get_userdata((int) $q);
+            if ($user) {
+                return [[
+                    'ID' => (int) $user->ID,
+                    'display_name' => (string) $user->display_name,
+                    'user_email' => (string) $user->user_email,
+                    'user_login' => (string) $user->user_login,
+                ]];
+            }
+        }
+
+        $query = new WP_User_Query([
+            'search' => '*' . $q . '*',
+            'search_columns' => ['user_login', 'user_email', 'display_name', 'user_nicename'],
+            'number' => $n,
+            'fields' => ['ID', 'display_name', 'user_email', 'user_login'],
+            'orderby' => 'display_name',
+            'order' => 'ASC',
+        ]);
+        $out = [];
+        foreach ($query->get_results() as $user) {
+            $out[] = [
+                'ID' => (int) $user->ID,
+                'display_name' => (string) $user->display_name,
+                'user_email' => (string) $user->user_email,
+                'user_login' => (string) $user->user_login,
+            ];
+        }
+
+        return $out;
     }
 
     private function clip(string $value, int $max): string
