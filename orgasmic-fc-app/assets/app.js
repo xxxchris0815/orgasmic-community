@@ -330,6 +330,7 @@
     let wrapped = false;
     let ticking = false;
     let cachedComposer = null;
+    let panelOpen = false;
     const SKIP = '#oa-announce-host, #orgasmic-chat-root, #orgasmic-cal-root, #orgasmic-app-prefs, #orgasmic-bunny-upload';
     const COMMENT = '[class*="comment-form"], [class*="CommentForm"], [class*="comment_form"], [class*="ReplyBox"], [class*="each_comment"], .each_comment, .feed_comments';
     const EDITOR = 'textarea, [contenteditable="true"], [role="textbox"], .ql-editor, .ProseMirror, .tiptap, .fcom_editor, .el-textarea__inner';
@@ -379,12 +380,16 @@
     function resetAnnounce() {
       announceState.push = false;
       announceState.email = false;
+      panelOpen = false;
       const root = shadowRoot();
       if (!root) return;
       const push = root.querySelector('[data-oa-announce-push]');
       const email = root.querySelector('[data-oa-announce-email]');
       if (push) push.checked = false;
       if (email) email.checked = false;
+      syncIcon();
+      const host = document.getElementById('oa-announce-host');
+      if (host) host.removeAttribute('data-panel');
     }
 
     function flashAnnounce() {
@@ -426,6 +431,36 @@
         node = walker.nextNode();
       }
       return null;
+    }
+
+    function findIconRow(composer) {
+      const pub = findPublish(composer);
+      if (!pub) return null;
+      let node = pub.parentElement;
+      for (let i = 0; i < 10 && node && node !== document.body; i += 1) {
+        const clickables = node.querySelectorAll
+          ? [...node.querySelectorAll('button, [role="button"], .el-button, a')]
+          : [];
+        const small = clickables.filter((el) => {
+          if (el === pub || looksLikePublish(el) || skipped(el)) return false;
+          const rect = el.getBoundingClientRect();
+          return rect.width >= 16 && rect.width <= 72 && rect.height >= 16 && rect.height <= 72;
+        });
+        if (small.length >= 2) return { icons: small, publish: pub };
+        node = node.parentElement;
+      }
+      return pub ? { icons: [], publish: pub } : null;
+    }
+
+    function findIconAnchor(composer) {
+      const row = findIconRow(composer);
+      if (!row) return null;
+      const pubRect = row.publish.getBoundingClientRect();
+      const lefties = row.icons.filter((el) => el.getBoundingClientRect().left < pubRect.left - 4);
+      const pool = lefties.length ? lefties : row.icons;
+      if (!pool.length) return row.publish;
+      pool.sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
+      return pool[pool.length - 1];
     }
 
     function findPublish(scope) {
@@ -475,9 +510,24 @@
       return null;
     }
 
+    function syncIcon() {
+      const root = shadowRoot();
+      const icon = root && root.querySelector('[data-oa-announce-icon]');
+      if (icon) icon.setAttribute('data-on', (announceState.push || announceState.email) ? '1' : '0');
+    }
+
+    function setPanel(open) {
+      panelOpen = !!open;
+      const host = document.getElementById('oa-announce-host');
+      if (host) {
+        if (panelOpen) host.setAttribute('data-panel', '1');
+        else host.removeAttribute('data-panel');
+      }
+    }
+
     function ensureHost() {
       let host = document.getElementById('oa-announce-host');
-      if (host && host.isConnected && (host.shadowRoot || host.querySelector('[data-oa-announce-push]'))) {
+      if (host && host.isConnected && (host.shadowRoot || host.querySelector('[data-oa-announce-icon]'))) {
         return host;
       }
       if (host && host.parentNode) host.parentNode.removeChild(host);
@@ -490,43 +540,64 @@
         root = host;
       }
       root.innerHTML = '<style>'
-        + ':host{position:fixed;z-index:2147483646;display:none;box-sizing:border-box;max-width:calc(100vw - 24px);font-family:system-ui,-apple-system,sans-serif;}'
+        + ':host{position:fixed;z-index:2147483646;display:none;box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif;}'
         + ':host([data-open="1"]){display:block;}'
-        + '.box{pointer-events:auto;display:flex;flex-direction:column;gap:4px;padding:8px 10px;border-radius:12px;'
-        + 'border:1px solid rgba(26,22,37,.18);background:#f6f3ee;color:#1a1625;font-size:13px;line-height:1.3;font-weight:650;'
-        + 'box-shadow:0 8px 22px rgba(15,23,42,.18);}'
-        + '.row{display:flex;flex-wrap:wrap;gap:6px 16px;}'
-        + 'label{display:flex;gap:8px;align-items:center;cursor:pointer;}'
-        + 'input{width:16px;height:16px;margin:0;flex:0 0 auto;accent-color:#1a1625;}'
+        + '.icon{width:100%;height:100%;border:0;background:transparent;color:inherit;cursor:pointer;border-radius:10px;'
+        + 'display:flex;align-items:center;justify-content:center;padding:0;}'
+        + '.icon svg{width:22px;height:22px;display:block;}'
+        + '.icon[data-on="1"]{background:#f6f3ee;color:#1a1625;}'
+        + '.box{display:none;position:absolute;left:0;top:calc(100% + 8px);width:min(320px,calc(100vw - 24px));'
+        + 'pointer-events:auto;flex-direction:column;gap:8px;padding:10px 12px;border-radius:12px;'
+        + 'border:1px solid rgba(26,22,37,.18);background:#f6f3ee;color:#1a1625;font-size:13px;line-height:1.35;font-weight:650;'
+        + 'box-shadow:0 10px 28px rgba(15,23,42,.2);}'
+        + ':host([data-panel="1"]) .box{display:flex;}'
+        + 'label{display:flex;gap:8px;align-items:flex-start;cursor:pointer;}'
+        + 'input{width:16px;height:16px;margin:2px 0 0;flex:0 0 auto;accent-color:#1a1625;}'
         + '.help{margin:0;font-weight:400;font-size:11px;color:#6b6575;}'
         + '</style>'
+        + '<button type="button" class="icon" data-oa-announce-icon aria-label="Push und E-Mail an Mitglieder">'
+        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+        + '<path d="M4 10v4a1 1 0 0 0 1 1h2l7 4V5L7 9H5a1 1 0 0 0-1 1z"></path>'
+        + '<path d="M17 8.2a4.2 4.2 0 0 1 0 7.6"></path>'
+        + '</svg></button>'
         + '<div class="box" data-oa-announce="1">'
-        + '<div class="row">'
         + '<label><input type="checkbox" data-oa-announce-push> Per Push an alle Mitglieder senden</label>'
         + '<label><input type="checkbox" data-oa-announce-email> Per E-Mail an alle Mitglieder senden</label>'
-        + '</div>'
-        + '<p class="help">Nur wer den Beitrag sehen darf. Geheime Räume bleiben geheim.</p>'
+        + '<p class="help">Übergeht die persönlichen Einstellungen. Nur wer den Beitrag sehen darf. Geheime Räume bleiben geheim.</p>'
         + '</div>';
       const push = root.querySelector('[data-oa-announce-push]');
       const email = root.querySelector('[data-oa-announce-email]');
+      const icon = root.querySelector('[data-oa-announce-icon]');
       if (push) push.checked = !!announceState.push;
       if (email) email.checked = !!announceState.email;
+      if (icon) {
+        icon.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          setPanel(!panelOpen);
+          paintChrome();
+        });
+      }
       root.addEventListener('change', () => {
         announceState.push = !!(push && push.checked);
         announceState.email = !!(email && email.checked);
+        syncIcon();
         scheduleIntent();
       });
       (document.body || document.documentElement).appendChild(host);
+      syncIcon();
       return host;
     }
 
     function hideHost(host) {
       if (!host) return;
+      panelOpen = false;
       host.removeAttribute('data-open');
+      host.removeAttribute('data-panel');
       host.style.display = 'none';
     }
 
-    function paintDock() {
+    function paintChrome() {
       const composer = findComposer();
       if (!composer) {
         hideHost(document.getElementById('oa-announce-host'));
@@ -538,42 +609,41 @@
         return;
       }
       const host = ensureHost();
-      const btn = findPublish(composer);
-      const editor = composer.querySelector(EDITOR);
-      const brect = btn ? btn.getBoundingClientRect() : null;
-      const erect = editor ? editor.getBoundingClientRect() : null;
-      const toolbarBottom = Math.max(
-        brect && brect.width ? brect.bottom : 0,
-        erect && erect.height ? erect.bottom : 0,
-        crect.bottom
-      );
-      const width = Math.min(520, Math.max(260, (crect.width || 320) - 16));
-      let left = (crect.left || 12) + 8;
-      left = Math.min(Math.max(8, left), window.innerWidth - width - 8);
+      const anchor = findIconAnchor(composer);
+      const pub = findPublish(composer);
+      const arect = (anchor || pub || composer).getBoundingClientRect();
+      const size = Math.max(28, Math.min(40, Math.round(arect.height || 36)));
+      let left = arect.right + 6;
+      let top = arect.top + (arect.height - size) / 2;
+      if (pub && anchor !== pub) {
+        const prect = pub.getBoundingClientRect();
+        if (left + size > prect.left - 6) left = Math.max(8, prect.left - size - 8);
+      }
+      left = Math.min(Math.max(8, left), window.innerWidth - size - 8);
       host.setAttribute('data-open', '1');
+      if (panelOpen) host.setAttribute('data-panel', '1');
+      else host.removeAttribute('data-panel');
       host.style.display = 'block';
       host.style.position = 'fixed';
       host.style.zIndex = '2147483646';
       host.style.left = left + 'px';
-      host.style.width = width + 'px';
-      host.style.right = 'auto';
-      const height = host.offsetHeight || 56;
-      const below = toolbarBottom + 8;
-      const aboveCard = crect.top - height - 8;
-      let top;
-      if (below + height <= window.innerHeight - 8) {
-        top = below;
-      } else if (aboveCard >= 8) {
-        top = aboveCard;
-      } else {
-        top = Math.max(8, window.innerHeight - height - 8);
-      }
-      if (erect && erect.height && top < erect.bottom + 4 && top + height > erect.top - 4) {
-        top = Math.min(window.innerHeight - height - 8, erect.bottom + 8);
-        if (top < erect.bottom + 4 && aboveCard >= 8) top = aboveCard;
-      }
       host.style.top = top + 'px';
+      host.style.width = size + 'px';
+      host.style.height = size + 'px';
+      host.style.right = 'auto';
       host.style.bottom = 'auto';
+      const box = (host.shadowRoot || host).querySelector('.box');
+      if (box && panelOpen) {
+        const bh = box.offsetHeight || 110;
+        if (top + size + 8 + bh > window.innerHeight - 8 && top - 8 - bh >= 8) {
+          box.style.top = 'auto';
+          box.style.bottom = (size + 8) + 'px';
+        } else {
+          box.style.top = (size + 8) + 'px';
+          box.style.bottom = 'auto';
+        }
+      }
+      syncIcon();
     }
 
     function isFeedWrite(method, url) {
@@ -642,7 +712,7 @@
       const loop = () => {
         const host = document.getElementById('oa-announce-host');
         if (host && host.getAttribute('data-open') === '1' && cachedComposer && cachedComposer.isConnected) {
-          paintDock();
+          paintChrome();
           window.requestAnimationFrame(loop);
         } else {
           ticking = false;
@@ -662,25 +732,35 @@
     document.addEventListener('focusin', (ev) => {
       const ed = ev.target && ev.target.closest && ev.target.closest(EDITOR);
       if (!ed || isCommentArea(ed) || skipped(ed)) return;
-      paintDock();
+      paintChrome();
       startTick();
     }, true);
 
+    document.addEventListener('pointerdown', (ev) => {
+      if (!panelOpen) return;
+      const host = document.getElementById('oa-announce-host');
+      if (!host) return;
+      const path = ev.composedPath ? ev.composedPath() : [];
+      if (path.indexOf(host) !== -1 || host.contains(ev.target)) return;
+      setPanel(false);
+      paintChrome();
+    }, true);
+
     wrapNetwork();
-    paintDock();
+    paintChrome();
     startTick();
     [200, 600, 1200, 2500, 5000].forEach((ms) => window.setTimeout(() => {
-      paintDock();
+      paintChrome();
       startTick();
     }, ms));
-    window.addEventListener('scroll', paintDock, true);
-    window.addEventListener('resize', paintDock);
+    window.addEventListener('scroll', paintChrome, true);
+    window.addEventListener('resize', paintChrome);
     let scheduled = 0;
     const obs = new MutationObserver(() => {
       if (scheduled) return;
       scheduled = window.setTimeout(() => {
         scheduled = 0;
-        paintDock();
+        paintChrome();
         startTick();
       }, 80);
     });

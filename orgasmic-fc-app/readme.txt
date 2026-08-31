@@ -1,12 +1,15 @@
 === ORGASMIC App ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.1.18
+Stable tag: 1.1.19
 License: GPLv2 or later
 
 PWA, offline cache, and Web Push for chat, posts, comments, and calendar events.
 
 == Changelog ==
+
+= 1.1.19 =
+* Announce controls are a megaphone icon in the composer toolbar; the checkboxes open on click
 
 = 1.1.18 =
 * Announce checkboxes sit under the composer toolbar so they no longer cover the text field
