@@ -825,8 +825,140 @@
     }, { passive: true });
   }
 
+  function setupDeviceDebug() {
+    const boot = window.__oaDbg || (window.__oaDbg = { v: cfg.version || '', t: Date.now(), err: [], sent: 0 });
+    if (!boot.v && cfg.version) boot.v = cfg.version;
+    const ajax = boot.ajax || cfg.ajax || '/wp-admin/admin-ajax.php';
+    let taps = 0;
+    let tapTimer = 0;
+    let overlay = null;
+    let errorSent = 0;
+
+    function nativeGuess() {
+      try {
+        if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) return true;
+      } catch (e) {}
+      return /wv\)|; wv\)|Capacitor/i.test(String(navigator.userAgent || ''));
+    }
+
+    function snapshot(reason) {
+      const ptr = document.getElementById('orgasmic-ptr');
+      const Cap = window.Capacitor || null;
+      let platform = '';
+      let plugins = [];
+      try {
+        platform = (Cap && Cap.getPlatform && Cap.getPlatform()) || '';
+        plugins = Cap && Cap.Plugins ? Object.keys(Cap.Plugins).slice(0, 20) : [];
+      } catch (e) {}
+      return {
+        v: boot.v || cfg.version || '',
+        href: String(location.href || '').slice(0, 240),
+        ua: String(navigator.userAgent || '').slice(0, 220),
+        native: nativeGuess(),
+        cap: !!Cap,
+        platform: platform,
+        plugins: plugins,
+        ready: document.readyState,
+        ptr: ptr ? (ptr.hidden ? 'hidden' : String(ptr.textContent || '').slice(0, 40)) : '',
+        ptrSkipped: isNativeShell() || /wv\)|; wv\)|Capacitor/i.test(String(navigator.userAgent || '')),
+        skel: document.querySelectorAll('[class*="skeleton"], [class*="Skeleton"], .el-skeleton').length,
+        online: navigator.onLine !== false,
+        vis: document.visibilityState || '',
+        loggedIn: !!cfg.loggedIn,
+        sw: !!(navigator.serviceWorker && navigator.serviceWorker.controller),
+        err: (boot.err || []).slice(-12),
+        ms: Date.now() - (boot.t || Date.now()),
+        reason: reason || 'ping',
+      };
+    }
+
+    function send(reason) {
+      boot.sent = 1;
+      const payload = snapshot(reason);
+      const body = 'action=orgasmic_fc_app_device_log&payload=' + encodeURIComponent(JSON.stringify(payload));
+      try {
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon(ajax, new Blob([body], { type: 'application/x-www-form-urlencoded;charset=UTF-8' }));
+          return;
+        }
+      } catch (e) {}
+      fetch(ajax, {
+        method: 'POST',
+        credentials: 'same-origin',
+        body: body,
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+        keepalive: true,
+      }).catch(function () {});
+    }
+
+    function paintOverlay() {
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'oa-device-debug';
+        overlay.innerHTML = '<div class="oa-dd-card"><p class="oa-dd-title">Geräte-Debug</p><pre></pre><div class="oa-dd-row">'
+          + '<button type="button" data-oa-dd-send>An Admin senden</button>'
+          + '<button type="button" class="oa-ghost" data-oa-dd-copy>Kopieren</button>'
+          + '<button type="button" class="oa-ghost" data-oa-dd-close>Schließen</button></div></div>';
+        (document.body || document.documentElement).appendChild(overlay);
+        overlay.addEventListener('click', function (ev) {
+          if (ev.target.closest('[data-oa-dd-close]')) {
+            overlay.hidden = true;
+            return;
+          }
+          if (ev.target.closest('[data-oa-dd-send]')) {
+            send('overlay');
+            ev.target.textContent = 'Gesendet';
+            return;
+          }
+          if (ev.target.closest('[data-oa-dd-copy]')) {
+            const text = (overlay.querySelector('pre') && overlay.querySelector('pre').textContent) || '';
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(text).catch(function () {});
+            }
+          }
+        });
+      }
+      overlay.hidden = false;
+      const pre = overlay.querySelector('pre');
+      if (pre) pre.textContent = JSON.stringify(snapshot('overlay'), null, 2);
+    }
+
+    if (/[?&]oa_debug=1/.test(location.search) || location.hash === '#orgasmic-debug') {
+      window.setTimeout(paintOverlay, 400);
+    }
+
+    document.addEventListener('touchend', function (ev) {
+      const y = ev.changedTouches && ev.changedTouches[0] ? ev.changedTouches[0].clientY : 999;
+      if (y > 72) {
+        taps = 0;
+        return;
+      }
+      taps += 1;
+      window.clearTimeout(tapTimer);
+      tapTimer = window.setTimeout(function () { taps = 0; }, 1600);
+      if (taps >= 7) {
+        taps = 0;
+        paintOverlay();
+        send('taps');
+      }
+    }, { passive: true });
+
+    const want = nativeGuess() || /[?&]oa_debug=1/.test(location.search) || location.hash === '#orgasmic-debug';
+    if (want) {
+      window.setTimeout(function () { send('boot-3s'); }, 3000);
+      window.setTimeout(function () { send('boot-12s'); }, 12000);
+    }
+
+    window.addEventListener('error', function () {
+      if (!want || errorSent > 1) return;
+      errorSent += 1;
+      window.setTimeout(function () { send('error'); }, 400);
+    });
+  }
+
   setupFeedRefresh();
   setupAnnounce();
+  setupDeviceDebug();
 
   const TOKEN_KEY = 'orgasmic-fcm-token';
   let pendingToken = '';

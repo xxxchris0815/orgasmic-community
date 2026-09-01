@@ -29,6 +29,15 @@ class Orgasmic_Fc_App_Portal
         echo '<link rel="apple-touch-icon" href="' . esc_url(ORGASMIC_FC_APP_URL . 'assets/icon-192.png') . '" />';
         $css = ORGASMIC_FC_APP_URL . 'assets/app.css?ver=' . rawurlencode(ORGASMIC_FC_APP_VERSION);
         echo '<link rel="stylesheet" href="' . esc_url($css) . '" />';
+        $ajax = esc_url_raw(admin_url('admin-ajax.php'));
+        echo '<script>window.__oaDbg=' . wp_json_encode([
+            'v' => ORGASMIC_FC_APP_VERSION,
+            'ajax' => $ajax,
+            't' => 0,
+            'err' => [],
+            'sent' => 0,
+        ]) . ';window.__oaDbg.t=Date.now();</script>';
+        echo '<script src="' . esc_url(ORGASMIC_FC_APP_URL . 'assets/debug-boot.js?ver=' . rawurlencode(ORGASMIC_FC_APP_VERSION)) . '"></script>';
     }
 
     public function boot(): void
@@ -48,6 +57,7 @@ class Orgasmic_Fc_App_Portal
             'prefs' => $logged ? Orgasmic_Fc_App_Install::prefs_for(get_current_user_id()) : Orgasmic_Fc_App_Install::default_prefs(),
             'loggedIn' => $logged,
             'canAnnounce' => $logged && (new Orgasmic_Fc_App_Access())->can_announce(),
+            'version' => ORGASMIC_FC_APP_VERSION,
         ];
         echo '<script>window.OrgasmicFcApp = ' . wp_json_encode($data) . ';</script>';
         echo '<script src="' . esc_url(ORGASMIC_FC_APP_URL . 'assets/app.js?ver=' . rawurlencode(ORGASMIC_FC_APP_VERSION)) . '" defer></script>';

@@ -23,6 +23,8 @@ class Orgasmic_Fc_App_Rest
         add_action('wp_ajax_orgasmic_fc_app_boot', [$this, 'ajax_boot']);
         add_action('wp_ajax_nopriv_orgasmic_fc_app_boot', [$this, 'ajax_boot']);
         add_action('wp_ajax_orgasmic_fc_app_push_token', [$this, 'ajax_token']);
+        add_action('wp_ajax_orgasmic_fc_app_device_log', [$this, 'ajax_device_log']);
+        add_action('wp_ajax_nopriv_orgasmic_fc_app_device_log', [$this, 'ajax_device_log']);
     }
 
     public function routes(): void
@@ -215,6 +217,64 @@ class Orgasmic_Fc_App_Rest
                 'tokenPath' => 'push/token',
             ],
         ]);
+    }
+
+    public function ajax_device_log(): void
+    {
+        $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+        $key = 'oa_dlog_' . md5($ip);
+        $n = (int) get_transient($key);
+        if ($n >= 6) {
+            wp_send_json(['ok' => true, 'skipped' => true]);
+        }
+        set_transient($key, $n + 1, 120);
+
+        $raw = (string) ($_POST['payload'] ?? '');
+        if ($raw === '') {
+            $raw = (string) file_get_contents('php://input');
+        }
+        $json = json_decode($raw, true);
+        if (!is_array($json)) {
+            status_header(400);
+            wp_send_json(['ok' => false]);
+        }
+
+        $err = [];
+        if (!empty($json['err']) && is_array($json['err'])) {
+            foreach (array_slice($json['err'], -12) as $item) {
+                $err[] = substr(sanitize_text_field((string) $item), 0, 240);
+            }
+        }
+        $plugins = [];
+        if (!empty($json['plugins']) && is_array($json['plugins'])) {
+            foreach (array_slice($json['plugins'], 0, 24) as $item) {
+                $plugins[] = sanitize_key((string) $item);
+            }
+        }
+
+        $this->store->save_device_log([
+            'at' => gmdate('Y-m-d H:i:s'),
+            'user_id' => get_current_user_id(),
+            'v' => sanitize_text_field((string) ($json['v'] ?? '')),
+            'href' => esc_url_raw((string) ($json['href'] ?? '')),
+            'ua' => substr(sanitize_text_field((string) ($json['ua'] ?? ($_SERVER['HTTP_USER_AGENT'] ?? ''))), 0, 240),
+            'native' => !empty($json['native']),
+            'cap' => !empty($json['cap']),
+            'platform' => sanitize_key((string) ($json['platform'] ?? '')),
+            'plugins' => $plugins,
+            'ready' => sanitize_key((string) ($json['ready'] ?? '')),
+            'ptr' => sanitize_text_field((string) ($json['ptr'] ?? '')),
+            'ptrSkipped' => !empty($json['ptrSkipped']),
+            'skel' => max(0, (int) ($json['skel'] ?? 0)),
+            'online' => !isset($json['online']) || !empty($json['online']),
+            'vis' => sanitize_key((string) ($json['vis'] ?? '')),
+            'loggedIn' => !empty($json['loggedIn']),
+            'sw' => !empty($json['sw']),
+            'reason' => sanitize_key((string) ($json['reason'] ?? 'ping')),
+            'ms' => max(0, (int) ($json['ms'] ?? 0)),
+            'err' => $err,
+        ]);
+        wp_send_json(['ok' => true]);
     }
 
     public function ajax_boot(): void

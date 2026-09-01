@@ -23,6 +23,7 @@ class Orgasmic_Fc_App_Install
     public const OPTION_START_URL = 'orgasmic_fc_app_start_url';
     public const OPTION_THEME = 'orgasmic_fc_app_theme';
     public const OPTION_FCM_JSON = 'orgasmic_fc_app_fcm_json';
+    public const OPTION_DEVICE_LOGS = 'orgasmic_fc_app_device_logs';
     public const META_PREFS = 'orgasmic_fc_app_prefs';
     public const PREF_KEYS = ['chat', 'feed', 'comment', 'event'];
 

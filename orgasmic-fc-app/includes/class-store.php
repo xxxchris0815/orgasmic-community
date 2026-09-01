@@ -406,6 +406,35 @@ class Orgasmic_Fc_App_Store
         return $out;
     }
 
+    /**
+     * @param array<string, mixed> $row
+     */
+    public function save_device_log(array $row): void
+    {
+        $logs = get_option(Orgasmic_Fc_App_Install::OPTION_DEVICE_LOGS, []);
+        if (!is_array($logs)) {
+            $logs = [];
+        }
+        array_unshift($logs, $row);
+        $logs = array_slice($logs, 0, 40);
+        update_option(Orgasmic_Fc_App_Install::OPTION_DEVICE_LOGS, $logs, false);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function device_logs(): array
+    {
+        $logs = get_option(Orgasmic_Fc_App_Install::OPTION_DEVICE_LOGS, []);
+
+        return is_array($logs) ? $logs : [];
+    }
+
+    public function clear_device_logs(): void
+    {
+        delete_option(Orgasmic_Fc_App_Install::OPTION_DEVICE_LOGS);
+    }
+
     private function clip(string $value, int $max): string
     {
         if (function_exists('mb_substr')) {

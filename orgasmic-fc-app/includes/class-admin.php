@@ -21,6 +21,7 @@ class Orgasmic_Fc_App_Admin
         add_action('admin_init', [$this, 'settings']);
         add_action('admin_post_orgasmic_fc_app_test_push', [$this, 'handle_test']);
         add_action('admin_post_orgasmic_fc_app_enroll', [$this, 'handle_enroll']);
+        add_action('admin_post_orgasmic_fc_app_clear_device_logs', [$this, 'handle_clear_logs']);
         add_action('admin_notices', [$this, 'php_notice']);
     }
 
@@ -50,6 +51,14 @@ class Orgasmic_Fc_App_Admin
             'manage_options',
             'orgasmic-fc-app-members',
             [$this, 'render_members']
+        );
+        add_submenu_page(
+            'orgasmic-fc-app',
+            'Geräte-Logs',
+            'Geräte-Logs',
+            'manage_options',
+            'orgasmic-fc-app-device-logs',
+            [$this, 'render_device_logs']
         );
     }
 
@@ -169,6 +178,20 @@ class Orgasmic_Fc_App_Admin
         exit;
     }
 
+    public function handle_clear_logs(): void
+    {
+        if (!current_user_can('manage_options')) {
+            wp_die('Keine Berechtigung.');
+        }
+        check_admin_referer('orgasmic_fc_app_clear_device_logs');
+        $this->store->clear_device_logs();
+        wp_safe_redirect(add_query_arg([
+            'page' => 'orgasmic-fc-app-device-logs',
+            'orgasmic_fc_app_cleared' => '1',
+        ], admin_url('admin.php')));
+        exit;
+    }
+
     private function access_for_enroll(): Orgasmic_Fc_App_Access
     {
         return new Orgasmic_Fc_App_Access();
@@ -274,6 +297,10 @@ class Orgasmic_Fc_App_Admin
             }
             echo '</tbody></table>';
         }
+
+        echo '<p>Hängt die Native App am Skeleton: App einmal öffnen, 10 Sekunden warten, dann <a href="'
+            . esc_url(admin_url('admin.php?page=orgasmic-fc-app-device-logs'))
+            . '">Geräte-Logs</a> ansehen. In der App: 7× oben am Bildschirm tippen für die Debug-Ansicht.</p>';
 
         echo '<h2>Capacitor (Store-Apps)</h2>';
         echo '<p>Nicht die Community neu bauen. Ein Capacitor-Projekt lädt <code>community.orgasmic.live/portal</code>. Plugins: <code>@capacitor/push-notifications</code>, <code>@capacitor/camera</code>, <code>capacitor-voice-recorder</code>. Die Website schickt das FCM-Token an <code>/wp-json/orgasmic-app/v1/push/token</code>. Chat nutzt Kamera und Mikro der App, falls vorhanden — sonst den Browser. Ohne <code>google-services.json</code> in der APK wird Push nicht registriert (sonst stürzt Android nach dem Login ab).</p>';
@@ -395,6 +422,65 @@ class Orgasmic_Fc_App_Admin
             echo '</tbody></table>';
         }
         echo '</div>';
+    }
+
+    public function render_device_logs(): void
+    {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        echo '<div class="wrap"><h1>Geräte-Logs</h1>';
+        echo '<p>Die Native App schickt nach ein paar Sekunden automatisch einen Bericht (User-Agent, Capacitor, Plugin-Version, JS-Fehler, Skeleton, Pull-to-Refresh). '
+            . 'In der App: <strong>7× oben am Bildschirm tippen</strong> öffnet die Debug-Ansicht. '
+            . 'Kommt hier nichts an, startet unser JavaScript im WebView nicht — dann reicht ein Screenshot vom hängenden Screen plus Android-Version.</p>';
+
+        if (!empty($_GET['orgasmic_fc_app_cleared'])) {
+            echo '<div class="notice notice-success is-dismissible"><p>Logs gelöscht.</p></div>';
+        }
+
+        $rows = $this->store->device_logs();
+        echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" style="margin:12px 0">';
+        wp_nonce_field('orgasmic_fc_app_clear_device_logs');
+        echo '<input type="hidden" name="action" value="orgasmic_fc_app_clear_device_logs" />';
+        submit_button('Logs leeren', 'secondary', 'submit', false);
+        echo '</form>';
+
+        if ($rows === []) {
+            echo '<p>Noch keine Berichte. App mit installiertem Plugin <code>1.1.21+</code> öffnen und 12 Sekunden warten, dann diese Seite neu laden.</p></div>';
+            return;
+        }
+
+        echo '<table class="widefat striped"><thead><tr>';
+        echo '<th>Zeit (UTC)</th><th>Mitglied</th><th>Native</th><th>Plugin</th><th>Grund</th><th>PTR</th><th>Skeleton</th><th>Fehler</th><th></th>';
+        echo '</tr></thead><tbody>';
+        foreach ($rows as $row) {
+            $uid = (int) ($row['user_id'] ?? 0);
+            $user = $uid > 0 ? get_userdata($uid) : null;
+            $err = is_array($row['err'] ?? null) ? $row['err'] : [];
+            $native = !empty($row['native']) || !empty($row['cap']);
+            $ptr = (string) ($row['ptr'] ?? '');
+            if ($ptr === '' && !empty($row['ptrSkipped'])) {
+                $ptr = 'skipped';
+            }
+            if ($ptr === '') {
+                $ptr = '—';
+            }
+            echo '<tr>';
+            echo '<td>' . esc_html((string) ($row['at'] ?? '')) . '<br><span style="opacity:.7">' . esc_html((string) ($row['ms'] ?? '0')) . ' ms</span></td>';
+            echo '<td>' . esc_html($user ? $user->display_name : '—') . '</td>';
+            echo '<td>' . ($native ? 'ja' : 'nein') . ' ' . esc_html((string) ($row['platform'] ?? '')) . '</td>';
+            echo '<td><code>' . esc_html((string) ($row['v'] ?? '')) . '</code></td>';
+            echo '<td><code>' . esc_html((string) ($row['reason'] ?? '')) . '</code></td>';
+            echo '<td>' . esc_html($ptr) . '</td>';
+            echo '<td>' . (int) ($row['skel'] ?? 0) . '</td>';
+            echo '<td>' . count($err) . '</td>';
+            echo '<td><details><summary>JSON</summary><pre style="max-width:640px;overflow:auto;white-space:pre-wrap">'
+                . esc_html((string) wp_json_encode($row, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE))
+                . '</pre></details></td>';
+            echo '</tr>';
+        }
+        echo '</tbody></table></div>';
     }
 
     public function render_members(): void

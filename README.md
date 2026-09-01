@@ -12,7 +12,7 @@ Moved from `evolution-api` (`Extras/orgasmic-community`).
 | `orgasmic-fc-events/` | **1.0.12** | Kalender im Portal (RSVP, Zoom, Markieren/Duplizieren/Löschen mobil+Desktop) |
 | `orgasmic-fc-embeds/` | **1.2.18** | Video-Player im Feed, optional nur Vorschaubild bis zum Klick |
 | `orgasmic-fc-chat/` | **1.1.16** | Space-Chat (letzte 40 Nachrichten, ältere per Scroll) |
-| `orgasmic-fc-app/` | **1.1.20** | PWA, Web Push, Megafon-Icon; Native App ohne hängendes Pull-to-Reload |
+| `orgasmic-fc-app/` | **1.1.21** | PWA, Web Push, Megafon-Icon; Geräte-Logs für Native-App-Debug |
 
 ## ORGASMIC Community Kalender
 
@@ -108,9 +108,9 @@ Body: { "space_ids": [1, 2, 3], "mode": "set" }
 
 Admins sehen im Beitrags-Composer zwei Häkchen: **Per Push an alle Mitglieder senden** und **Per E-Mail an alle Mitglieder senden**. Empfänger sind nur Leute, die den Beitrag sehen dürfen (Raummitglieder bzw. Community-Feed). Geheime Kreise werden nicht nach außen geleakt. E-Mails laufen über `wp_mail` (Minute-Queue).
 
-WP-Admin: **ORGASMIC App**. Unter **Push prüfen** ein Mitglied suchen (z. B. Alexandra): Token, erlaubte Arten, letzte Queue-Zeilen inkl. Firebase-Fehler, Test-Push auf ihr Gerät. PHP 8.2+ für Web-Push (`openssl_pkey_derive`). Firebase-JSON nur für Store-Apps. Unter **Geräte mit App-Push** steht, wessen Handy ein FCM-Token gespeichert hat.
+WP-Admin: **ORGASMIC App**. Unter **Geräte-Logs** landen automatische Berichte aus der Native App (Version, Capacitor, JS-Fehler, Skeleton). Unter **Push prüfen** ein Mitglied suchen (z. B. Alexandra): Token, erlaubte Arten, letzte Queue-Zeilen inkl. Firebase-Fehler, Test-Push auf ihr Gerät. PHP 8.2+ für Web-Push (`openssl_pkey_derive`). Firebase-JSON nur für Store-Apps. Unter **Geräte mit App-Push** steht, wessen Handy ein FCM-Token gespeichert hat.
 
-ZIP: [`orgasmic-fc-app-1.1.20.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.1.20.zip)
+ZIP: [`orgasmic-fc-app-1.1.21.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.1.21.zip)
 
 ### Capacitor / Play Store (Android zuerst)
 

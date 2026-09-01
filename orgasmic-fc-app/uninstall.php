@@ -25,6 +25,7 @@ delete_option('orgasmic_fc_app_include_body');
 delete_option('orgasmic_fc_app_start_url');
 delete_option('orgasmic_fc_app_theme');
 delete_option('orgasmic_fc_app_fcm_json');
+delete_option('orgasmic_fc_app_device_logs');
 
 $wpdb->delete($wpdb->usermeta, ['meta_key' => 'orgasmic_fc_app_prefs']);
 $wpdb->delete($wpdb->usermeta, ['meta_key' => '_orgasmic_fc_announce_intent']);
