@@ -8,8 +8,10 @@ if (!defined('ABSPATH')) {
 
 class Orgasmic_Fc_Bunny_Embeds
 {
-    public function __construct(private Orgasmic_Fc_Embeds_Store $store)
-    {
+    public function __construct(
+        private Orgasmic_Fc_Embeds_Store $store,
+        private ?Orgasmic_Fc_Embeds_Bunny $bunny = null
+    ) {
     }
 
     public function register(): void
@@ -100,7 +102,10 @@ class Orgasmic_Fc_Bunny_Embeds
         $key = esc_attr($library . '/' . $video);
 
         if ($this->store->click_to_play()) {
-            $poster = admin_url('admin-ajax.php?action=orgasmic_fc_poster&library=' . rawurlencode($library) . '&video=' . rawurlencode($video));
+            $poster = ($this->bunny ? $this->bunny->public_poster_url($library, $video) : '');
+            if ($poster === '') {
+                $poster = admin_url('admin-ajax.php?action=orgasmic_fc_poster&library=' . rawurlencode($library) . '&video=' . rawurlencode($video));
+            }
 
             return '<div class="orgasmic-bunny-embed orgasmic-bunny-embed--poster" data-orgasmic-bunny="' . $key
                 . '" data-bunny-poster="1" role="button" tabindex="0" aria-label="Video abspielen">'
@@ -139,6 +144,7 @@ class Orgasmic_Fc_Bunny_Embeds
             'ajaxNonce' => wp_create_nonce('orgasmic_fc_upload'),
             'autoplay' => $this->store->autoplay(),
             'clickToPlay' => $this->store->click_to_play(),
+            'cdnHost' => $this->store->cdn_hostname(),
             'loggedIn' => is_user_logged_in(),
             'uploadEnabled' => is_user_logged_in() && $this->store->upload_configured(),
             'tus' => esc_url_raw(ORGASMIC_FC_EMBEDS_URL . 'assets/tus.min.js?ver=4.3.1'),

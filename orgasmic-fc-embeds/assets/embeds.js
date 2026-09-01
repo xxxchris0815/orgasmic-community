@@ -201,11 +201,91 @@
     }
   }
 
-  function posterUrl(library, video) {
+  function cdnHost() {
+    return String((window.OrgasmicFcEmbeds && window.OrgasmicFcEmbeds.cdnHost) || '')
+      .replace(/^https?:\/\//, '')
+      .replace(/\/$/, '')
+      .toLowerCase();
+  }
+
+  function posterProxy(library, video) {
     const ajax = (window.OrgasmicFcEmbeds && window.OrgasmicFcEmbeds.ajax) || '/wp-admin/admin-ajax.php';
     const join = ajax.indexOf('?') >= 0 ? '&' : '?';
     return ajax + join + 'action=orgasmic_fc_poster&library='
       + encodeURIComponent(library) + '&video=' + encodeURIComponent(video);
+  }
+
+  function posterCandidates(library, video) {
+    const urls = [];
+    const host = cdnHost();
+    if (host) {
+      urls.push('https://' + host + '/' + video + '/thumbnail.jpg');
+      urls.push('https://' + host + '/' + video + '/thumbnail_1.jpg');
+      urls.push('https://' + host + '/' + video + '/preview.webp');
+    }
+    urls.push(posterProxy(library, video));
+    return urls;
+  }
+
+  function resolvePosterUrls(library, video) {
+    const root = (window.OrgasmicFcEmbeds && window.OrgasmicFcEmbeds.root) || '';
+    if (!root) return Promise.resolve([]);
+    const url = root + 'poster-url?library=' + encodeURIComponent(library) + '&video=' + encodeURIComponent(video);
+    return fetch(url, { credentials: 'same-origin' }).then((res) => res.ok ? res.json() : null).then((data) => {
+      if (data && data.cdn && !cdnHost()) {
+        window.OrgasmicFcEmbeds = window.OrgasmicFcEmbeds || {};
+        window.OrgasmicFcEmbeds.cdnHost = data.cdn;
+      }
+      const list = (data && (data.urls || (data.url ? [data.url] : []))) || [];
+      return list.filter((item) => typeof item === 'string' && item.indexOf('https://') === 0);
+    }).catch(() => []);
+  }
+
+  function bindPosterImg(img, library, video) {
+    if (!img || img.dataset.bunnyPosterBound === '1') return;
+    img.dataset.bunnyPosterBound = '1';
+    const urls = posterCandidates(library, video);
+    const seen = {};
+    urls.forEach((u) => { seen[u] = true; });
+    let i = 0;
+    let asked = false;
+    const tryNext = () => {
+      while (i < urls.length && seen[urls[i]] === 'used') i += 1;
+      if (i < urls.length) {
+        const next = urls[i++];
+        seen[next] = 'used';
+        img.hidden = false;
+        img.src = next;
+        return;
+      }
+      if (asked) {
+        img.hidden = true;
+        return;
+      }
+      asked = true;
+      resolvePosterUrls(library, video).then((extra) => {
+        extra.forEach((u) => {
+          if (!seen[u]) {
+            seen[u] = true;
+            urls.push(u);
+          }
+        });
+        tryNext();
+      });
+    };
+    img.addEventListener('error', tryNext);
+    const current = String(img.getAttribute('src') || '');
+    if (current) {
+      seen[current] = 'used';
+      img.hidden = false;
+      return;
+    }
+    tryNext();
+  }
+
+  function posterUrl(library, video) {
+    const urls = posterCandidates(library, video);
+    return urls[0] || posterProxy(library, video);
   }
 
   function appendIframe(wrap, library, video, autoplay) {
@@ -233,10 +313,9 @@
       img.alt = '';
       img.decoding = 'async';
       img.loading = 'lazy';
-      img.addEventListener('error', function () { img.hidden = true; });
       wrap.appendChild(img);
     }
-    img.src = posterUrl(library, video);
+    bindPosterImg(img, library, video);
     if (!wrap.querySelector('.orgasmic-bunny-poster-play')) {
       const play = document.createElement('span');
       play.className = 'orgasmic-bunny-poster-play';
@@ -514,6 +593,8 @@
         wrap.setAttribute('data-orgasmic-bunny', library + '/' + video);
       }
       if (clickToPlayEnabled()) {
+        const img = wrap.querySelector('.orgasmic-bunny-poster-img');
+        if (img && library && video) bindPosterImg(img, library, video);
         if (!wrap.querySelector('iframe')) return;
         fillPoster(wrap, library, video);
         return;

@@ -59,6 +59,12 @@ class Orgasmic_Fc_Embeds_Rest
             'permission_callback' => static fn() => is_user_logged_in(),
             'callback' => [$this, 'chunk_upload'],
         ]);
+
+        register_rest_route('orgasmic-embeds/v1', '/poster-url', [
+            'methods' => 'GET',
+            'permission_callback' => '__return_true',
+            'callback' => [$this, 'poster_url'],
+        ]);
     }
 
     public function create_upload(WP_REST_Request $request)
@@ -73,6 +79,19 @@ class Orgasmic_Fc_Embeds_Rest
             return $created;
         }
         return rest_ensure_response($created);
+    }
+
+    public function poster_url(WP_REST_Request $request)
+    {
+        $library = preg_replace('/[^0-9]/', '', (string) $request->get_param('library')) ?: '';
+        $video = strtolower(preg_replace('/[^0-9a-f-]/', '', (string) $request->get_param('video')) ?: '');
+        $urls = $this->bunny->public_poster_urls($library, $video);
+
+        return rest_ensure_response([
+            'url' => $urls[0] ?? '',
+            'urls' => $urls,
+            'cdn' => $this->store->cdn_hostname(),
+        ]);
     }
 
     public function upload_status(WP_REST_Request $request)
@@ -225,6 +244,11 @@ class Orgasmic_Fc_Embeds_Rest
         $video = strtolower(preg_replace('/[^0-9a-f-]/', '', (string) wp_unslash($_GET['video'] ?? '')) ?: '');
         if ($library === '' || strlen($video) < 8) {
             status_header(400);
+            exit;
+        }
+        $url = $this->bunny->public_poster_url($library, $video);
+        if ($url !== '') {
+            wp_redirect($url, 302);
             exit;
         }
         $this->bunny->output_poster($library, $video);

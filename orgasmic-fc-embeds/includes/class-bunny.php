@@ -181,6 +181,113 @@ class Orgasmic_Fc_Embeds_Bunny
         return true;
     }
 
+    /**
+     * Public Bunny thumbnail URL (pull zone), no player iframe.
+     */
+    public function public_poster_url(string $library, string $video_id): string
+    {
+        $urls = $this->public_poster_urls($library, $video_id);
+
+        return $urls[0] ?? '';
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function public_poster_urls(string $library, string $video_id): array
+    {
+        $library = preg_replace('/[^0-9]/', '', $library) ?: '';
+        $video_id = strtolower(preg_replace('/[^0-9a-f-]/', '', $video_id) ?: '');
+        if ($library === '' || strlen($video_id) < 8) {
+            return [];
+        }
+
+        $cache_key = 'orgasmic_bunny_purls_' . md5($library . '/' . $video_id);
+        $cached = get_transient($cache_key);
+        if (is_array($cached) && $cached !== []) {
+            return array_values(array_filter(array_map('strval', $cached)));
+        }
+
+        $host = $this->store->cdn_hostname();
+        if ($host !== '') {
+            $urls = [
+                'https://' . $host . '/' . $video_id . '/thumbnail.jpg',
+                'https://' . $host . '/' . $video_id . '/thumbnail_1.jpg',
+                'https://' . $host . '/' . $video_id . '/preview.webp',
+            ];
+            set_transient($cache_key, $urls, 12 * HOUR_IN_SECONDS);
+            return $urls;
+        }
+
+        $urls = [];
+        $oembed = $this->oembed_thumbnail($library, $video_id);
+        if ($oembed !== '') {
+            $urls[] = $oembed;
+            $this->remember_host_from_url($oembed);
+        }
+        $scraped = $this->embed_thumbnail($library, $video_id);
+        if ($scraped !== '') {
+            $urls[] = $scraped;
+            $this->remember_host_from_url($scraped);
+        }
+
+        $file = $this->thumbnail_filename($library, $video_id);
+        $host = $this->store->cdn_hostname();
+        if ($host === '') {
+            $host = $this->cdn_hostname($library, $video_id);
+        }
+        if ($host !== '') {
+            $this->store->remember_cdn_hostname($host);
+            $urls[] = 'https://' . $host . '/' . $video_id . '/' . $file;
+            $urls[] = 'https://' . $host . '/' . $video_id . '/thumbnail.jpg';
+            $urls[] = 'https://' . $host . '/' . $video_id . '/thumbnail_1.jpg';
+            $urls[] = 'https://' . $host . '/' . $video_id . '/preview.webp';
+        }
+
+        $urls = array_values(array_unique(array_filter($urls)));
+        if ($urls !== []) {
+            set_transient($cache_key, $urls, 12 * HOUR_IN_SECONDS);
+        }
+
+        return $urls;
+    }
+
+    private function remember_host_from_url(string $url): void
+    {
+        $host = strtolower((string) (wp_parse_url($url, PHP_URL_HOST) ?: ''));
+        if ($host !== '') {
+            $this->store->remember_cdn_hostname($host);
+        }
+    }
+
+    private function embed_thumbnail(string $library, string $video_id): string
+    {
+        $response = wp_remote_get(
+            'https://iframe.mediadelivery.net/embed/' . rawurlencode($library) . '/' . rawurlencode($video_id),
+            [
+                'timeout' => 12,
+                'redirection' => 3,
+                'headers' => ['Accept' => 'text/html'],
+            ]
+        );
+        if (is_wp_error($response) || (int) wp_remote_retrieve_response_code($response) >= 300) {
+            return '';
+        }
+        $html = (string) wp_remote_retrieve_body($response);
+        if ($html === '') {
+            return '';
+        }
+        if (preg_match('/property=["\']og:image["\'][^>]*content=["\']([^"\']+)/i', $html, $match)
+            || preg_match('/content=["\']([^"\']+)["\'][^>]*property=["\']og:image["\']/i', $html, $match)
+            || preg_match('/poster=["\'](https:[^"\']+)["\']/i', $html, $match)
+            || preg_match('#(https://[a-z0-9.-]+\.b-cdn\.net/' . preg_quote($video_id, '#') . '/thumbnail[^"\'\s]*)#i', $html, $match)
+        ) {
+            return esc_url_raw($match[1] ?? '') ?: '';
+        }
+
+        return '';
+    }
+
     public function output_poster(string $library, string $video_id): void
     {
         $found = $this->poster_payload($library, $video_id);
@@ -423,6 +530,7 @@ class Orgasmic_Fc_Embeds_Bunny
             'redirection' => 3,
             'headers' => [
                 'Accept' => 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+                'Referer' => 'https://iframe.mediadelivery.net/',
             ],
         ]);
         if (is_wp_error($response)) {

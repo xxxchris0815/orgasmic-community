@@ -78,6 +78,15 @@ class Orgasmic_Fc_Embeds_Admin
             'type' => 'string',
             'sanitize_callback' => 'sanitize_text_field',
         ]);
+        register_setting('orgasmic_fc_embeds', Orgasmic_Fc_Embeds_Store::OPTION_CDN_HOSTNAME, [
+            'type' => 'string',
+            'sanitize_callback' => static function ($value) {
+                $value = strtolower(trim((string) $value));
+                $value = preg_replace('#^https?://#', '', $value) ?: '';
+                $value = trim($value, '/');
+                return preg_match('/^[a-z0-9.-]+\.b-cdn\.net$/', $value) ? $value : '';
+            },
+        ]);
         register_setting('orgasmic_fc_embeds', Orgasmic_Fc_Embeds_Store::OPTION_WEBHOOK_URL, [
             'type' => 'string',
             'sanitize_callback' => 'esc_url_raw',
@@ -173,6 +182,11 @@ class Orgasmic_Fc_Embeds_Admin
             . esc_attr($this->store->collection_id()) . '" placeholder="Collection-GUID" />';
         echo '<p class="description">Neue Community-Videos landen in dieser Collection.</p></td></tr>';
 
+        echo '<tr><th>Stream CDN-Hostname</th><td><input type="text" class="regular-text" name="'
+            . esc_attr(Orgasmic_Fc_Embeds_Store::OPTION_CDN_HOSTNAME) . '" value="'
+            . esc_attr($this->store->cdn_hostname()) . '" placeholder="vz-xxxxxxxx.b-cdn.net" />';
+        echo '<p class="description">Bunny Stream → Library → CDN-Hostname. Wird fürs Vorschaubild ohne Player gebraucht (<code>…/VIDEO-ID/thumbnail.jpg</code>). Leer lassen: wird beim ersten Video automatisch ermittelt.</p></td></tr>';
+
         echo '<tr><th>Autoplay</th><td>';
         echo '<input type="hidden" name="' . esc_attr(Orgasmic_Fc_Embeds_Store::OPTION_AUTOPLAY) . '" value="0" />';
         echo '<label><input type="checkbox" name="' . esc_attr(Orgasmic_Fc_Embeds_Store::OPTION_AUTOPLAY) . '" value="1" '
@@ -184,7 +198,7 @@ class Orgasmic_Fc_Embeds_Admin
         echo '<label><input type="checkbox" name="' . esc_attr(Orgasmic_Fc_Embeds_Store::OPTION_CLICK_TO_PLAY) . '" value="1" '
             . checked($this->store->click_to_play(), true, false)
             . ' /> Nur Vorschaubild im Feed (Player erst nach Klick)</label>';
-        echo '<p class="description">Wie früher: im Feed erscheint ein Standbild mit Play-Button. Der Player lädt und startet erst, wenn jemand draufklickt. Gilt nicht für den Beitrags-Editor.</p></td></tr>';
+        echo '<p class="description">Bunny legt zu jedem fertigen Video ein Standbild an (<code>thumbnail.jpg</code> auf der Stream-CDN), ohne den Player zu laden. Im Feed erscheint dieses Bild mit Play-Button. Der Player startet erst nach Klick. Gilt nicht für den Beitrags-Editor.</p></td></tr>';
 
         echo '<tr><th>Webhook-URL</th><td><input type="url" class="regular-text" name="'
             . esc_attr(Orgasmic_Fc_Embeds_Store::OPTION_WEBHOOK_URL) . '" value="'

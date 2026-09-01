@@ -15,6 +15,7 @@ delete_option('orgasmic_fc_embeds_click_to_play');
 delete_option('orgasmic_fc_embeds_library_id');
 delete_option('orgasmic_fc_embeds_api_key');
 delete_option('orgasmic_fc_embeds_collection_id');
+delete_option('orgasmic_fc_embeds_cdn_hostname');
 delete_option('orgasmic_fc_embeds_webhook_url');
 delete_option('orgasmic_fc_embeds_webhook_secret');
 delete_option('orgasmic_fc_embeds_include_pii');

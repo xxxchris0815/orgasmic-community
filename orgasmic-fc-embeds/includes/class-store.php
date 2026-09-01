@@ -12,7 +12,7 @@ class Orgasmic_Fc_Embeds_Store
     public const OPTION_CLICK_TO_PLAY = 'orgasmic_fc_embeds_click_to_play';
     public const OPTION_LIBRARY_ID = 'orgasmic_fc_embeds_library_id';
     public const OPTION_API_KEY = 'orgasmic_fc_embeds_api_key';
-    public const OPTION_COLLECTION_ID = 'orgasmic_fc_embeds_collection_id';
+    public const OPTION_CDN_HOSTNAME = 'orgasmic_fc_embeds_cdn_hostname';
     public const OPTION_WEBHOOK_URL = 'orgasmic_fc_embeds_webhook_url';
     public const OPTION_WEBHOOK_SECRET = 'orgasmic_fc_embeds_webhook_secret';
     public const OPTION_INCLUDE_PII = 'orgasmic_fc_embeds_include_pii';
@@ -96,6 +96,29 @@ class Orgasmic_Fc_Embeds_Store
     public function collection_id(): string
     {
         return sanitize_text_field((string) get_option(self::OPTION_COLLECTION_ID, ''));
+    }
+
+    public function cdn_hostname(): string
+    {
+        $value = strtolower(trim((string) get_option(self::OPTION_CDN_HOSTNAME, '')));
+        $value = preg_replace('#^https?://#', '', $value) ?: '';
+        $value = trim($value, '/');
+        if (!preg_match('/^[a-z0-9.-]+\.b-cdn\.net$/', $value)) {
+            return '';
+        }
+
+        return $value;
+    }
+
+    public function remember_cdn_hostname(string $host): void
+    {
+        $host = strtolower(trim($host));
+        $host = preg_replace('#^https?://#', '', $host) ?: '';
+        $host = trim($host, '/');
+        if ($this->cdn_hostname() !== '' || !preg_match('/^[a-z0-9.-]+\.b-cdn\.net$/', $host)) {
+            return;
+        }
+        update_option(self::OPTION_CDN_HOSTNAME, $host);
     }
 
     public function upload_configured(): bool
