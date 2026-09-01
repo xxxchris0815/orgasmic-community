@@ -154,6 +154,8 @@ Debug-APK nicht in den Play Store laden.
 
 **Build-Fehler `invalid source release: 21`:** Capacitor 7 braucht JDK 21, Codemagic startet standardmäßig mit JDK 17. In `codemagic.yaml` steht dafür `ubuntu: 24.04` und `java: 21`. Den Workflow **Android Debug (testen)** auf dem aktuellen Feature-Branch nochmal starten — mehr Log-Zeilen brauchst du für diesen Fehler nicht.
 
+**Play Console: „must target at least API level 36“:** Die AAB muss `targetSdkVersion 36` haben (Android 16). Steht in `orgasmic-native/android/variables.gradle`. Nach dem Ändern **Android Release** neu bauen und die neue AAB hochladen (höhere Version Code). Die gelbe Warnung zum Deobfuscation-File kannst du ignorieren — Release ist nicht mit R8/ProGuard verschleiert (`minifyEnabled false`).
+
 **Build bricht bei google-services.json ab:** Die Variable war fast immer **mehrzeilig**. Inhalt als **eine Zeile** erneut speichern (siehe Abschnitt 4), Branch mit dem aktuellen `codemagic.yaml` bauen.
 
 ---
