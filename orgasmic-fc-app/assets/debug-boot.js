@@ -2,20 +2,36 @@
   var b = window.__oaDbg = window.__oaDbg || {};
   if (!b.t) b.t = Date.now();
   if (!b.err) b.err = [];
+  if (!b.fail) b.fail = [];
   b.sent = b.sent || 0;
 
-  function add(msg) {
-    if (b.err.length > 24) b.err.shift();
-    b.err.push(String(msg || '').slice(0, 280));
+  function add(list, msg, max) {
+    if (list.length > max) list.shift();
+    list.push(String(msg || '').slice(0, 180));
   }
 
   window.addEventListener('error', function (e) {
-    add((e.message || 'error') + ' @' + (e.filename || '') + ':' + (e.lineno || ''));
+    add(b.err, (e.message || 'error') + ' @' + (e.filename || '') + ':' + (e.lineno || ''), 24);
   });
   window.addEventListener('unhandledrejection', function (e) {
     var reason = e && e.reason;
-    add('reject:' + ((reason && reason.message) || reason || ''));
+    add(b.err, 'reject:' + ((reason && reason.message) || reason || ''), 24);
   });
+
+  if (typeof window.fetch === 'function' && !window.fetch.__oaDbg) {
+    var origFetch = window.fetch.bind(window);
+    window.fetch = function oaDbgFetch(input, init) {
+      var url = typeof input === 'string' ? input : (input && input.url) || '';
+      return origFetch(input, init).then(function (res) {
+        if (res && !res.ok) add(b.fail, res.status + ' ' + String(url).slice(0, 140), 16);
+        return res;
+      }).catch(function (err) {
+        add(b.fail, 'net ' + String(url).slice(0, 140), 16);
+        throw err;
+      });
+    };
+    window.fetch.__oaDbg = true;
+  }
 
   function native() {
     try {
@@ -24,6 +40,27 @@
       }
     } catch (e) {}
     return /wv\)|; wv\)|Capacitor/i.test(navigator.userAgent || '');
+  }
+
+  function post(ajax, payload) {
+    return new Promise(function (resolve, reject) {
+      try {
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', ajax);
+        xhr.withCredentials = true;
+        xhr.timeout = 15000;
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+        xhr.onload = function () {
+          if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.responseText);
+          else reject(new Error('HTTP ' + xhr.status));
+        };
+        xhr.onerror = function () { reject(new Error('Netzwerkfehler')); };
+        xhr.ontimeout = function () { reject(new Error('Timeout')); };
+        xhr.send('action=orgasmic_fc_app_device_log&payload=' + encodeURIComponent(JSON.stringify(payload)));
+      } catch (e) {
+        reject(e);
+      }
+    });
   }
 
   function snapshot() {
@@ -37,9 +74,12 @@
       ready: document.readyState,
       ptr: ptr ? (ptr.hidden ? 'hidden' : String(ptr.textContent || '').slice(0, 40)) : '',
       skel: document.querySelectorAll('[class*="skeleton"], [class*="Skeleton"], .el-skeleton').length,
+      feed: document.querySelectorAll('.each_feed, [class*="each_feed"], [class*="EachFeed"]').length,
+      load: document.querySelectorAll('.el-loading-mask, [class*="spinner"], [class*="is-loading"]').length,
       online: navigator.onLine !== false,
       vis: document.visibilityState || '',
       err: b.err.slice(-12),
+      fail: b.fail.slice(-12),
       ms: Date.now() - b.t,
       reason: 'early',
     };
@@ -49,13 +89,9 @@
     if (b.sent) return;
     if (!native() && String(location.search || '').indexOf('oa_debug=1') === -1) return;
     b.sent = 1;
-    var ajax = b.ajax || '/wp-admin/admin-ajax.php';
-    try {
-      var body = 'action=orgasmic_fc_app_device_log&payload=' + encodeURIComponent(JSON.stringify(snapshot()));
-      var blob = new Blob([body], { type: 'application/x-www-form-urlencoded;charset=UTF-8' });
-      if (navigator.sendBeacon) navigator.sendBeacon(ajax, blob);
-      else fetch(ajax, { method: 'POST', body: body, credentials: 'same-origin', keepalive: true, headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' } });
-    } catch (e) {}
+    post(b.ajax || '/wp-admin/admin-ajax.php', snapshot()).catch(function () {
+      b.sent = 0;
+    });
   }
 
   setTimeout(function () {

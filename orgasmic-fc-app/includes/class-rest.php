@@ -80,6 +80,12 @@ class Orgasmic_Fc_App_Rest
             'callback' => [$this, 'announce'],
         ]);
 
+        register_rest_route($ns, '/device-log', [
+            'methods' => 'POST',
+            'permission_callback' => '__return_true',
+            'callback' => [$this, 'device_log'],
+        ]);
+
         register_rest_route($ns, '/spaces', [
             'methods' => 'GET',
             'permission_callback' => [$this, 'can_manage_or_key'],
@@ -221,14 +227,6 @@ class Orgasmic_Fc_App_Rest
 
     public function ajax_device_log(): void
     {
-        $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
-        $key = 'oa_dlog_' . md5($ip);
-        $n = (int) get_transient($key);
-        if ($n >= 6) {
-            wp_send_json(['ok' => true, 'skipped' => true]);
-        }
-        set_transient($key, $n + 1, 120);
-
         $raw = (string) ($_POST['payload'] ?? '');
         if ($raw === '') {
             $raw = (string) file_get_contents('php://input');
@@ -238,11 +236,58 @@ class Orgasmic_Fc_App_Rest
             status_header(400);
             wp_send_json(['ok' => false]);
         }
+        $saved = $this->ingest_device_log($json);
+        if ($saved === 'rate') {
+            wp_send_json(['ok' => true, 'skipped' => true]);
+        }
+        wp_send_json(['ok' => true]);
+    }
+
+    public function device_log(WP_REST_Request $request)
+    {
+        $json = $request->get_json_params();
+        if (!is_array($json) || $json === []) {
+            $payload = $request->get_param('payload');
+            if (is_string($payload)) {
+                $decoded = json_decode($payload, true);
+                $json = is_array($decoded) ? $decoded : [];
+            } elseif (is_array($payload)) {
+                $json = $payload;
+            } else {
+                $json = $request->get_params();
+            }
+        }
+        $saved = $this->ingest_device_log($json);
+        if ($saved === 'rate') {
+            return rest_ensure_response(['ok' => true, 'skipped' => true]);
+        }
+
+        return rest_ensure_response(['ok' => true]);
+    }
+
+    /**
+     * @param array<string, mixed> $json
+     */
+    private function ingest_device_log(array $json): string
+    {
+        $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+        $key = 'oa_dlog_' . md5($ip);
+        $n = (int) get_transient($key);
+        if ($n >= 8) {
+            return 'rate';
+        }
+        set_transient($key, $n + 1, 120);
 
         $err = [];
         if (!empty($json['err']) && is_array($json['err'])) {
             foreach (array_slice($json['err'], -12) as $item) {
                 $err[] = substr(sanitize_text_field((string) $item), 0, 240);
+            }
+        }
+        $fail = [];
+        if (!empty($json['fail']) && is_array($json['fail'])) {
+            foreach (array_slice($json['fail'], -12) as $item) {
+                $fail[] = substr(sanitize_text_field((string) $item), 0, 180);
             }
         }
         $plugins = [];
@@ -266,6 +311,12 @@ class Orgasmic_Fc_App_Rest
             'ptr' => sanitize_text_field((string) ($json['ptr'] ?? '')),
             'ptrSkipped' => !empty($json['ptrSkipped']),
             'skel' => max(0, (int) ($json['skel'] ?? 0)),
+            'feed' => max(0, (int) ($json['feed'] ?? 0)),
+            'load' => max(0, (int) ($json['load'] ?? 0)),
+            'text' => substr(sanitize_text_field((string) ($json['text'] ?? '')), 0, 280),
+            'fail' => $fail,
+            'cookieLen' => max(0, (int) ($json['cookieLen'] ?? 0)),
+            'fetchName' => substr(sanitize_text_field((string) ($json['fetchName'] ?? '')), 0, 80),
             'online' => !isset($json['online']) || !empty($json['online']),
             'vis' => sanitize_key((string) ($json['vis'] ?? '')),
             'loggedIn' => !empty($json['loggedIn']),
@@ -274,7 +325,8 @@ class Orgasmic_Fc_App_Rest
             'ms' => max(0, (int) ($json['ms'] ?? 0)),
             'err' => $err,
         ]);
-        wp_send_json(['ok' => true]);
+
+        return 'ok';
     }
 
     public function ajax_boot(): void

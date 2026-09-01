@@ -1,12 +1,16 @@
 === ORGASMIC App ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.1.21
+Stable tag: 1.1.22
 License: GPLv2 or later
 
 PWA, offline cache, and Web Push for chat, posts, comments, and calendar events.
 
 == Changelog ==
+
+= 1.1.22 =
+* Device logs use XHR (Android WebView drops sendBeacon); overlay shows real send errors
+* Snapshot includes feed/load counts, visible text, and failed requests
 
 = 1.1.21 =
 * Native app sends device debug reports to WP-Admin → ORGASMIC App → Geräte-Logs

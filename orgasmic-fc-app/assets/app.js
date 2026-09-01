@@ -850,6 +850,11 @@
         platform = (Cap && Cap.getPlatform && Cap.getPlatform()) || '';
         plugins = Cap && Cap.Plugins ? Object.keys(Cap.Plugins).slice(0, 20) : [];
       } catch (e) {}
+      const main = document.querySelector('main, .fcom_contents, .fcom-portal, #fluent-community, #app') || document.body;
+      const text = String((main && (main.innerText || main.textContent)) || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 280);
       return {
         v: boot.v || cfg.version || '',
         href: String(location.href || '').slice(0, 240),
@@ -862,6 +867,12 @@
         ptr: ptr ? (ptr.hidden ? 'hidden' : String(ptr.textContent || '').slice(0, 40)) : '',
         ptrSkipped: isNativeShell() || /wv\)|; wv\)|Capacitor/i.test(String(navigator.userAgent || '')),
         skel: document.querySelectorAll('[class*="skeleton"], [class*="Skeleton"], .el-skeleton').length,
+        feed: document.querySelectorAll('.each_feed, [class*="each_feed"], [class*="EachFeed"]').length,
+        load: document.querySelectorAll('.el-loading-mask, [class*="spinner"], [class*="is-loading"]').length,
+        text: text,
+        fail: (boot.fail || []).slice(-12),
+        cookieLen: String(document.cookie || '').length,
+        fetchName: (window.fetch && window.fetch.name) || '',
         online: navigator.onLine !== false,
         vis: document.visibilityState || '',
         loggedIn: !!cfg.loggedIn,
@@ -872,23 +883,51 @@
       };
     }
 
+    function postAjax(payload) {
+      return new Promise(function (resolve, reject) {
+        try {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', ajax);
+          xhr.withCredentials = true;
+          xhr.timeout = 15000;
+          xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+          xhr.onload = function () {
+            if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.responseText);
+            else reject(new Error('HTTP ' + xhr.status));
+          };
+          xhr.onerror = function () { reject(new Error('Netzwerkfehler')); };
+          xhr.ontimeout = function () { reject(new Error('Timeout')); };
+          xhr.send('action=orgasmic_fc_app_device_log&payload=' + encodeURIComponent(JSON.stringify(payload)));
+        } catch (e) {
+          reject(e);
+        }
+      });
+    }
+
+    function postRest(payload) {
+      if (!cfg.root) return Promise.reject(new Error('no rest'));
+      const headers = {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      };
+      if (cfg.nonce) headers['X-WP-Nonce'] = cfg.nonce;
+      return fetch(String(cfg.root).replace(/\/?$/, '/') + 'device-log', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: headers,
+        body: JSON.stringify(payload),
+      }).then(function (res) {
+        if (!res.ok) throw new Error('REST ' + res.status);
+        return res.text();
+      });
+    }
+
     function send(reason) {
       boot.sent = 1;
       const payload = snapshot(reason);
-      const body = 'action=orgasmic_fc_app_device_log&payload=' + encodeURIComponent(JSON.stringify(payload));
-      try {
-        if (navigator.sendBeacon) {
-          navigator.sendBeacon(ajax, new Blob([body], { type: 'application/x-www-form-urlencoded;charset=UTF-8' }));
-          return;
-        }
-      } catch (e) {}
-      fetch(ajax, {
-        method: 'POST',
-        credentials: 'same-origin',
-        body: body,
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-        keepalive: true,
-      }).catch(function () {});
+      return postAjax(payload).catch(function () {
+        return postRest(payload);
+      });
     }
 
     function paintOverlay() {
@@ -906,8 +945,13 @@
             return;
           }
           if (ev.target.closest('[data-oa-dd-send]')) {
-            send('overlay');
-            ev.target.textContent = 'Gesendet';
+            const btn = ev.target.closest('[data-oa-dd-send]');
+            btn.textContent = 'Senden…';
+            send('overlay').then(function () {
+              btn.textContent = 'Angekommen';
+            }).catch(function (err) {
+              btn.textContent = 'Fehler: ' + ((err && err.message) || 'nein');
+            });
             return;
           }
           if (ev.target.closest('[data-oa-dd-copy]')) {
