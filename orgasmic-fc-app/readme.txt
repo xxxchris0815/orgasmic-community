@@ -1,12 +1,16 @@
 === ORGASMIC App ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.1.19
+Stable tag: 1.1.20
 License: GPLv2 or later
 
 PWA, offline cache, and Web Push for chat, posts, comments, and calendar events.
 
 == Changelog ==
+
+= 1.1.20 =
+* Native app: do not pull-to-reload (WebView froze on the FluentCommunity skeleton)
+* Bind window.fetch so portal API calls work in Android WebView
 
 = 1.1.19 =
 * Announce controls are a megaphone icon in the composer toolbar; the checkboxes open on click

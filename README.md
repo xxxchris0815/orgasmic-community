@@ -10,9 +10,9 @@ Moved from `evolution-api` (`Extras/orgasmic-community`).
 | --- | --- | --- |
 | `orgasmic-fc-tracker/` | **1.2.1** | Engagement-Tracker, Dashboard, Evolution-Webhook |
 | `orgasmic-fc-events/` | **1.0.12** | Kalender im Portal (RSVP, Zoom, Markieren/Duplizieren/Löschen mobil+Desktop) |
-| `orgasmic-fc-embeds/` | **1.2.16** | Video-Player im Feed, Video im Entwurf wieder entfernbar |
+| `orgasmic-fc-embeds/` | **1.2.17** | Video-Player im Feed, Video im Entwurf entfernbar |
 | `orgasmic-fc-chat/` | **1.1.16** | Space-Chat (letzte 40 Nachrichten, ältere per Scroll) |
-| `orgasmic-fc-app/` | **1.1.19** | PWA, Web Push, Megafon-Icon für Push/E-Mail am Beitrag |
+| `orgasmic-fc-app/` | **1.1.20** | PWA, Web Push, Megafon-Icon; Native App ohne hängendes Pull-to-Reload |
 
 ## ORGASMIC Community Kalender
 
@@ -58,7 +58,7 @@ Plugin-Ordner: `orgasmic-fc-embeds/`
 - Tracking: wer spielt welches Video, Position in Sekunden, max. gesehen
 - Webhook: `video.play`, `video.pause`, `video.progress` (alle 15s), `video.ended`, `video.seeked`
 
-ZIP: [`orgasmic-fc-embeds-1.2.16.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-embeds-1.2.16.zip)
+ZIP: [`orgasmic-fc-embeds-1.2.17.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-embeds-1.2.17.zip)
 
 Falls der iframe leer bleibt: in Bunny Stream → Allowed Domains `community.orgasmic.live` eintragen.
 
@@ -109,7 +109,7 @@ Admins sehen im Beitrags-Composer zwei Häkchen: **Per Push an alle Mitglieder s
 
 WP-Admin: **ORGASMIC App**. Unter **Push prüfen** ein Mitglied suchen (z. B. Alexandra): Token, erlaubte Arten, letzte Queue-Zeilen inkl. Firebase-Fehler, Test-Push auf ihr Gerät. PHP 8.2+ für Web-Push (`openssl_pkey_derive`). Firebase-JSON nur für Store-Apps. Unter **Geräte mit App-Push** steht, wessen Handy ein FCM-Token gespeichert hat.
 
-ZIP: [`orgasmic-fc-app-1.1.19.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.1.19.zip)
+ZIP: [`orgasmic-fc-app-1.1.20.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.1.20.zip)
 
 ### Capacitor / Play Store (Android zuerst)
 

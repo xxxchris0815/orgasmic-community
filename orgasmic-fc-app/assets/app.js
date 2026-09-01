@@ -657,8 +657,8 @@
     function wrapNetwork() {
       if (wrapped) return;
       wrapped = true;
-      const origFetch = window.fetch;
-      if (typeof origFetch === 'function') {
+      const origFetch = typeof window.fetch === 'function' ? window.fetch.bind(window) : null;
+      if (origFetch) {
         window.fetch = function orgasmicAnnounceFetch(input, init) {
           const url = typeof input === 'string' ? input : (input && input.url) || '';
           const method = (init && init.method) || (input && input.method) || 'GET';
@@ -670,7 +670,7 @@
             init.headers = headers;
             syncIntent();
           }
-          const req = origFetch.call(this, input, init);
+          const req = origFetch(input, init);
           if (sending && req && typeof req.then === 'function') {
             req.then((res) => {
               if (res && res.ok) {
@@ -768,9 +768,13 @@
   }
 
   function setupFeedRefresh() {
+    if (isNativeShell()) return;
+    if (/wv\)|; wv\)|Capacitor/i.test(String(navigator.userAgent || ''))) return;
+
     let startY = 0;
     let pulling = false;
     let armed = false;
+    let refreshing = false;
     const bar = document.createElement('div');
     bar.id = 'orgasmic-ptr';
     bar.hidden = true;
@@ -778,7 +782,7 @@
     (document.body || document.documentElement).appendChild(bar);
 
     document.addEventListener('touchstart', (ev) => {
-      if (overlayOpen() || !atFeedTop()) {
+      if (refreshing || overlayOpen() || !atFeedTop()) {
         pulling = false;
         return;
       }
@@ -788,7 +792,7 @@
     }, { passive: true });
 
     document.addEventListener('touchmove', (ev) => {
-      if (!pulling) return;
+      if (!pulling || refreshing) return;
       const dy = ev.touches[0].clientY - startY;
       if (dy > 64) {
         armed = true;
@@ -800,11 +804,18 @@
     }, { passive: true });
 
     document.addEventListener('touchend', () => {
-      if (pulling && armed && !overlayOpen()) {
+      if (pulling && armed && !overlayOpen() && !refreshing) {
+        refreshing = true;
         bar.textContent = 'Aktualisieren…';
+        bar.hidden = false;
         window.setTimeout(() => {
           window.location.reload();
         }, 160);
+        window.setTimeout(() => {
+          bar.hidden = true;
+          bar.textContent = 'Loslassen zum Aktualisieren';
+          refreshing = false;
+        }, 8000);
       } else {
         bar.hidden = true;
         bar.textContent = 'Loslassen zum Aktualisieren';
