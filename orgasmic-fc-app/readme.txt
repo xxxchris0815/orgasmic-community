@@ -8,6 +8,9 @@ PWA, offline cache, and Web Push for chat, posts, comments, and calendar events.
 
 == Changelog ==
 
+= 1.1.24 =
+* Pull-to-refresh uses a full page reload again (native app included)
+
 = 1.1.23 =
 * Pull-to-refresh is on again, including the native app, with an Android-style circular arrow
 * Native refresh taps the current portal tab instead of reloading the WebView

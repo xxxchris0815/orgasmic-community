@@ -999,10 +999,10 @@
     const who = (quote.author && quote.author.display_name)
       || (authorFor(quote).display_name)
       || (Number(quote.user_id) === Number(state.me && state.me.id) ? 'Du' : 'Mitglied');
-    return '<button type="button" class="och-quote" data-och-jump="' + quote.id + '">'
+    return '<div class="och-quote" role="button" tabindex="0" data-och-jump="' + quote.id + '">'
       + '<span class="och-quote-name">' + escapeHtml(who) + '</span>'
       + '<span class="och-quote-body">' + escapeHtml(quotePreview(quote)) + '</span>'
-      + '</button>';
+      + '</div>';
   }
 
   function startReply(msg) {
@@ -1157,6 +1157,7 @@
       const who = (state.replyTo.author && state.replyTo.author.display_name)
         || (Number(state.replyTo.user_id) === Number(state.me && state.me.id) ? 'Du' : 'Mitglied');
       html += '<div class="och-reply-bar">'
+        + '<div class="och-reply-bar-accent" aria-hidden="true"></div>'
         + '<div class="och-reply-bar-text"><strong>' + escapeHtml(who) + '</strong><span>' + escapeHtml(quotePreview(state.replyTo)) + '</span></div>'
         + '<button type="button" class="och-icon-btn" data-och-reply-clear aria-label="Antwort verwerfen">×</button>'
         + '</div>';
@@ -1180,9 +1181,9 @@
   function composerHtml(room) {
     if (!room) return '';
     return '<div class="orgasmic-chat-composer">'
-      + '<div data-och-extras></div>'
       + '<p class="och-sub" data-och-error hidden></p>'
       + '<form data-och-send class="och-composer-box">'
+      + '<div data-och-extras></div>'
       + '<textarea name="body" maxlength="' + (state.portal.maxLength || 2000) + '" placeholder="Nachricht an ' + escapeHtml(room.title) + '…" rows="1"></textarea>'
       + '<div class="och-composer-bar">'
       + '<div class="orgasmic-chat-tools">'

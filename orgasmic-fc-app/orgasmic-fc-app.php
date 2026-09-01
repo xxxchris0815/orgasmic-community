@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('ORGASMIC_FC_APP_VERSION', '1.1.23');
+define('ORGASMIC_FC_APP_VERSION', '1.1.24');
 define('ORGASMIC_FC_APP_FILE', __FILE__);
 define('ORGASMIC_FC_APP_PATH', plugin_dir_path(__FILE__));
 define('ORGASMIC_FC_APP_URL', plugin_dir_url(__FILE__));
