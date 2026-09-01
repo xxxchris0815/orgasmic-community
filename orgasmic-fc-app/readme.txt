@@ -1,12 +1,15 @@
 === ORGASMIC App ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.1.24
+Stable tag: 1.1.25
 License: GPLv2 or later
 
 PWA, offline cache, and Web Push for chat, posts, comments, and calendar events.
 
 == Changelog ==
+
+= 1.1.25 =
+* Pull-to-refresh tracks the feed under the finger so nested FluentCommunity scrollers no longer block reload
 
 = 1.1.24 =
 * Pull-to-refresh uses a full page reload again (native app included)

@@ -305,21 +305,62 @@
   setupNativeChrome();
 
   function overlayOpen() {
+    if (document.documentElement.classList.contains('orgasmic-chat-open')) return true;
+    if (document.documentElement.classList.contains('orgasmic-cal-open')) return true;
     const chat = document.getElementById('orgasmic-chat-root');
     const cal = document.getElementById('orgasmic-cal-root');
     const prefs = document.getElementById('orgasmic-app-prefs');
     return (chat && !chat.hidden) || (cal && !cal.hidden) || (prefs && !prefs.hidden);
   }
 
-  function atFeedTop() {
-    const y = window.scrollY || document.documentElement.scrollTop || 0;
-    if (y > 6) return false;
-    const nodes = document.querySelectorAll('main, [class*="feeds"], [class*="FeedList"], [class*="feed_wrap"], .fcom_contents');
-    for (let i = 0; i < nodes.length; i += 1) {
-      const el = nodes[i];
-      if (el.scrollHeight > el.clientHeight + 40 && el.scrollTop > 6) return false;
+  function ptrBlocked() {
+    if (overlayOpen()) return true;
+    const overlays = document.querySelectorAll('.el-overlay, .el-overlay-dialog');
+    for (let i = 0; i < overlays.length; i += 1) {
+      const el = overlays[i];
+      if (el.closest('#orgasmic-app-prefs, #orgasmic-chat-root, #orgasmic-cal-root')) continue;
+      const st = window.getComputedStyle(el);
+      if (st.display === 'none' || st.visibility === 'hidden' || Number(st.opacity) === 0) continue;
+      if (el.offsetWidth > window.innerWidth * 0.6 && el.offsetHeight > window.innerHeight * 0.4) return true;
     }
-    return true;
+    return false;
+  }
+
+  function isScrollableY(el) {
+    if (!el || el.nodeType !== 1) return false;
+    const st = window.getComputedStyle(el);
+    const oy = st.overflowY;
+    if (oy !== 'auto' && oy !== 'scroll' && oy !== 'overlay') return false;
+    return el.scrollHeight > el.clientHeight + 8;
+  }
+
+  function scrollerOf(node) {
+    let el = node && node.nodeType === 1 ? node : (node && node.parentElement);
+    while (el && el !== document.body && el !== document.documentElement) {
+      if (el.id === 'orgasmic-ptr') {
+        el = el.parentElement;
+        continue;
+      }
+      if (isScrollableY(el)) return el;
+      el = el.parentElement;
+    }
+    return document.scrollingElement || document.documentElement;
+  }
+
+  function scrollerAtTop(el) {
+    if (!el || el === document.body || el === document.documentElement || el === document.scrollingElement) {
+      return (window.scrollY || document.documentElement.scrollTop || 0) <= 10;
+    }
+    return el.scrollTop <= 10;
+  }
+
+  function ptrIgnoreTarget(node) {
+    const el = node && node.nodeType === 1 ? node : (node && node.parentElement);
+    if (!el || !el.closest) return false;
+    if (el.closest('#orgasmic-ptr')) return true;
+    if (el.closest('input, textarea, select, [contenteditable="true"], .ql-editor, .ProseMirror')) return true;
+    if (isFluentBottomNav(el)) return true;
+    return false;
   }
 
   function setupAnnounce() {
@@ -768,11 +809,17 @@
   }
 
   function setupFeedRefresh() {
+    const THRESHOLD = 52;
+    let startX = 0;
     let startY = 0;
+    let pullOriginY = 0;
+    let tracking = false;
     let pulling = false;
     let armed = false;
     let refreshing = false;
     let pullPx = 0;
+    let startedAtTop = false;
+    let scroller = null;
 
     const bar = document.createElement('div');
     bar.id = 'orgasmic-ptr';
@@ -786,10 +833,10 @@
 
     function setPull(px, busy) {
       pullPx = px;
-      const show = busy || px > 12;
+      const show = busy || px > 10;
       bar.hidden = !show;
       bar.classList.toggle('is-busy', !!busy);
-      bar.classList.toggle('is-armed', !busy && px > 64);
+      bar.classList.toggle('is-armed', !busy && px > THRESHOLD);
       const t = Math.max(0, Math.min(1, px / 88));
       const y = Math.round(Math.min(72, px * 0.42));
       const rot = busy ? 0 : Math.round(t * 270);
@@ -810,49 +857,97 @@
       pullPx = 0;
     }
 
+    function stopTrack() {
+      tracking = false;
+      pulling = false;
+      armed = false;
+      scroller = null;
+    }
+
     function refreshPortal() {
       window.location.reload();
     }
 
     document.addEventListener('touchstart', (ev) => {
-      if (refreshing || overlayOpen() || !atFeedTop()) {
-        pulling = false;
+      if (refreshing || ptrBlocked() || ev.touches.length !== 1) {
+        stopTrack();
         return;
       }
-      startY = ev.touches[0].clientY;
-      pulling = true;
+      const t = ev.touches[0];
+      const target = ev.target;
+      if (ptrIgnoreTarget(target)) {
+        stopTrack();
+        return;
+      }
+      startX = t.clientX;
+      startY = t.clientY;
+      pullOriginY = t.clientY;
+      scroller = scrollerOf(target);
+      startedAtTop = scrollerAtTop(scroller);
+      tracking = true;
+      pulling = false;
       armed = false;
-    }, { passive: true });
+    }, { capture: true, passive: true });
 
     document.addEventListener('touchmove', (ev) => {
-      if (!pulling || refreshing || overlayOpen()) return;
-      const dy = ev.touches[0].clientY - startY;
-      if (dy > 8) {
-        armed = dy > 64;
-        setPull(dy, false);
+      if (!tracking || refreshing || ptrBlocked()) return;
+      if (ev.touches.length !== 1) {
+        stopTrack();
+        if (!refreshing) resetBar();
+        return;
+      }
+      const t = ev.touches[0];
+      const dy = t.clientY - startY;
+      const dx = t.clientX - startX;
+      if (!pulling) {
+        if (Math.abs(dx) > 24 && Math.abs(dx) > Math.abs(dy)) {
+          stopTrack();
+          return;
+        }
+        const atTop = scrollerAtTop(scroller);
+        if (dy > 8 && atTop && Math.abs(dy) >= Math.abs(dx)) {
+          pulling = true;
+          pullOriginY = startedAtTop ? startY : t.clientY;
+        } else if (dy < -12) {
+          stopTrack();
+          return;
+        } else {
+          return;
+        }
+      }
+      const pull = t.clientY - pullOriginY;
+      if (pull > 0) {
+        if (ev.cancelable) ev.preventDefault();
+        armed = pull > THRESHOLD;
+        setPull(pull, false);
       } else {
         armed = false;
         if (!bar.hidden && !bar.classList.contains('is-busy')) resetBar();
       }
-    }, { passive: true });
+    }, { capture: true, passive: false });
 
-    document.addEventListener('touchend', () => {
-      if (pulling && armed && !overlayOpen() && !refreshing) {
+    function onTouchEnd() {
+      if (pulling && armed && !ptrBlocked() && !refreshing) {
         refreshing = true;
+        tracking = false;
+        pulling = false;
+        armed = false;
         setPull(88, true);
         window.setTimeout(() => {
           refreshPortal();
-        }, 120);
+        }, 80);
         window.setTimeout(() => {
           resetBar();
           refreshing = false;
-        }, 1400);
-      } else if (!refreshing) {
-        resetBar();
+        }, 1600);
+        return;
       }
-      pulling = false;
-      armed = false;
-    }, { passive: true });
+      if (!refreshing) resetBar();
+      stopTrack();
+    }
+
+    document.addEventListener('touchend', onTouchEnd, { capture: true, passive: true });
+    document.addEventListener('touchcancel', onTouchEnd, { capture: true, passive: true });
   }
 
   function setupDeviceDebug() {
