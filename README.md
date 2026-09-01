@@ -10,7 +10,7 @@ Moved from `evolution-api` (`Extras/orgasmic-community`).
 | --- | --- | --- |
 | `orgasmic-fc-tracker/` | **1.2.1** | Engagement-Tracker, Dashboard, Evolution-Webhook |
 | `orgasmic-fc-events/` | **1.0.12** | Kalender im Portal (RSVP, Zoom, Markieren/Duplizieren/Löschen mobil+Desktop) |
-| `orgasmic-fc-embeds/` | **1.2.17** | Video-Player im Feed, Video im Entwurf entfernbar |
+| `orgasmic-fc-embeds/` | **1.2.18** | Video-Player im Feed, optional nur Vorschaubild bis zum Klick |
 | `orgasmic-fc-chat/` | **1.1.16** | Space-Chat (letzte 40 Nachrichten, ältere per Scroll) |
 | `orgasmic-fc-app/` | **1.1.20** | PWA, Web Push, Megafon-Icon; Native App ohne hängendes Pull-to-Reload |
 
@@ -53,12 +53,13 @@ Plugin-Ordner: `orgasmic-fc-embeds/`
 - Handy / PWA / Capacitor laden in 1-MB-Stücken über WordPress (nicht direkt per TUS zu Bunny)
 - Der FluentCommunity-oEmbed-Dialog wird übersprungen
 - `player.mediadelivery.net/play/...` wird im Feed und im Raum als offizieller Bunny-iframe angezeigt
+- Optional nur Vorschaubild im Feed; der Player lädt erst nach Klick (**ORGASMIC Bunny → Einstellungen**)
 - In „Angesagte Beiträge“ nur der **Video**-Chip, ohne nackte Player-URL
 - Autoplay ein/aus unter **ORGASMIC Bunny → Einstellungen**
 - Tracking: wer spielt welches Video, Position in Sekunden, max. gesehen
 - Webhook: `video.play`, `video.pause`, `video.progress` (alle 15s), `video.ended`, `video.seeked`
 
-ZIP: [`orgasmic-fc-embeds-1.2.17.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-embeds-1.2.17.zip)
+ZIP: [`orgasmic-fc-embeds-1.2.18.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-embeds-1.2.18.zip)
 
 Falls der iframe leer bleibt: in Bunny Stream → Allowed Domains `community.orgasmic.live` eintragen.
 

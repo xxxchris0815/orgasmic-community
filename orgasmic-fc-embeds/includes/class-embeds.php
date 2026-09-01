@@ -43,14 +43,26 @@ class Orgasmic_Fc_Bunny_Embeds
             'class' => true,
             'style' => true,
         ]);
+        $tags['img'] = array_merge($tags['img'] ?? [], [
+            'src' => true,
+            'alt' => true,
+            'class' => true,
+            'loading' => true,
+            'decoding' => true,
+        ]);
         foreach (['div', 'a', 'span'] as $tag) {
             $tags[$tag] = array_merge($tags[$tag] ?? [], [
                 'class' => true,
                 'href' => true,
                 'contenteditable' => true,
+                'role' => true,
+                'tabindex' => true,
+                'aria-label' => true,
+                'aria-hidden' => true,
                 'data-orgasmic-bunny' => true,
                 'data-orgasmic-bunny-object' => true,
                 'data-bunny-play' => true,
+                'data-bunny-poster' => true,
             ]);
         }
 
@@ -85,11 +97,23 @@ class Orgasmic_Fc_Bunny_Embeds
 
         $library = $match[1];
         $video = strtolower($match[2]);
+        $key = esc_attr($library . '/' . $video);
+
+        if ($this->store->click_to_play()) {
+            $poster = 'https://iframe.mediadelivery.net/' . rawurlencode($library) . '/' . rawurlencode($video) . '/thumbnail.jpg';
+
+            return '<div class="orgasmic-bunny-embed orgasmic-bunny-embed--poster" data-orgasmic-bunny="' . $key
+                . '" data-bunny-poster="1" role="button" tabindex="0" aria-label="Video abspielen">'
+                . '<img class="orgasmic-bunny-poster-img" src="' . esc_url($poster) . '" alt="" loading="lazy" decoding="async" />'
+                . '<span class="orgasmic-bunny-poster-play" aria-hidden="true"></span>'
+                . '</div>';
+        }
+
         $autoplay = $this->store->autoplay() ? 'true' : 'false';
         $src = 'https://iframe.mediadelivery.net/embed/' . rawurlencode($library) . '/' . rawurlencode($video)
             . '?autoplay=' . $autoplay . '&preload=true&responsive=true&playerjs=true';
 
-        return '<div class="orgasmic-bunny-embed" data-orgasmic-bunny="' . esc_attr($library . '/' . $video) . '">'
+        return '<div class="orgasmic-bunny-embed" data-orgasmic-bunny="' . $key . '">'
             . '<iframe src="' . esc_url($src) . '" allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen loading="lazy" title="Video"></iframe>'
             . '</div>';
     }
@@ -114,6 +138,7 @@ class Orgasmic_Fc_Bunny_Embeds
             'nonce' => wp_create_nonce('wp_rest'),
             'ajaxNonce' => wp_create_nonce('orgasmic_fc_upload'),
             'autoplay' => $this->store->autoplay(),
+            'clickToPlay' => $this->store->click_to_play(),
             'loggedIn' => is_user_logged_in(),
             'uploadEnabled' => is_user_logged_in() && $this->store->upload_configured(),
             'tus' => esc_url_raw(ORGASMIC_FC_EMBEDS_URL . 'assets/tus.min.js?ver=4.3.1'),

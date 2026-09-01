@@ -3,7 +3,7 @@ Contributors: orgasmic
 Requires at least: 6.4
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.2.17
+Stable tag: 1.2.18
 License: GPLv2 or later
 
 Turns Bunny Stream play links in FluentCommunity posts into an inline player, tracks playback, and forwards events via webhook.
@@ -12,7 +12,7 @@ Turns Bunny Stream play links in FluentCommunity posts into an inline player, tr
 
 * Video files from the FluentCommunity composer upload to Bunny Stream; the player link is inserted into the post
 * Replaces the published-feed preview with the official Bunny iframe
-* Optional autoplay (WP-Admin setting)
+* Optional autoplay and click-to-play poster (WP-Admin settings)
 * Tracks play / pause / progress / ended / seeked per logged-in member
 * Local Wiedergaben log + outbound webhook (`video.play`, …)
 
@@ -24,10 +24,13 @@ Independent of the ORGASMIC Tracker.
 2. Activate **ORGASMIC Bunny Embeds**
 3. Open WP-Admin → ORGASMIC Bunny → Einstellungen
 4. Set Bunny Library-ID and Stream API key (required for composer uploads)
-5. Set webhook URL and autoplay
+5. Set webhook URL, autoplay, and optional click-to-play poster
 6. Optional: add `community.orgasmic.live` to Bunny Stream → Allowed Domains
 
 == Changelog ==
+
+= 1.2.18 =
+* Optional click-to-play poster in the feed (ORGASMIC Bunny → Einstellungen)
 
 = 1.2.17 =
 * Bind window.fetch in the upload hook so Android WebView does not reject portal requests

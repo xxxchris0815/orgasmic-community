@@ -35,7 +35,10 @@
   function hide(node) {
     if (!node || node.nodeType !== 1 || node.dataset.orgasmicBunnyHidden === '1') return;
     if (inComposer(node)) return;
-    if (node.querySelector && node.querySelector('iframe[src*="mediadelivery.net"]')) return;
+    if (node.querySelector && (
+      node.querySelector('iframe[src*="mediadelivery.net"]')
+      || node.querySelector('.orgasmic-bunny-embed')
+    )) return;
     node.dataset.orgasmicBunnyHidden = '1';
     node.hidden = true;
     node.style.setProperty('display', 'none', 'important');
@@ -73,8 +76,23 @@
     }) || null;
   }
 
+  function findEmbed(root, video) {
+    if (!root || !root.querySelectorAll) return findPlayer(root, video);
+    const wrap = [...root.querySelectorAll('.orgasmic-bunny-embed')].find((el) => {
+      if (el.dataset.orgasmicBunnyHidden === '1' || inComposer(el)) return false;
+      const key = String(el.getAttribute('data-orgasmic-bunny') || '');
+      const parts = key.split('/');
+      return parts[parts.length - 1] === video;
+    });
+    return wrap || findPlayer(root, video);
+  }
+
   function autoplayEnabled() {
     return !!(window.OrgasmicFcEmbeds && window.OrgasmicFcEmbeds.autoplay);
+  }
+
+  function clickToPlayEnabled() {
+    return !!(window.OrgasmicFcEmbeds && window.OrgasmicFcEmbeds.clickToPlay);
   }
 
   function embedSrc(library, video, autoplay) {
@@ -169,10 +187,99 @@
     if (!wrap || wrap.dataset.bunnyCompact === '1') return;
     wrap.dataset.bunnyCompact = '1';
     wrap.classList.add('is-compact');
-    wrap.querySelectorAll('iframe').forEach((f) => f.remove());
+    wrap.classList.remove('orgasmic-bunny-embed--poster');
+    wrap.dataset.bunnyPoster = '';
+    delete wrap.dataset.bunnyPoster;
+    wrap.dataset.bunnyActivated = '';
+    delete wrap.dataset.bunnyActivated;
+    wrap.removeAttribute('role');
+    wrap.removeAttribute('tabindex');
+    wrap.removeAttribute('aria-label');
+    wrap.querySelectorAll('iframe, .orgasmic-bunny-poster-img, .orgasmic-bunny-poster-play').forEach((el) => el.remove());
     if (!wrap.querySelector('[data-orgasmic-bunny-chip]')) {
       wrap.appendChild(chipEl());
     }
+  }
+
+  function posterUrl(library, video) {
+    return 'https://iframe.mediadelivery.net/'
+      + encodeURIComponent(library) + '/' + encodeURIComponent(video)
+      + '/thumbnail.jpg';
+  }
+
+  function appendIframe(wrap, library, video, autoplay) {
+    const iframe = document.createElement('iframe');
+    iframe.src = embedSrc(library, video, autoplay);
+    iframe.allow = 'accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen';
+    iframe.allowFullscreen = true;
+    iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+    iframe.title = 'Video';
+    wrap.appendChild(iframe);
+  }
+
+  function fillPoster(wrap, library, video) {
+    wrap.classList.add('orgasmic-bunny-embed--poster');
+    wrap.dataset.bunnyPoster = '1';
+    wrap.setAttribute('data-orgasmic-bunny', library + '/' + video);
+    wrap.setAttribute('role', 'button');
+    wrap.setAttribute('tabindex', '0');
+    wrap.setAttribute('aria-label', 'Video abspielen');
+    wrap.querySelectorAll('iframe, [data-orgasmic-bunny-chip]').forEach((el) => el.remove());
+    let img = wrap.querySelector('.orgasmic-bunny-poster-img');
+    if (!img) {
+      img = document.createElement('img');
+      img.className = 'orgasmic-bunny-poster-img';
+      img.alt = '';
+      img.decoding = 'async';
+      img.loading = 'lazy';
+      img.addEventListener('error', function () { img.hidden = true; });
+      wrap.appendChild(img);
+    }
+    img.src = posterUrl(library, video);
+    if (!wrap.querySelector('.orgasmic-bunny-poster-play')) {
+      const play = document.createElement('span');
+      play.className = 'orgasmic-bunny-poster-play';
+      play.setAttribute('aria-hidden', 'true');
+      wrap.appendChild(play);
+    }
+  }
+
+  function activatePoster(wrap) {
+    if (!wrap || wrap.dataset.bunnyActivated === '1') return;
+    const key = String(wrap.getAttribute('data-orgasmic-bunny') || '');
+    const parts = key.split('/');
+    if (parts.length < 2) return;
+    wrap.dataset.bunnyActivated = '1';
+    wrap.dataset.bunnyPoster = '';
+    delete wrap.dataset.bunnyPoster;
+    wrap.classList.remove('orgasmic-bunny-embed--poster');
+    wrap.removeAttribute('role');
+    wrap.removeAttribute('tabindex');
+    wrap.removeAttribute('aria-label');
+    wrap.querySelectorAll('.orgasmic-bunny-poster-img, .orgasmic-bunny-poster-play').forEach((el) => el.remove());
+    if (!wrap.querySelector('iframe')) {
+      appendIframe(wrap, parts[0], parts[1], true);
+    }
+  }
+
+  function mountPlayer(wrap, library, video) {
+    wrap.querySelectorAll('iframe, .orgasmic-bunny-poster-img, .orgasmic-bunny-poster-play, [data-orgasmic-bunny-chip]').forEach((el) => el.remove());
+    wrap.classList.remove('is-compact', 'orgasmic-bunny-embed--poster');
+    wrap.dataset.bunnyCompact = '';
+    delete wrap.dataset.bunnyCompact;
+    wrap.dataset.bunnyActivated = '';
+    delete wrap.dataset.bunnyActivated;
+    wrap.setAttribute('data-orgasmic-bunny', library + '/' + video);
+    if (clickToPlayEnabled()) {
+      fillPoster(wrap, library, video);
+      return;
+    }
+    wrap.dataset.bunnyPoster = '';
+    delete wrap.dataset.bunnyPoster;
+    wrap.removeAttribute('role');
+    wrap.removeAttribute('tabindex');
+    wrap.removeAttribute('aria-label');
+    appendIframe(wrap, library, video, autoplayEnabled());
   }
 
   function restorePlayer(wrap) {
@@ -180,19 +287,7 @@
     const key = String(wrap.getAttribute('data-orgasmic-bunny') || '');
     const parts = key.split('/');
     if (parts.length < 2) return;
-    wrap.dataset.bunnyCompact = '';
-    delete wrap.dataset.bunnyCompact;
-    wrap.classList.remove('is-compact');
-    wrap.querySelectorAll('[data-orgasmic-bunny-chip]').forEach((el) => el.remove());
-    if (!wrap.querySelector('iframe')) {
-      const iframe = document.createElement('iframe');
-      iframe.src = embedSrc(parts[0], parts[1], autoplayEnabled());
-      iframe.allow = 'accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen';
-      iframe.allowFullscreen = true;
-      iframe.referrerPolicy = 'strict-origin-when-cross-origin';
-      iframe.title = 'Video';
-      wrap.appendChild(iframe);
-    }
+    mountPlayer(wrap, parts[0], parts[1]);
   }
 
   function compactify() {
@@ -246,13 +341,11 @@
     const wrap = document.createElement('div');
     wrap.className = 'orgasmic-bunny-embed';
     wrap.setAttribute('data-orgasmic-bunny', library + '/' + video);
-    const iframe = document.createElement('iframe');
-    iframe.src = embedSrc(library, video, autoplay);
-    iframe.allow = 'accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen';
-    iframe.allowFullscreen = true;
-    iframe.referrerPolicy = 'strict-origin-when-cross-origin';
-    iframe.title = 'Video';
-    wrap.appendChild(iframe);
+    if (clickToPlayEnabled()) {
+      fillPoster(wrap, library, video);
+      return wrap;
+    }
+    appendIframe(wrap, library, video, autoplay);
     return wrap;
   }
 
@@ -264,7 +357,7 @@
       if (parsed && parsed.video === video) hide(a);
     });
     root.querySelectorAll(CARD_SEL).forEach((card) => {
-      if (inComposer(card) || card.querySelector('iframe[src*="mediadelivery.net"]')) return;
+      if (inComposer(card) || card.querySelector('iframe[src*="mediadelivery.net"], .orgasmic-bunny-embed')) return;
       const parsed = parseHref((card.querySelector('a[href*="mediadelivery.net"]') || {}).href)
         || parseHref(card.textContent);
       if (parsed && parsed.video === video) hide(card);
@@ -273,17 +366,26 @@
 
   function collapse() {
     const groups = new Map();
+    function add(node, video) {
+      const key = clusterKey(node, video);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(node);
+    }
+    document.querySelectorAll('.orgasmic-bunny-embed').forEach((wrap) => {
+      if (wrap.dataset.orgasmicBunnyHidden === '1' || inComposer(wrap)) return;
+      const video = String(wrap.getAttribute('data-orgasmic-bunny') || '').split('/').pop();
+      if (video) add(wrap, video);
+    });
     bunnyIframes(document).forEach((iframe) => {
+      if (iframe.closest('.orgasmic-bunny-embed')) return;
       const parsed = parseHref(iframe.src);
       if (!parsed) return;
-      const key = clusterKey(iframe, parsed.video);
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(iframe);
+      add(iframe, parsed.video);
     });
 
     groups.forEach((list) => {
-      list.slice(1).forEach((iframe) => {
-        const wrap = iframe.closest('.orgasmic-bunny-embed') || iframe;
+      list.slice(1).forEach((el) => {
+        const wrap = (el.closest && el.closest('.orgasmic-bunny-embed')) || el;
         wrap.dataset.orgasmicBunnyHidden = '1';
         wrap.hidden = true;
         wrap.style.setProperty('display', 'none', 'important');
@@ -300,13 +402,13 @@
 
   function place(node, parsed) {
     const root = cluster(node);
-    if (findPlayer(root, parsed.video)) {
+    if (findEmbed(root, parsed.video)) {
       hidePreviewBits(root, parsed.video);
       return;
     }
 
     const card = node.closest && node.closest(CARD_SEL);
-    const target = (card && !card.querySelector('iframe[src*="mediadelivery.net"], [data-orgasmic-bunny-chip]')) ? card : node;
+    const target = (card && !card.querySelector('iframe[src*="mediadelivery.net"], .orgasmic-bunny-embed, [data-orgasmic-bunny-chip]')) ? card : node;
     const embed = isCompactContext(node)
       ? compactWrap(parsed.library, parsed.video)
       : iframeEl(parsed.library, parsed.video, autoplayEnabled());
@@ -339,7 +441,7 @@
       if (!el) return;
       const block = el.closest('p, div, li, article, section') || el;
       const compact = isCompactContext(block);
-      if (findPlayer(cluster(block), parsed.video) || block.querySelector('[data-orgasmic-bunny-chip]')) {
+      if (findEmbed(cluster(block), parsed.video) || block.querySelector('[data-orgasmic-bunny-chip], .orgasmic-bunny-embed')) {
         textNode.nodeValue = String(textNode.nodeValue || '').replace(RE, ' ').replace(/[ \t]+/g, ' ');
         if (!String(el.textContent || '').trim()) hide(el);
         return;
@@ -358,7 +460,7 @@
 
     document.querySelectorAll('a[href*="mediadelivery.net"], ' + CARD_SEL).forEach((node) => {
       if (inComposer(node) || node.closest('.orgasmic-bunny-embed')) return;
-      if (node.matches && node.matches(CARD_SEL) && node.querySelector('iframe[src*="mediadelivery.net"]')) {
+      if (node.matches && node.matches(CARD_SEL) && node.querySelector('iframe[src*="mediadelivery.net"], .orgasmic-bunny-embed')) {
         return;
       }
       const parsed = parsedFrom(node);
@@ -372,7 +474,7 @@
       }
       seen.add(key);
 
-      if (findPlayer(root, parsed.video)) {
+      if (findEmbed(root, parsed.video)) {
         hidePreviewBits(root, parsed.video);
         return;
       }
@@ -381,6 +483,7 @@
 
     enhanceLooseUrls();
     compactify();
+    posterify();
     document.querySelectorAll('.fcom_right_sidebar, .fcom-portal-sidebar, .fcom_space_sidebar').forEach(scrubPlayUrls);
     document.querySelectorAll('h2, h3, h4, .widget_title').forEach((title) => {
       if (!/angesagte|popular|trending|featured|beliebte beitr/i.test(title.textContent || '')) return;
@@ -390,8 +493,45 @@
     collapse();
   }
 
+  function posterify() {
+    document.querySelectorAll('.orgasmic-bunny-embed').forEach((wrap) => {
+      if (inComposer(wrap) || wrap.classList.contains('is-compact') || wrap.dataset.bunnyCompact === '1') return;
+      if (wrap.dataset.bunnyActivated === '1') return;
+      let library = '';
+      let video = '';
+      const key = String(wrap.getAttribute('data-orgasmic-bunny') || '');
+      const parts = key.split('/');
+      if (parts.length >= 2) {
+        library = parts[0];
+        video = parts[1];
+      } else {
+        const iframe = wrap.querySelector('iframe[src*="mediadelivery.net"]');
+        const parsed = iframe ? parseHref(iframe.src) : null;
+        if (!parsed) return;
+        library = parsed.library;
+        video = parsed.video;
+        wrap.setAttribute('data-orgasmic-bunny', library + '/' + video);
+      }
+      if (clickToPlayEnabled()) {
+        if (!wrap.querySelector('iframe')) return;
+        fillPoster(wrap, library, video);
+        return;
+      }
+      if (wrap.dataset.bunnyPoster === '1' || wrap.classList.contains('orgasmic-bunny-embed--poster')) {
+        mountPlayer(wrap, library, video);
+      }
+    });
+  }
+
   document.addEventListener('click', (e) => {
     if (!e.target.closest) return;
+    const poster = e.target.closest('.orgasmic-bunny-embed--poster, [data-bunny-poster="1"]');
+    if (poster && !poster.classList.contains('is-compact') && !inComposer(poster)) {
+      e.preventDefault();
+      e.stopPropagation();
+      activatePoster(poster);
+      return;
+    }
     if (e.target.closest('.orgasmic-bunny-embed, iframe[src*="mediadelivery.net"]')) return;
     if (e.target.closest(COMPOSER_SEL)) return;
 
@@ -403,6 +543,15 @@
     e.stopPropagation();
     place(hit, parsed);
   }, true);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    if (!e.target.closest) return;
+    const poster = e.target.closest('.orgasmic-bunny-embed--poster, [data-bunny-poster="1"]');
+    if (!poster || poster.classList.contains('is-compact') || inComposer(poster)) return;
+    e.preventDefault();
+    activatePoster(poster);
+  });
 
   let scheduled = false;
   function schedule() {

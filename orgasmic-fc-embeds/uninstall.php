@@ -11,6 +11,7 @@ global $wpdb;
 $wpdb->query('DROP TABLE IF EXISTS ' . $wpdb->prefix . 'orgasmic_fc_video_events');
 
 delete_option('orgasmic_fc_embeds_autoplay');
+delete_option('orgasmic_fc_embeds_click_to_play');
 delete_option('orgasmic_fc_embeds_library_id');
 delete_option('orgasmic_fc_embeds_api_key');
 delete_option('orgasmic_fc_embeds_collection_id');

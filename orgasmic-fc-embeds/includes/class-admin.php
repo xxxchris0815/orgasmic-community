@@ -56,6 +56,10 @@ class Orgasmic_Fc_Embeds_Admin
             'type' => 'boolean',
             'sanitize_callback' => 'rest_sanitize_boolean',
         ]);
+        register_setting('orgasmic_fc_embeds', Orgasmic_Fc_Embeds_Store::OPTION_CLICK_TO_PLAY, [
+            'type' => 'boolean',
+            'sanitize_callback' => 'rest_sanitize_boolean',
+        ]);
         register_setting('orgasmic_fc_embeds', Orgasmic_Fc_Embeds_Store::OPTION_LIBRARY_ID, [
             'type' => 'string',
             'sanitize_callback' => static fn($value) => preg_replace('/[^0-9]/', '', (string) $value) ?: '',
@@ -173,7 +177,14 @@ class Orgasmic_Fc_Embeds_Admin
         echo '<input type="hidden" name="' . esc_attr(Orgasmic_Fc_Embeds_Store::OPTION_AUTOPLAY) . '" value="0" />';
         echo '<label><input type="checkbox" name="' . esc_attr(Orgasmic_Fc_Embeds_Store::OPTION_AUTOPLAY) . '" value="1" '
             . checked($this->store->autoplay(), true, false) . ' /> Video im Feed automatisch starten</label>';
-        echo '<p class="description">Browser können Autoplay mit Ton trotzdem blocken.</p></td></tr>';
+        echo '<p class="description">Browser können Autoplay mit Ton trotzdem blocken. Greift nur, wenn der Player direkt im Feed steht.</p></td></tr>';
+
+        echo '<tr><th>Vorschaubild</th><td>';
+        echo '<input type="hidden" name="' . esc_attr(Orgasmic_Fc_Embeds_Store::OPTION_CLICK_TO_PLAY) . '" value="0" />';
+        echo '<label><input type="checkbox" name="' . esc_attr(Orgasmic_Fc_Embeds_Store::OPTION_CLICK_TO_PLAY) . '" value="1" '
+            . checked($this->store->click_to_play(), true, false)
+            . ' /> Nur Vorschaubild im Feed (Player erst nach Klick)</label>';
+        echo '<p class="description">Wie früher: im Feed erscheint ein Standbild mit Play-Button. Der Player lädt und startet erst, wenn jemand draufklickt. Gilt nicht für den Beitrags-Editor.</p></td></tr>';
 
         echo '<tr><th>Webhook-URL</th><td><input type="url" class="regular-text" name="'
             . esc_attr(Orgasmic_Fc_Embeds_Store::OPTION_WEBHOOK_URL) . '" value="'
