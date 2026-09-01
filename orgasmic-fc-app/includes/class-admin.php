@@ -21,6 +21,7 @@ class Orgasmic_Fc_App_Admin
         add_action('admin_init', [$this, 'settings']);
         add_action('admin_post_orgasmic_fc_app_test_push', [$this, 'handle_test']);
         add_action('admin_post_orgasmic_fc_app_enroll', [$this, 'handle_enroll']);
+        add_action('admin_post_orgasmic_fc_app_create_member', [$this, 'handle_create_member']);
         add_action('admin_post_orgasmic_fc_app_clear_device_logs', [$this, 'handle_clear_logs']);
         add_action('admin_notices', [$this, 'php_notice']);
     }
@@ -167,14 +168,56 @@ class Orgasmic_Fc_App_Admin
         check_admin_referer('orgasmic_fc_app_enroll');
         $uid = (int) ($_POST['orgasmic_fc_app_user_id'] ?? 0);
         $ids = array_map('intval', (array) ($_POST['space_ids'] ?? []));
+        $raw_roles = (array) ($_POST['space_roles'] ?? []);
+        $roles = [];
+        foreach ($ids as $id) {
+            if ($id < 1) {
+                continue;
+            }
+            $roles[$id] = (string) ($raw_roles[$id] ?? 'member');
+        }
         if ($uid > 0 && get_userdata($uid)) {
-            $this->access_for_enroll()->enroll($uid, $ids, 'set');
+            $this->access_for_enroll()->enroll($uid, $ids, 'set', 'member', $roles);
         }
         wp_safe_redirect(add_query_arg([
             'page' => 'orgasmic-fc-app-members',
             'orgasmic_user' => $uid,
             'orgasmic_fc_app_enroll' => '1',
         ], admin_url('admin.php')));
+        exit;
+    }
+
+    public function handle_create_member(): void
+    {
+        if (!current_user_can('manage_options')) {
+            wp_die('Keine Berechtigung.');
+        }
+        check_admin_referer('orgasmic_fc_app_create_member');
+        $access = $this->access_for_enroll();
+        $result = $access->ensure_member([
+            'email' => (string) ($_POST['orgasmic_member_email'] ?? ''),
+            'display_name' => (string) ($_POST['orgasmic_member_name'] ?? ''),
+            'user_login' => (string) ($_POST['orgasmic_member_login'] ?? ''),
+            'password' => (string) ($_POST['orgasmic_member_password'] ?? ''),
+        ]);
+        if (is_wp_error($result)) {
+            wp_safe_redirect(add_query_arg([
+                'page' => 'orgasmic-fc-app-members',
+                'orgasmic_fc_app_create' => 'err',
+                'orgasmic_fc_app_create_msg' => rawurlencode($result->get_error_message()),
+            ], admin_url('admin.php')));
+            exit;
+        }
+        $uid = (int) $result['user_id'];
+        $q = [
+            'page' => 'orgasmic-fc-app-members',
+            'orgasmic_user' => $uid,
+            'orgasmic_fc_app_create' => !empty($result['created']) ? 'new' : 'exists',
+        ];
+        if (!empty($result['password'])) {
+            set_transient('orgasmic_fc_app_new_pass_' . $uid, (string) $result['password'], 10 * MINUTE_IN_SECONDS);
+        }
+        wp_safe_redirect(add_query_arg($q, admin_url('admin.php')));
         exit;
     }
 
@@ -494,10 +537,19 @@ class Orgasmic_Fc_App_Admin
         $picked = (int) ($_GET['orgasmic_user'] ?? 0);
 
         echo '<div class="wrap"><h1>Mitglieder</h1>';
-        echo '<p>Hier ordnest du einer Person <strong>Gruppen</strong>, <strong>Räume</strong> und <strong>Kurse</strong> zu. Chat hängt am Raum bzw. Kurs — kein extra Häkchen. Speichern ersetzt die komplette Zuordnung dieser Person.</p>';
+        echo '<p>Hier legst du Konten an und ordnest <strong>Gruppen</strong>, <strong>Räume</strong> und <strong>Kurse</strong> zu — inkl. FluentCommunity-Rolle (Mitglied, Moderator, Admin). Speichern ersetzt die komplette Zuordnung dieser Person.</p>';
 
         if (!empty($_GET['orgasmic_fc_app_enroll'])) {
             echo '<div class="notice notice-success is-dismissible"><p>Zuordnung gespeichert.</p></div>';
+        }
+        $created = sanitize_key((string) ($_GET['orgasmic_fc_app_create'] ?? ''));
+        if ($created === 'new') {
+            echo '<div class="notice notice-success is-dismissible"><p>Neues Mitglied angelegt. Unten Spaces und Rolle setzen, dann speichern.</p></div>';
+        } elseif ($created === 'exists') {
+            echo '<div class="notice notice-warning is-dismissible"><p>Diese E-Mail gibt es schon — Zuordnung unten anpassen.</p></div>';
+        } elseif ($created === 'err') {
+            $msg = sanitize_text_field(rawurldecode((string) ($_GET['orgasmic_fc_app_create_msg'] ?? '')));
+            echo '<div class="notice notice-error is-dismissible"><p>' . esc_html($msg !== '' ? $msg : 'Konto konnte nicht angelegt werden.') . '</p></div>';
         }
 
         echo '<form method="get" action="' . esc_url(admin_url('admin.php')) . '" style="margin:12px 0 20px">';
@@ -505,6 +557,23 @@ class Orgasmic_Fc_App_Admin
         echo '<p><input type="search" class="regular-text" name="s" value="' . esc_attr($q) . '" placeholder="Name, E-Mail oder User-ID" /> ';
         submit_button('Suchen', 'secondary', '', false);
         echo '</p></form>';
+
+        if ($picked < 1) {
+            echo '<div class="card" style="max-width:640px;padding:16px 20px;margin:0 0 24px">';
+            echo '<h2 style="margin-top:0">Neues Mitglied</h2>';
+            echo '<p class="description">Legt ein WordPress-Konto an (Rolle Subscriber). Spaces und die Space-Rolle setzt du danach auf der nächsten Seite. Existiert die E-Mail schon, landest du direkt bei der Zuordnung.</p>';
+            echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';
+            wp_nonce_field('orgasmic_fc_app_create_member');
+            echo '<input type="hidden" name="action" value="orgasmic_fc_app_create_member" />';
+            echo '<table class="form-table" role="presentation"><tbody>';
+            echo '<tr><th>E-Mail</th><td><input type="email" class="regular-text" name="orgasmic_member_email" required /></td></tr>';
+            echo '<tr><th>Name</th><td><input type="text" class="regular-text" name="orgasmic_member_name" /></td></tr>';
+            echo '<tr><th>Benutzername</th><td><input type="text" class="regular-text" name="orgasmic_member_login" placeholder="leer = aus der E-Mail" /></td></tr>';
+            echo '<tr><th>Passwort</th><td><input type="text" class="regular-text" name="orgasmic_member_password" placeholder="leer = wird erzeugt" autocomplete="new-password" /></td></tr>';
+            echo '</tbody></table>';
+            submit_button('Mitglied anlegen', 'secondary');
+            echo '</form></div>';
+        }
 
         if ($picked > 0) {
             $user = get_userdata($picked);
@@ -517,6 +586,12 @@ class Orgasmic_Fc_App_Admin
             echo '<div class="card" style="max-width:920px;padding:16px 20px">';
             echo '<p><strong>' . esc_html((string) $user->display_name) . '</strong> · '
                 . esc_html((string) $user->user_email) . ' · <code>#' . $picked . '</code></p>';
+            $gen = get_transient('orgasmic_fc_app_new_pass_' . $picked);
+            if (is_string($gen) && $gen !== '') {
+                echo '<div class="notice notice-info"><p>Erzeugtes Passwort (nur kurz sichtbar): <code>'
+                    . esc_html($gen) . '</code></p></div>';
+                delete_transient('orgasmic_fc_app_new_pass_' . $picked);
+            }
             $this->render_enroll($picked);
             echo '</div></div>';
             return;
@@ -553,6 +628,7 @@ class Orgasmic_Fc_App_Admin
         $access = $this->access_for_enroll();
         $spaces = $access->all_spaces();
         $owned = $access->user_space_ids($uid);
+        $roles = $access->user_space_roles($uid);
         $by_kind = [
             'group' => [],
             'room' => [],
@@ -567,17 +643,22 @@ class Orgasmic_Fc_App_Admin
             $by_kind[$kind][] = $space;
         }
 
-        echo '<p class="description">Gruppe = Ordner in der Sidebar. Räume und Kurse extra setzen — der Chat gehört zum jeweiligen Raum oder Kurs. API: <code>POST /wp-json/orgasmic-app/v1/members/'
-            . $uid . '/spaces</code>, Header <code>X-Orgasmic-Key</code> (Kalender-Schlüssel), JSON <code>{"space_ids":[1,2],"mode":"set"}</code>.</p>';
+        echo '<p class="description">Gruppe = Ordner in der Sidebar. Räume und Kurse extra setzen — der Chat gehört zum jeweiligen Raum oder Kurs. Rolle gilt nur für angehakte Spaces. API: <code>POST /wp-json/orgasmic-app/v1/members</code> (neu anlegen) oder <code>POST /wp-json/orgasmic-app/v1/members/'
+            . $uid . '/spaces</code>, Header <code>X-Orgasmic-Key</code>.</p>';
+        echo '<p>Rolle für alle sichtbaren Selects: ';
+        echo '<select data-oc-role-all>';
+        echo '<option value="member">Mitglied</option><option value="moderator">Moderator</option><option value="admin">Admin</option>';
+        echo '</select> ';
+        echo '<button type="button" class="button-link" data-oc-role-apply>übernehmen</button></p>';
         echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';
         wp_nonce_field('orgasmic_fc_app_enroll');
         echo '<input type="hidden" name="action" value="orgasmic_fc_app_enroll" />';
         echo '<input type="hidden" name="orgasmic_fc_app_user_id" value="' . $uid . '" />';
 
-        $this->render_space_checks('Gruppen', $by_kind['group'], $owned, 'group');
-        $this->render_room_checks($by_kind['room'], $by_kind['group'], $owned);
-        $this->render_space_checks('Kurse', $by_kind['course'], $owned, 'course');
-        $this->render_space_checks('Weitere', $by_kind['other'], $owned, 'other');
+        $this->render_space_checks('Gruppen', $by_kind['group'], $owned, $roles, 'group');
+        $this->render_room_checks($by_kind['room'], $by_kind['group'], $owned, $roles);
+        $this->render_space_checks('Kurse', $by_kind['course'], $owned, $roles, 'course');
+        $this->render_space_checks('Weitere', $by_kind['other'], $owned, $roles, 'other');
 
         if ($spaces === []) {
             echo '<p>Keine FluentCommunity-Spaces gefunden.</p>';
@@ -592,14 +673,23 @@ class Orgasmic_Fc_App_Admin
             document.querySelectorAll(sel).forEach(function (el) { el.checked = on; });
           });
         });
+        var apply = document.querySelector("[data-oc-role-apply]");
+        var all = document.querySelector("[data-oc-role-all]");
+        if (apply && all) {
+          apply.addEventListener("click", function () {
+            var role = all.value;
+            document.querySelectorAll("select[name^=\\"space_roles\\"]").forEach(function (el) { el.value = role; });
+          });
+        }
         </script>';
     }
 
     /**
      * @param list<array{id:int,title:string,kind:string,parent_id?:int}> $items
      * @param list<int> $owned
+     * @param array<int, string> $roles
      */
-    private function render_space_checks(string $label, array $items, array $owned, string $kind): void
+    private function render_space_checks(string $label, array $items, array $owned, array $roles, string $kind): void
     {
         if ($items === []) {
             return;
@@ -610,7 +700,7 @@ class Orgasmic_Fc_App_Admin
             . '<button type="button" class="button-link" data-oc-toggle="' . esc_attr($sel) . '" data-oc-on="0">keine</button></h2>';
         echo '<div style="display:flex;flex-wrap:wrap;gap:8px 16px;margin:0 0 16px">';
         foreach ($items as $space) {
-            $this->space_checkbox($space, $owned, 0, $kind);
+            $this->space_checkbox($space, $owned, $roles, 0, $kind);
         }
         echo '</div>';
     }
@@ -619,8 +709,9 @@ class Orgasmic_Fc_App_Admin
      * @param list<array{id:int,title:string,kind:string,parent_id?:int}> $rooms
      * @param list<array{id:int,title:string}> $groups
      * @param list<int> $owned
+     * @param array<int, string> $roles
      */
-    private function render_room_checks(array $rooms, array $groups, array $owned): void
+    private function render_room_checks(array $rooms, array $groups, array $owned, array $roles): void
     {
         if ($rooms === []) {
             return;
@@ -652,7 +743,7 @@ class Orgasmic_Fc_App_Admin
                 . '<button type="button" class="button-link" data-oc-toggle="' . esc_attr($sel) . '" data-oc-on="0">keine</button></p>';
             echo '<div style="display:flex;flex-wrap:wrap;gap:8px 16px;margin:0 0 12px">';
             foreach ($chunk as $space) {
-                $this->space_checkbox($space, $owned, $gid, 'room');
+                $this->space_checkbox($space, $owned, $roles, $gid, 'room');
             }
             echo '</div>';
         }
@@ -662,7 +753,7 @@ class Orgasmic_Fc_App_Admin
             }
             echo '<div style="display:flex;flex-wrap:wrap;gap:8px 16px;margin:0 0 16px">';
             foreach ($loose as $space) {
-                $this->space_checkbox($space, $owned, 0, 'room');
+                $this->space_checkbox($space, $owned, $roles, 0, 'room');
             }
             echo '</div>';
         }
@@ -671,15 +762,23 @@ class Orgasmic_Fc_App_Admin
     /**
      * @param array{id:int,title:string} $space
      * @param list<int> $owned
+     * @param array<int, string> $roles
      */
-    private function space_checkbox(array $space, array $owned, int $parent = 0, string $kind = 'room'): void
+    private function space_checkbox(array $space, array $owned, array $roles, int $parent = 0, string $kind = 'room'): void
     {
         $id = (int) $space['id'];
-        echo '<label style="min-width:200px"><input type="checkbox" name="space_ids[]" value="' . $id . '"'
+        $current = $roles[$id] ?? 'member';
+        echo '<label style="display:flex;align-items:center;gap:8px;min-width:280px;margin:0 0 6px">';
+        echo '<input type="checkbox" name="space_ids[]" value="' . $id . '"'
             . ' data-kind="' . esc_attr($kind) . '"'
             . ($parent > 0 ? ' data-parent="' . $parent . '"' : '')
-            . ' ' . checked(in_array($id, $owned, true), true, false) . ' /> '
-            . esc_html((string) $space['title']) . '</label>';
+            . ' ' . checked(in_array($id, $owned, true), true, false) . ' /> ';
+        echo '<span style="flex:1">' . esc_html((string) $space['title']) . '</span>';
+        echo '<select name="space_roles[' . $id . ']">';
+        foreach (['member' => 'Mitglied', 'moderator' => 'Moderator', 'admin' => 'Admin'] as $value => $label) {
+            echo '<option value="' . esc_attr($value) . '"' . selected($current, $value, false) . '>' . esc_html($label) . '</option>';
+        }
+        echo '</select></label>';
     }
 
     private function checkbox(string $label, string $option, string $help): void

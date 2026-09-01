@@ -12,7 +12,7 @@ Moved from `evolution-api` (`Extras/orgasmic-community`).
 | `orgasmic-fc-events/` | **1.0.12** | Kalender im Portal (RSVP, Zoom, Markieren/Duplizieren/Löschen mobil+Desktop) |
 | `orgasmic-fc-embeds/` | **1.2.21** | Video-Player im Feed, optional Bunny-Vorschaubild ohne Player |
 | `orgasmic-fc-chat/` | **1.1.18** | Space-Chat (Antworten mit WhatsApp-Zitat, Zeile markieren, letzte 40 Nachrichten) |
-| `orgasmic-fc-app/` | **1.1.25** | PWA, Web Push, Pull-to-Refresh mit Reload und Android-Kreis; Geräte-Logs |
+| `orgasmic-fc-app/` | **1.1.26** | PWA, Web Push, Mitglieder-Rollen, Pull-to-Refresh; Geräte-Logs |
 
 ## ORGASMIC Community Kalender
 
@@ -95,23 +95,40 @@ Kein zweites Native-Frontend. Das FluentCommunity-Portal wird zur App:
 
 Push geht an Mitglieder des jeweiligen Spaces **und an WordPress-Admins** (die sonst trotz Admin-Rolle nicht in `fcom_space_user` stehen). Format: **Raumname · Art** (Chat / Beitrag / Kommentar / Event / Ankündigung) plus Autor und Text — ohne generisches „Kreis“ oder „Termin“. Jedes Mitglied kann Chat / Beiträge / Kommentare / Events über **Profil → Benachrichtigungen** abschalten.
 
-Räume, Kurse und Gruppen einem Konto zuordnen: **ORGASMIC App → Mitglieder**, oder per API:
+Räume, Kurse und Gruppen einem Konto zuordnen: **ORGASMIC App → Mitglieder** (inkl. Rolle Mitglied / Moderator / Admin), oder per API:
 
 ```
 GET  /wp-json/orgasmic-app/v1/spaces
 GET  /wp-json/orgasmic-app/v1/members/{id}/spaces
 POST /wp-json/orgasmic-app/v1/members/{id}/spaces
+POST /wp-json/orgasmic-app/v1/members
 Header: X-Orgasmic-Key: <Kalender-API-Key>
-Body: { "space_ids": [1, 2, 3], "mode": "set" }
 ```
 
-`mode: "add"` ergänzt, ohne andere Spaces zu entfernen.
+Neues Mitglied in Spaces und Kurse (existierende E-Mail wird nur zugeordnet, Passwort bleibt):
+
+```
+POST /wp-json/orgasmic-app/v1/members
+{
+  "email": "post@orgasmic.live",
+  "display_name": "Tester",
+  "user_login": "tester",
+  "password": "Testing@LO-Community",
+  "space_ids": [1, 2],
+  "course_ids": [10],
+  "role": "member",
+  "roles": { "2": "moderator" },
+  "mode": "add"
+}
+```
+
+`mode: "add"` ergänzt, ohne andere Spaces zu entfernen. `mode: "set"` ersetzt die komplette Zuordnung. Rolle pro Space: `member`, `moderator`, `admin`.
 
 Admins sehen im Beitrags-Composer zwei Häkchen: **Per Push an alle Mitglieder senden** und **Per E-Mail an alle Mitglieder senden**. Empfänger sind nur Leute, die den Beitrag sehen dürfen (Raummitglieder bzw. Community-Feed). Geheime Kreise werden nicht nach außen geleakt. E-Mails laufen über `wp_mail` (Minute-Queue).
 
 WP-Admin: **ORGASMIC App**. Unter **Geräte-Logs** landen automatische Berichte aus der Native App (Version, Capacitor, JS-Fehler, Skeleton). Unter **Push prüfen** ein Mitglied suchen (z. B. Alexandra): Token, erlaubte Arten, letzte Queue-Zeilen inkl. Firebase-Fehler, Test-Push auf ihr Gerät. PHP 8.2+ für Web-Push (`openssl_pkey_derive`). Firebase-JSON nur für Store-Apps. Unter **Geräte mit App-Push** steht, wessen Handy ein FCM-Token gespeichert hat.
 
-ZIP: [`orgasmic-fc-app-1.1.25.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.1.25.zip)
+ZIP: [`orgasmic-fc-app-1.1.26.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.1.26.zip)
 
 ### Capacitor / Play Store (Android zuerst)
 

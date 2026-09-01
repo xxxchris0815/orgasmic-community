@@ -326,17 +326,89 @@ class Orgasmic_Fc_App_Access
         return $out;
     }
 
+    public function sanitize_space_role(string $role): string
+    {
+        $role = strtolower(trim($role));
+        $map = [
+            'member' => 'member',
+            'user' => 'member',
+            'student' => 'member',
+            'subscriber' => 'member',
+            'moderator' => 'moderator',
+            'mod' => 'moderator',
+            'admin' => 'admin',
+            'administrator' => 'admin',
+            'space_admin' => 'admin',
+            'space_moderator' => 'moderator',
+        ];
+
+        return $map[$role] ?? 'member';
+    }
+
+    /**
+     * @return array<int, string> space_id => member|moderator|admin
+     */
+    public function user_space_roles(int $user_id): array
+    {
+        $ids = $this->user_space_ids($user_id);
+        $out = [];
+        foreach ($ids as $id) {
+            $out[(int) $id] = 'member';
+        }
+        if ($user_id < 1 || $ids === []) {
+            return $out;
+        }
+        global $wpdb;
+        $pivot = $this->pivot_table();
+        if (!$pivot) {
+            return $out;
+        }
+        $columns = $wpdb->get_col("SHOW COLUMNS FROM {$pivot}");
+        if (!in_array('role', is_array($columns) ? $columns : [], true)) {
+            return $out;
+        }
+        $in = implode(',', array_map('intval', $ids));
+        $rows = $wpdb->get_results(
+            $wpdb->prepare("SELECT space_id, role FROM {$pivot} WHERE user_id = %d AND space_id IN ({$in})", $user_id),
+            ARRAY_A
+        ) ?: [];
+        foreach ($rows as $row) {
+            $sid = (int) ($row['space_id'] ?? 0);
+            if ($sid > 0) {
+                $out[$sid] = $this->sanitize_space_role((string) ($row['role'] ?? 'member'));
+            }
+        }
+
+        return $out;
+    }
+
     /**
      * @param list<int> $space_ids
+     * @param array<int|string, string> $roles space_id => role
      * @return list<int>
      */
-    public function enroll(int $user_id, array $space_ids, string $mode = 'set'): array
+    public function enroll(int $user_id, array $space_ids, string $mode = 'set', string $role = 'member', array $roles = []): array
     {
         if ($user_id < 1) {
             return [];
         }
         $space_ids = array_values(array_unique(array_filter(array_map('intval', $space_ids))));
+        $known = [];
+        foreach ($this->all_spaces() as $space) {
+            $known[(int) $space['id']] = true;
+        }
+        if ($known !== []) {
+            $space_ids = array_values(array_filter($space_ids, static fn(int $id): bool => isset($known[$id])));
+        }
         $mode = $mode === 'add' ? 'add' : 'set';
+        $default_role = $this->sanitize_space_role($role);
+        $role_map = [];
+        foreach ($roles as $sid => $value) {
+            $sid = (int) $sid;
+            if ($sid > 0) {
+                $role_map[$sid] = $this->sanitize_space_role((string) $value);
+            }
+        }
         global $wpdb;
         $pivot = $this->pivot_table();
         if (!$pivot) {
@@ -371,7 +443,7 @@ class Orgasmic_Fc_App_Access
                 $row['status'] = 'active';
             }
             if ($has_role) {
-                $row['role'] = 'member';
+                $row['role'] = $role_map[$sid] ?? $default_role;
             }
             if (in_array('updated_at', $columns, true)) {
                 $row['updated_at'] = $now;
@@ -387,6 +459,76 @@ class Orgasmic_Fc_App_Access
         }
 
         return $this->user_space_ids($user_id);
+    }
+
+    /**
+     * Create a WordPress user or return an existing one by email.
+     *
+     * @return array{user_id:int,created:bool,password:?string}|WP_Error
+     */
+    public function ensure_member(array $data)
+    {
+        $email = sanitize_email((string) ($data['email'] ?? ''));
+        if ($email === '' || !is_email($email)) {
+            return new WP_Error('invalid_email', 'Gültige E-Mail angeben.', ['status' => 400]);
+        }
+
+        $existing = get_user_by('email', $email);
+        if ($existing) {
+            return [
+                'user_id' => (int) $existing->ID,
+                'created' => false,
+                'password' => null,
+            ];
+        }
+
+        $login = sanitize_user((string) ($data['user_login'] ?? $data['username'] ?? ''), true);
+        if ($login === '') {
+            $login = sanitize_user((string) strstr($email, '@', true), true);
+        }
+        if ($login === '') {
+            $login = 'member';
+        }
+        $base = $login;
+        $n = 2;
+        while (username_exists($login)) {
+            $login = $base . $n;
+            $n += 1;
+        }
+
+        $password = (string) ($data['password'] ?? '');
+        $generated = false;
+        if ($password === '') {
+            $password = wp_generate_password(20, true, false);
+            $generated = true;
+        }
+
+        $name = sanitize_text_field((string) ($data['display_name'] ?? $data['name'] ?? ''));
+        if ($name === '') {
+            $name = $login;
+        }
+
+        $user_id = wp_insert_user([
+            'user_login' => $login,
+            'user_email' => $email,
+            'user_pass' => $password,
+            'display_name' => $name,
+            'nickname' => $name,
+            'role' => 'subscriber',
+        ]);
+        if (is_wp_error($user_id)) {
+            return new WP_Error(
+                $user_id->get_error_code() ?: 'create_failed',
+                $user_id->get_error_message() ?: 'Konto konnte nicht angelegt werden.',
+                ['status' => 400]
+            );
+        }
+
+        return [
+            'user_id' => (int) $user_id,
+            'created' => true,
+            'password' => $generated ? $password : null,
+        ];
     }
 
     public function valid_api_key(?string $key): bool

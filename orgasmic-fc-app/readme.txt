@@ -1,12 +1,16 @@
 === ORGASMIC App ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.1.25
+Stable tag: 1.1.26
 License: GPLv2 or later
 
 PWA, offline cache, and Web Push for chat, posts, comments, and calendar events.
 
 == Changelog ==
+
+= 1.1.26 =
+* Admin membership assignment includes FluentCommunity role (member / moderator / admin)
+* POST /wp-json/orgasmic-app/v1/members creates or finds a user and enrolls them in spaces and courses
 
 = 1.1.25 =
 * Pull-to-refresh tracks the feed under the finger so nested FluentCommunity scrollers no longer block reload

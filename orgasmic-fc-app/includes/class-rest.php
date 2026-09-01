@@ -92,6 +92,12 @@ class Orgasmic_Fc_App_Rest
             'callback' => [$this, 'list_spaces'],
         ]);
 
+        register_rest_route($ns, '/members', [
+            'methods' => 'POST',
+            'permission_callback' => [$this, 'can_manage_or_key'],
+            'callback' => [$this, 'create_member'],
+        ]);
+
         register_rest_route($ns, '/members/(?P<id>\d+)/spaces', [
             [
                 'methods' => 'GET',
@@ -125,15 +131,19 @@ class Orgasmic_Fc_App_Rest
     {
         $user_id = (int) $request['id'];
         $owned = $this->access->user_space_ids($user_id);
+        $roles = $this->access->user_space_roles($user_id);
         $spaces = $this->access->all_spaces();
         foreach ($spaces as &$space) {
-            $space['assigned'] = in_array((int) $space['id'], $owned, true);
+            $sid = (int) $space['id'];
+            $space['assigned'] = in_array($sid, $owned, true);
+            $space['role'] = $roles[$sid] ?? null;
         }
         unset($space);
 
         return rest_ensure_response([
             'user_id' => $user_id,
             'space_ids' => $owned,
+            'roles' => (object) $roles,
             'spaces' => $spaces,
         ]);
     }
@@ -148,18 +158,94 @@ class Orgasmic_Fc_App_Rest
         if (!is_array($json)) {
             $json = [];
         }
-        $ids = $json['space_ids'] ?? $request->get_param('space_ids');
-        $mode = sanitize_key((string) ($json['mode'] ?? $request->get_param('mode') ?: 'set'));
-        if (!is_array($ids)) {
-            $ids = [];
-        }
-        $owned = $this->access->enroll($user_id, $ids, $mode === 'add' ? 'add' : 'set');
+        $owned = $this->apply_enroll($user_id, $json, $request);
 
         return rest_ensure_response([
             'ok' => true,
             'user_id' => $user_id,
             'space_ids' => $owned,
+            'roles' => (object) $this->access->user_space_roles($user_id),
         ]);
+    }
+
+    public function create_member(WP_REST_Request $request)
+    {
+        $json = $request->get_json_params();
+        if (!is_array($json)) {
+            $json = [];
+        }
+        $result = $this->access->ensure_member($json);
+        if (is_wp_error($result)) {
+            return $result;
+        }
+        $user_id = (int) $result['user_id'];
+        if (!isset($json['mode'])) {
+            $json['mode'] = 'add';
+        }
+        $owned = $this->apply_enroll($user_id, $json, $request);
+        $user = get_userdata($user_id);
+
+        return rest_ensure_response([
+            'ok' => true,
+            'created' => !empty($result['created']),
+            'user_id' => $user_id,
+            'email' => $user ? (string) $user->user_email : '',
+            'display_name' => $user ? (string) $user->display_name : '',
+            'user_login' => $user ? (string) $user->user_login : '',
+            'password' => $result['password'],
+            'space_ids' => $owned,
+            'roles' => (object) $this->access->user_space_roles($user_id),
+        ]);
+    }
+
+    /**
+     * @param array<string, mixed> $json
+     * @return list<int>
+     */
+    private function apply_enroll(int $user_id, array $json, WP_REST_Request $request): array
+    {
+        $ids = $json['space_ids'] ?? $request->get_param('space_ids');
+        $courses = $json['course_ids'] ?? $request->get_param('course_ids');
+        $items = $json['spaces'] ?? $json['memberships'] ?? null;
+        $mode = sanitize_key((string) ($json['mode'] ?? $request->get_param('mode') ?: 'set'));
+        $role = (string) ($json['role'] ?? $request->get_param('role') ?: 'member');
+        $roles = $json['roles'] ?? $request->get_param('roles');
+        if (!is_array($ids)) {
+            $ids = [];
+        }
+        if (is_array($courses)) {
+            $ids = array_merge($ids, $courses);
+        }
+        if (!is_array($roles)) {
+            $roles = [];
+        }
+        if (is_array($items)) {
+            foreach ($items as $item) {
+                if (is_numeric($item)) {
+                    $ids[] = (int) $item;
+                    continue;
+                }
+                if (!is_array($item)) {
+                    continue;
+                }
+                $sid = (int) ($item['id'] ?? $item['space_id'] ?? 0);
+                if ($sid < 1) {
+                    continue;
+                }
+                $ids[] = $sid;
+                if (!empty($item['role'])) {
+                    $roles[$sid] = (string) $item['role'];
+                }
+            }
+        }
+        if ($mode !== 'add') {
+            $mode = 'set';
+        }
+        if ($ids === [] && $mode === 'add') {
+            return $this->access->user_space_ids($user_id);
+        }
+
+        return $this->access->enroll($user_id, $ids, $mode, $role, $roles);
     }
 
     public function announce_intent(WP_REST_Request $request)
