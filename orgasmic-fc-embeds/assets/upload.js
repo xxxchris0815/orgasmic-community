@@ -836,14 +836,14 @@
 
   function hookFeedSubmit() {
     if (window.fetch && !window.fetch.__orgasmicBunny) {
-      const orig = window.fetch;
+      const orig = window.fetch.bind(window);
       window.fetch = function (input, init) {
         const href = typeof input === 'string' ? input : (input && input.url) || '';
         if (pendingPlayUrls.length && init && init.method && /post|put|patch/i.test(init.method) && /\/feeds(\b|\/|\?)/.test(href) && typeof init.body === 'string') {
           const play = pendingUrlForSubmit();
           if (play) init = Object.assign({}, init, { body: injectPlayIntoPayload(init.body, play) });
         }
-        return orig.call(this, input, init);
+        return orig(input, init);
       };
       window.fetch.__orgasmicBunny = true;
     }
