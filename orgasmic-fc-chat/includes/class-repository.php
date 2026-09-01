@@ -112,7 +112,7 @@ class Orgasmic_Fc_Chat_Repository
             $args[] = $before;
         }
 
-        $sql = "SELECT id, space_id, user_id, body, attachment_id, created_at
+        $sql = "SELECT id, space_id, user_id, body, attachment_id, reply_to, created_at
                 FROM {$table}
                 WHERE " . implode(' AND ', $where) . "
                 ORDER BY id {$order}
@@ -123,7 +123,7 @@ class Orgasmic_Fc_Chat_Repository
             $rows = array_reverse($rows);
         }
 
-        return array_map([$this, 'hydrate_message'], $rows);
+        return $this->with_replies(array_map([$this, 'hydrate_message'], $rows));
     }
 
     public function exists_before(int $space_id, int $before_id): bool
@@ -163,22 +163,24 @@ class Orgasmic_Fc_Chat_Repository
             ARRAY_A
         );
 
-        return $row ? $this->hydrate_message($row) : null;
+        return $row ? ($this->with_replies([$this->hydrate_message($row)])[0] ?? null) : null;
     }
 
-    public function insert_message(int $space_id, int $user_id, string $body, int $attachment_id = 0): array
+    public function insert_message(int $space_id, int $user_id, string $body, int $attachment_id = 0, int $reply_to = 0): array
     {
         global $wpdb;
         $table = Orgasmic_Fc_Chat_Install::messages_table();
         $now = gmdate('Y-m-d H:i:s');
+        $reply_to = $this->valid_reply_id($space_id, $reply_to);
         $wpdb->insert($table, [
             'space_id' => $space_id,
             'user_id' => $user_id,
             'body' => $body,
             'attachment_id' => $attachment_id,
+            'reply_to' => $reply_to,
             'created_at' => $now,
             'deleted_at' => null,
-        ], ['%d', '%d', '%s', '%d', '%s', '%s']);
+        ], ['%d', '%d', '%s', '%d', '%d', '%s', '%s']);
 
         $id = (int) $wpdb->insert_id;
         $this->mark_read($space_id, $user_id, $id);
@@ -189,10 +191,25 @@ class Orgasmic_Fc_Chat_Repository
             'user_id' => $user_id,
             'body' => $body,
             'attachment_id' => $attachment_id,
+            'reply_to' => $reply_to,
+            'reply' => null,
             'attachment' => $this->attachment_payload($attachment_id),
             'created_at' => $now,
             'deleted' => false,
         ];
+    }
+
+    private function valid_reply_id(int $space_id, int $reply_to): int
+    {
+        if ($reply_to < 1 || $space_id < 1) {
+            return 0;
+        }
+        $parent = $this->get_message($reply_to);
+        if (!$parent || !empty($parent['deleted']) || (int) ($parent['space_id'] ?? 0) !== $space_id) {
+            return 0;
+        }
+
+        return $reply_to;
     }
 
     public function soft_delete(int $id): bool
@@ -280,7 +297,7 @@ class Orgasmic_Fc_Chat_Repository
         $table = Orgasmic_Fc_Chat_Install::messages_table();
         $in = implode(',', $space_ids);
         $rows = $wpdb->get_results(
-            "SELECT m.id, m.space_id, m.user_id, m.body, m.attachment_id, m.created_at
+            "SELECT m.id, m.space_id, m.user_id, m.body, m.attachment_id, m.reply_to, m.created_at
              FROM {$table} m
              INNER JOIN (
                 SELECT space_id, MAX(id) AS max_id
@@ -311,9 +328,56 @@ class Orgasmic_Fc_Chat_Repository
             'body' => (string) ($row['body'] ?? ''),
             'attachment_id' => $attachment_id,
             'attachment' => $this->attachment_payload($attachment_id),
+            'reply_to' => (int) ($row['reply_to'] ?? 0),
+            'reply' => null,
             'created_at' => (string) ($row['created_at'] ?? ''),
             'deleted' => !empty($row['deleted_at']),
         ];
+    }
+
+    /**
+     * @param list<array<string, mixed>> $items
+     * @return list<array<string, mixed>>
+     */
+    private function with_replies(array $items): array
+    {
+        $ids = [];
+        foreach ($items as $item) {
+            $rid = (int) ($item['reply_to'] ?? 0);
+            if ($rid > 0) {
+                $ids[] = $rid;
+            }
+        }
+        $ids = array_values(array_unique($ids));
+        if ($ids === []) {
+            return $items;
+        }
+
+        global $wpdb;
+        $table = Orgasmic_Fc_Chat_Install::messages_table();
+        $in = implode(',', array_map('intval', $ids));
+        $rows = $wpdb->get_results(
+            "SELECT id, user_id, body, attachment_id, deleted_at FROM {$table} WHERE id IN ({$in})",
+            ARRAY_A
+        ) ?: [];
+        $map = [];
+        foreach ($rows as $row) {
+            $deleted = !empty($row['deleted_at']);
+            $map[(int) $row['id']] = [
+                'id' => (int) $row['id'],
+                'user_id' => (int) $row['user_id'],
+                'body' => $deleted ? '' : (string) ($row['body'] ?? ''),
+                'attachment' => $deleted ? null : $this->attachment_payload((int) ($row['attachment_id'] ?? 0)),
+                'deleted' => $deleted,
+            ];
+        }
+        foreach ($items as &$item) {
+            $rid = (int) ($item['reply_to'] ?? 0);
+            $item['reply'] = ($rid && isset($map[$rid])) ? $map[$rid] : null;
+        }
+        unset($item);
+
+        return $items;
     }
 
     private function attachment_payload(int $attachment_id): ?array

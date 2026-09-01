@@ -24,6 +24,8 @@ class Orgasmic_Fc_Embeds_Rest
         add_action('wp_ajax_orgasmic_fc_upload_status', [$this, 'ajax_status']);
         add_action('wp_ajax_orgasmic_fc_upload_push', [$this, 'ajax_push']);
         add_action('wp_ajax_orgasmic_fc_upload_chunk', [$this, 'ajax_chunk']);
+        add_action('wp_ajax_orgasmic_fc_poster', [$this, 'ajax_poster']);
+        add_action('wp_ajax_nopriv_orgasmic_fc_poster', [$this, 'ajax_poster']);
     }
 
     public function routes(): void
@@ -215,6 +217,17 @@ class Orgasmic_Fc_Embeds_Rest
             $request->set_file_params($_FILES);
         }
         $this->send_ajax($this->chunk_upload($request));
+    }
+
+    public function ajax_poster(): void
+    {
+        $library = preg_replace('/[^0-9]/', '', (string) wp_unslash($_GET['library'] ?? '')) ?: '';
+        $video = strtolower(preg_replace('/[^0-9a-f-]/', '', (string) wp_unslash($_GET['video'] ?? '')) ?: '');
+        if ($library === '' || strlen($video) < 8) {
+            status_header(400);
+            exit;
+        }
+        $this->bunny->output_poster($library, $video);
     }
 
     private function ajax_ready(): bool

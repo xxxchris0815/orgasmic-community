@@ -27,6 +27,7 @@
     error: '',
     selectMode: false,
     selected: {},
+    replyTo: null,
     emojiOpen: false,
     pendingImage: null,
     recording: false,
@@ -106,6 +107,10 @@
       const last = item && item.last_message;
       if (last && last.author && last.user_id) {
         state.authors[last.user_id] = last.author;
+      }
+      const reply = item && item.reply;
+      if (reply && reply.author && reply.user_id) {
+        state.authors[reply.user_id] = reply.author;
       }
     });
     if (state.me && state.me.id) {
@@ -596,6 +601,8 @@
   function closeOverlay() {
     const root = document.getElementById('orgasmic-chat-root');
     if (!root) return;
+    hideMsgMenu();
+    state.replyTo = null;
     clearOverlayPin();
     root.hidden = true;
     root.innerHTML = '';
@@ -964,6 +971,7 @@
     html += '<div class="och-bubble">';
     html += '<div class="och-msg-head"><span class="och-author">' + escapeHtml(name) + '</span>'
       + '<span class="och-when">' + escapeHtml(fmtAgo(msg.created_at)) + '</span></div>';
+    html += quoteHtml(msg);
     if (msg.body) html += '<div class="och-text">' + linkify(msg.body) + '</div>';
     if (msg.attachment && (msg.attachment.kind === 'audio' || (msg.attachment.mime && String(msg.attachment.mime).indexOf('audio/') === 0) || msg.attachment.mime === 'video/webm')) {
       html += voicePlayerHtml(msg.attachment.url, msg.attachment.duration);
@@ -974,6 +982,58 @@
     }
     html += '</div></div></article>';
     return { html: html, day: day || prevDay };
+  }
+
+  function quotePreview(msg) {
+    if (!msg) return '';
+    if (msg.deleted) return 'Nachricht gelöscht';
+    const body = String(msg.body || '').replace(/\s+/g, ' ').trim();
+    if (body) return body.length > 90 ? body.slice(0, 89) + '…' : body;
+    if (msg.attachment) return msg.attachment.kind === 'audio' ? 'Sprachnachricht' : 'Bild';
+    return 'Nachricht';
+  }
+
+  function quoteHtml(msg) {
+    const quote = msg && msg.reply;
+    if (!quote || !quote.id) return '';
+    const who = (quote.author && quote.author.display_name)
+      || (authorFor(quote).display_name)
+      || (Number(quote.user_id) === Number(state.me && state.me.id) ? 'Du' : 'Mitglied');
+    return '<button type="button" class="och-quote" data-och-jump="' + quote.id + '">'
+      + '<span class="och-quote-name">' + escapeHtml(who) + '</span>'
+      + '<span class="och-quote-body">' + escapeHtml(quotePreview(quote)) + '</span>'
+      + '</button>';
+  }
+
+  function startReply(msg) {
+    if (!msg || !msg.id) return;
+    exitSelect();
+    hideMsgMenu();
+    const author = authorFor(msg);
+    state.replyTo = {
+      id: msg.id,
+      user_id: msg.user_id,
+      body: msg.body,
+      attachment: msg.attachment,
+      author: author,
+    };
+    composerExtras();
+    const box = $('textarea[name="body"]');
+    if (box) box.focus();
+  }
+
+  function clearReply() {
+    if (!state.replyTo) return;
+    state.replyTo = null;
+    composerExtras();
+  }
+
+  function jumpToMessage(id) {
+    const el = document.querySelector('#och-scroll [data-och-msg="' + id + '"]');
+    if (!el) return;
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    el.classList.add('is-flash');
+    window.setTimeout(() => el.classList.remove('is-flash'), 1200);
   }
 
   function messagesHtml() {
@@ -1093,6 +1153,14 @@
     const host = $('[data-och-extras]');
     if (!host) return;
     let html = '';
+    if (state.replyTo) {
+      const who = (state.replyTo.author && state.replyTo.author.display_name)
+        || (Number(state.replyTo.user_id) === Number(state.me && state.me.id) ? 'Du' : 'Mitglied');
+      html += '<div class="och-reply-bar">'
+        + '<div class="och-reply-bar-text"><strong>' + escapeHtml(who) + '</strong><span>' + escapeHtml(quotePreview(state.replyTo)) + '</span></div>'
+        + '<button type="button" class="och-icon-btn" data-och-reply-clear aria-label="Antwort verwerfen">×</button>'
+        + '</div>';
+    }
     if (state.emojiOpen) {
       html += '<div class="och-emoji-panel">' + EMOJI.map((e) => '<button type="button" data-och-emoji="' + e + '">' + e + '</button>').join('') + '</div>';
     }
@@ -1522,6 +1590,8 @@
       state.selected = {};
       state.hasOlder = false;
       state.loadingOlder = false;
+      state.replyTo = null;
+      hideMsgMenu();
     }
     state.spaceId = nextId;
     state.error = '';
@@ -1580,6 +1650,7 @@
     try {
       const payload = { body: text };
       if (state.pendingImage && state.pendingImage.id) payload.attachment_id = state.pendingImage.id;
+      if (state.replyTo && state.replyTo.id) payload.reply_to = state.replyTo.id;
       const msg = await api('rooms/' + state.spaceId + '/messages', {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -1591,6 +1662,7 @@
       }
       state.pendingImage = null;
       state.emojiOpen = false;
+      state.replyTo = null;
       composerExtras();
       if (msg && msg.id && !state.messages.some((m) => m.id === msg.id)) {
         state.messages.push(msg);
@@ -1777,6 +1849,37 @@
       ev.preventDefault();
       return;
     }
+    const replyClear = t.closest('[data-och-reply-clear]');
+    if (replyClear) {
+      ev.preventDefault();
+      clearReply();
+      return;
+    }
+    const jump = t.closest('[data-och-jump]');
+    if (jump) {
+      ev.preventDefault();
+      jumpToMessage(parseInt(jump.getAttribute('data-och-jump'), 10));
+      return;
+    }
+    const menuReply = t.closest('[data-och-menu-reply]');
+    if (menuReply) {
+      ev.preventDefault();
+      const menu = document.getElementById('och-msg-menu');
+      const id = parseInt(menu && menu.dataset.msg, 10);
+      hideMsgMenu();
+      const found = state.messages.find((m) => m.id === id);
+      if (found) startReply(found);
+      return;
+    }
+    const menuSelect = t.closest('[data-och-menu-select]');
+    if (menuSelect) {
+      ev.preventDefault();
+      const menu = document.getElementById('och-msg-menu');
+      const id = parseInt(menu && menu.dataset.msg, 10);
+      hideMsgMenu();
+      if (id) toggleSelect(id);
+      return;
+    }
     const selectCancel = t.closest('[data-och-select-cancel]');
     if (selectCancel) {
       ev.preventDefault();
@@ -1919,43 +2022,98 @@
   });
 
   let pressTimer = 0;
+  let swipeStart = null;
   function clearPress() {
     if (pressTimer) {
       window.clearTimeout(pressTimer);
       pressTimer = 0;
     }
   }
+  function hideMsgMenu() {
+    const menu = document.getElementById('och-msg-menu');
+    if (menu) menu.hidden = true;
+  }
+  function showMsgMenu(article) {
+    const id = parseInt(article.getAttribute('data-och-msg'), 10);
+    if (!id) return;
+    let menu = document.getElementById('och-msg-menu');
+    if (!menu) {
+      menu = document.createElement('div');
+      menu.id = 'och-msg-menu';
+      (document.getElementById('orgasmic-chat-root') || document.body).appendChild(menu);
+    }
+    const canDel = article.getAttribute('data-och-can-del') === '1';
+    menu.innerHTML = '<button type="button" data-och-menu-reply>Antworten</button>'
+      + (canDel ? '<button type="button" data-och-menu-select>Markieren</button>' : '');
+    menu.hidden = false;
+    menu.dataset.msg = String(id);
+    const rect = article.getBoundingClientRect();
+    const top = Math.min(window.innerHeight - 120, Math.max(12, rect.top + 8));
+    menu.style.top = top + 'px';
+    menu.style.left = '50%';
+  }
   document.addEventListener('pointerdown', (ev) => {
     const root = document.getElementById('orgasmic-chat-root');
     if (!root || root.hidden) return;
-    if (ev.target.closest('[data-och-play], a, button, textarea, input')) return;
+    if (ev.target.closest('#och-msg-menu')) return;
+    if (ev.target.closest('[data-och-play], a, textarea, input')) return;
+    if (ev.target.closest('button') && !ev.target.closest('[data-och-msg]')) return;
+    const article = ev.target.closest('[data-och-msg]');
+    if (!article) {
+      hideMsgMenu();
+      return;
+    }
+    swipeStart = { x: ev.clientX, y: ev.clientY, id: parseInt(article.getAttribute('data-och-msg'), 10) };
     if (isFinePointer()) return;
-    const msg = ev.target.closest('[data-och-msg][data-och-can-del]');
-    if (!msg) return;
-    const id = parseInt(msg.getAttribute('data-och-msg'), 10);
+    if (state.selectMode) {
+      const id = parseInt(article.getAttribute('data-och-msg'), 10);
+      if (!article.getAttribute('data-och-can-del')) return;
+      clearPress();
+      pressTimer = window.setTimeout(() => {
+        pressTimer = 0;
+        ignoreSelectClick = true;
+        enterSelect(id);
+        window.setTimeout(() => { ignoreSelectClick = false; }, 450);
+      }, 420);
+      return;
+    }
     clearPress();
     pressTimer = window.setTimeout(() => {
       pressTimer = 0;
       ignoreSelectClick = true;
-      enterSelect(id);
-      window.setTimeout(() => {
-        ignoreSelectClick = false;
-      }, 450);
+      showMsgMenu(article);
+      window.setTimeout(() => { ignoreSelectClick = false; }, 450);
     }, 420);
   }, true);
   document.addEventListener('pointermove', (ev) => {
-    if (!pressTimer) return;
-    if (Math.abs(ev.movementX) + Math.abs(ev.movementY) > 10) clearPress();
+    if (swipeStart && Math.abs(ev.clientX - swipeStart.x) + Math.abs(ev.clientY - swipeStart.y) > 10) {
+      clearPress();
+    }
   }, true);
-  document.addEventListener('pointerup', clearPress, true);
+  document.addEventListener('pointerup', (ev) => {
+    const start = swipeStart;
+    swipeStart = null;
+    clearPress();
+    if (!start || state.selectMode) return;
+    const dx = ev.clientX - start.x;
+    const dy = ev.clientY - start.y;
+    if (dx > 56 && Math.abs(dy) < 40) {
+      const found = state.messages.find((m) => m.id === start.id);
+      if (found) startReply(found);
+    }
+  }, true);
   document.addEventListener('pointercancel', clearPress, true);
   document.addEventListener('contextmenu', (ev) => {
-    const msg = ev.target.closest && ev.target.closest('#orgasmic-chat-root [data-och-msg][data-och-can-del]');
+    const msg = ev.target.closest && ev.target.closest('#orgasmic-chat-root [data-och-msg]');
     if (!msg) return;
     ev.preventDefault();
-    if (isFinePointer()) {
-      toggleSelect(parseInt(msg.getAttribute('data-och-msg'), 10));
+    if (state.selectMode) {
+      if (msg.getAttribute('data-och-can-del')) {
+        toggleSelect(parseInt(msg.getAttribute('data-och-msg'), 10));
+      }
+      return;
     }
+    showMsgMenu(msg);
   }, true);
 
   document.addEventListener('scroll', (ev) => {

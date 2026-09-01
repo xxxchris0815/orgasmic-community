@@ -8,7 +8,7 @@ if (!defined('ABSPATH')) {
 
 class Orgasmic_Fc_Chat_Install
 {
-    public const DB_VERSION = '1.0.0';
+    public const DB_VERSION = '1.1.0';
     public const OPTION_DB = 'orgasmic_fc_chat_db';
     public const OPTION_WEBHOOK_URL = 'orgasmic_fc_chat_webhook_url';
     public const OPTION_WEBHOOK_SECRET = 'orgasmic_fc_chat_webhook_secret';
@@ -106,6 +106,7 @@ class Orgasmic_Fc_Chat_Install
     public function activate(): void
     {
         $this->create_tables();
+        $this->ensure_reply_column();
         update_option(self::OPTION_DB, self::DB_VERSION);
         $this->ensure_defaults();
     }
@@ -114,9 +115,21 @@ class Orgasmic_Fc_Chat_Install
     {
         if (get_option(self::OPTION_DB) !== self::DB_VERSION) {
             $this->create_tables();
+            $this->ensure_reply_column();
             update_option(self::OPTION_DB, self::DB_VERSION);
         }
         $this->ensure_defaults();
+    }
+
+    private function ensure_reply_column(): void
+    {
+        global $wpdb;
+        $table = self::messages_table();
+        $has = $wpdb->get_results("SHOW COLUMNS FROM {$table} LIKE 'reply_to'");
+        if ($has) {
+            return;
+        }
+        $wpdb->query("ALTER TABLE {$table} ADD reply_to BIGINT UNSIGNED NOT NULL DEFAULT 0");
     }
 
     private function ensure_defaults(): void
@@ -154,6 +167,7 @@ class Orgasmic_Fc_Chat_Install
             user_id BIGINT UNSIGNED NOT NULL,
             body TEXT NOT NULL,
             attachment_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            reply_to BIGINT UNSIGNED NOT NULL DEFAULT 0,
             created_at DATETIME NOT NULL,
             deleted_at DATETIME NULL,
             PRIMARY KEY  (id),

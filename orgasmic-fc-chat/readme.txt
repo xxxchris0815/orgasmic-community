@@ -1,12 +1,16 @@
 === ORGASMIC Chat ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.1.16
+Stable tag: 1.1.17
 License: GPLv2 or later
 
 Space chat for FluentCommunity. One room per space, members only, header icon with unread badge, REST API.
 
 == Changelog ==
+
+= 1.1.17 =
+* Selecting messages highlights the whole row, not a faint ring around the bubble
+* Reply to a message (long-press / swipe right) with a WhatsApp-style quote
 
 = 1.1.16 =
 * Load the latest 40 messages, then older ones when scrolling up

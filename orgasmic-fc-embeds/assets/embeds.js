@@ -202,9 +202,10 @@
   }
 
   function posterUrl(library, video) {
-    return 'https://iframe.mediadelivery.net/'
-      + encodeURIComponent(library) + '/' + encodeURIComponent(video)
-      + '/thumbnail.jpg';
+    const ajax = (window.OrgasmicFcEmbeds && window.OrgasmicFcEmbeds.ajax) || '/wp-admin/admin-ajax.php';
+    const join = ajax.indexOf('?') >= 0 ? '&' : '?';
+    return ajax + join + 'action=orgasmic_fc_poster&library='
+      + encodeURIComponent(library) + '&video=' + encodeURIComponent(video);
   }
 
   function appendIframe(wrap, library, video, autoplay) {

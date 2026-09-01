@@ -10,9 +10,9 @@ Moved from `evolution-api` (`Extras/orgasmic-community`).
 | --- | --- | --- |
 | `orgasmic-fc-tracker/` | **1.2.1** | Engagement-Tracker, Dashboard, Evolution-Webhook |
 | `orgasmic-fc-events/` | **1.0.12** | Kalender im Portal (RSVP, Zoom, Markieren/Duplizieren/Löschen mobil+Desktop) |
-| `orgasmic-fc-embeds/` | **1.2.18** | Video-Player im Feed, optional nur Vorschaubild bis zum Klick |
-| `orgasmic-fc-chat/` | **1.1.16** | Space-Chat (letzte 40 Nachrichten, ältere per Scroll) |
-| `orgasmic-fc-app/` | **1.1.22** | PWA, Web Push, Megafon-Icon; Geräte-Logs für Native-App-Debug |
+| `orgasmic-fc-embeds/` | **1.2.19** | Video-Player im Feed, optional nur Vorschaubild bis zum Klick |
+| `orgasmic-fc-chat/` | **1.1.17** | Space-Chat (Antworten mit Zitat, Zeile markieren, letzte 40 Nachrichten) |
+| `orgasmic-fc-app/` | **1.1.23** | PWA, Web Push, Pull-to-Refresh mit Android-Kreis; Geräte-Logs |
 
 ## ORGASMIC Community Kalender
 
@@ -53,13 +53,13 @@ Plugin-Ordner: `orgasmic-fc-embeds/`
 - Handy / PWA / Capacitor laden in 1-MB-Stücken über WordPress (nicht direkt per TUS zu Bunny)
 - Der FluentCommunity-oEmbed-Dialog wird übersprungen
 - `player.mediadelivery.net/play/...` wird im Feed und im Raum als offizieller Bunny-iframe angezeigt
-- Optional nur Vorschaubild im Feed; der Player lädt erst nach Klick (**ORGASMIC Bunny → Einstellungen**)
+- Optional nur Vorschaubild im Feed; der Player lädt erst nach Klick (**ORGASMIC Bunny → Einstellungen**). Das Vorschaubild kommt vom Bunny-Thumbnail (nicht als schwarzer Kasten).
 - In „Angesagte Beiträge“ nur der **Video**-Chip, ohne nackte Player-URL
 - Autoplay ein/aus unter **ORGASMIC Bunny → Einstellungen**
 - Tracking: wer spielt welches Video, Position in Sekunden, max. gesehen
 - Webhook: `video.play`, `video.pause`, `video.progress` (alle 15s), `video.ended`, `video.seeked`
 
-ZIP: [`orgasmic-fc-embeds-1.2.18.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-embeds-1.2.18.zip)
+ZIP: [`orgasmic-fc-embeds-1.2.19.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-embeds-1.2.19.zip)
 
 Falls der iframe leer bleibt: in Bunny Stream → Allowed Domains `community.orgasmic.live` eintragen.
 
@@ -73,7 +73,8 @@ Ersatz für den FluentCommunity-Pro-Chat:
 - Icon oben rechts im Portal, Ungelesen-Badge
 - Layout wie WhatsApp: eigene Nachrichten rechts, andere links
 - Text, Emoji, Bild, Sprachnachricht (max. 90 Sekunden, WebM/Opus)
-- Nachrichten markieren: Kreis oben rechts im Thread, Handy langes Drücken, PC Rechtsklick — Scroll bleibt
+- Nachrichten markieren: ganze Zeile (WhatsApp-Stil), Kreis oben rechts im Thread, Handy langes Drücken, PC Rechtsklick
+- Antworten: langes Drücken → Antworten, oder nach rechts wischen; Zitat der Ursprungsnachricht in der Blase
 - REST-API für Portal und Capacitor (`/wp-json/orgasmic-chat/v1/`)
 - Thread lädt die **letzten 40** Nachrichten; ältere kommen beim Hochscrollen
 - Offline: letzte Räume und Nachrichten im localStorage (kein REST-Cache im Service Worker)
@@ -81,7 +82,7 @@ Ersatz für den FluentCommunity-Pro-Chat:
 
 WP-Admin: **ORGASMIC Chat → Einstellungen** (Farben, Untertitel, welche Spaces Chat haben).
 
-ZIP: [`orgasmic-fc-chat-1.1.16.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-chat-1.1.16.zip)
+ZIP: [`orgasmic-fc-chat-1.1.17.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-chat-1.1.17.zip)
 
 ## ORGASMIC App (PWA + Push)
 
@@ -110,7 +111,7 @@ Admins sehen im Beitrags-Composer zwei Häkchen: **Per Push an alle Mitglieder s
 
 WP-Admin: **ORGASMIC App**. Unter **Geräte-Logs** landen automatische Berichte aus der Native App (Version, Capacitor, JS-Fehler, Skeleton). Unter **Push prüfen** ein Mitglied suchen (z. B. Alexandra): Token, erlaubte Arten, letzte Queue-Zeilen inkl. Firebase-Fehler, Test-Push auf ihr Gerät. PHP 8.2+ für Web-Push (`openssl_pkey_derive`). Firebase-JSON nur für Store-Apps. Unter **Geräte mit App-Push** steht, wessen Handy ein FCM-Token gespeichert hat.
 
-ZIP: [`orgasmic-fc-app-1.1.22.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.1.22.zip)
+ZIP: [`orgasmic-fc-app-1.1.23.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.1.23.zip)
 
 ### Capacitor / Play Store (Android zuerst)
 

@@ -100,7 +100,7 @@ class Orgasmic_Fc_Bunny_Embeds
         $key = esc_attr($library . '/' . $video);
 
         if ($this->store->click_to_play()) {
-            $poster = 'https://iframe.mediadelivery.net/' . rawurlencode($library) . '/' . rawurlencode($video) . '/thumbnail.jpg';
+            $poster = admin_url('admin-ajax.php?action=orgasmic_fc_poster&library=' . rawurlencode($library) . '&video=' . rawurlencode($video));
 
             return '<div class="orgasmic-bunny-embed orgasmic-bunny-embed--poster" data-orgasmic-bunny="' . $key
                 . '" data-bunny-poster="1" role="button" tabindex="0" aria-label="Video abspielen">'

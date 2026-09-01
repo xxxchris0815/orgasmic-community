@@ -422,10 +422,10 @@ html.orgasmic-chat-keyboard body > *:not(#orgasmic-chat-root) {
   overflow: auto;
   overflow-x: hidden;
   overflow-anchor: none;
-  padding: 20px 18px 16px;
+  padding: 20px 0 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 4px;
   background: var(--och-chat-bg);
 }
 
@@ -436,7 +436,7 @@ html.orgasmic-chat-keyboard body > *:not(#orgasmic-chat-root) {
   color: var(--och-muted);
   background: transparent;
   border-radius: 0;
-  padding: 8px 0 4px;
+  padding: 8px 18px 4px;
   margin: 4px 0;
   box-shadow: none;
 }
@@ -446,7 +446,7 @@ html.orgasmic-chat-keyboard body > *:not(#orgasmic-chat-root) {
   font-size: 12px;
   font-weight: 600;
   color: var(--och-muted);
-  padding: 8px 0 4px;
+  padding: 8px 18px 4px;
   cursor: pointer;
 }
 
@@ -459,15 +459,29 @@ html.orgasmic-chat-keyboard body > *:not(#orgasmic-chat-root) {
   justify-content: flex-start;
   margin: 0;
   position: relative;
+  box-sizing: border-box;
+  padding: 6px 18px;
 }
 
 .orgasmic-chat-msg.is-mine {
   justify-content: flex-end;
 }
 
+.orgasmic-chat-msg.is-flash {
+  background: color-mix(in srgb, var(--och-accent, #c4a35a) 16%, transparent);
+}
+
+.orgasmic-chat-msg.is-selected {
+  background: color-mix(in srgb, var(--och-accent, #c4a35a) 38%, var(--och-chat-bg, #f4efe6));
+}
+
+.orgasmic-chat.is-selecting .orgasmic-chat-msg {
+  padding-left: 44px;
+}
+
 .orgasmic-chat-msg.is-mine .och-pick {
-  margin-right: auto;
-  order: -1;
+  margin-right: 0;
+  order: 0;
 }
 
 .orgasmic-chat-msg.is-mine .och-avatar {
@@ -496,15 +510,20 @@ html.orgasmic-chat-keyboard body > *:not(#orgasmic-chat-root) {
 }
 
 .orgasmic-chat-msg.is-selected .och-bubble {
-  box-shadow: 0 0 0 2px var(--och-accent, #c4a35a);
+  box-shadow: none;
+  outline: none;
 }
 
 .och-pick {
   display: none;
-  width: 18px;
-  height: 18px;
-  margin-bottom: 8px;
-  border: 1.5px solid var(--och-muted, #9aa0a6);
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  transform: translateY(-50%);
+  border: 2px solid var(--och-muted, #9aa0a6);
   border-radius: 50%;
   background: transparent;
   padding: 0;
@@ -523,19 +542,117 @@ html.orgasmic-chat-keyboard body > *:not(#orgasmic-chat-root) {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .orgasmic-chat-msg.is-deletable .och-pick {
-    display: inline-block;
-    opacity: 0.55;
-  }
-  .orgasmic-chat-msg.is-deletable:hover .och-pick,
   .orgasmic-chat.is-selecting .och-pick,
   .orgasmic-chat-msg.is-selected .och-pick {
+    display: block;
     opacity: 1;
   }
 }
 
 .orgasmic-chat.is-selecting .och-pick {
-  display: inline-block;
+  display: block;
+}
+
+.och-quote {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  margin: 0 0 6px;
+  padding: 6px 8px;
+  border: 0;
+  border-left: 3px solid var(--och-accent, #c4a35a);
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.06);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.orgasmic-chat-msg.is-mine .och-quote {
+  background: rgba(26, 22, 37, 0.08);
+}
+
+.och-quote-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--och-accent, #c4a35a);
+}
+
+.och-quote-body {
+  font-size: 12px;
+  opacity: 0.78;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.och-reply-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--och-accent, #c4a35a);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--och-accent, #c4a35a) 12%, var(--och-card, #fff));
+}
+
+.och-reply-bar-text {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.och-reply-bar-text strong {
+  font-size: 12px;
+}
+
+.och-reply-bar-text span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.8;
+}
+
+#och-msg-menu {
+  position: fixed;
+  z-index: 2147483646;
+  transform: translateX(-50%);
+  min-width: 180px;
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--och-card, #fff);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.22);
+  border: 1px solid var(--och-line, rgba(15, 23, 42, 0.1));
+}
+
+#och-msg-menu[hidden] {
+  display: none !important;
+}
+
+#och-msg-menu button {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 650;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+#och-msg-menu button:hover {
+  background: color-mix(in srgb, var(--och-accent, #c4a35a) 16%, transparent);
 }
 
 .orgasmic-chat-msg .och-bubble {

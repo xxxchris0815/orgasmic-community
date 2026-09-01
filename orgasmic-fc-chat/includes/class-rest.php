@@ -143,6 +143,7 @@ class Orgasmic_Fc_Chat_Rest
         $settings = Orgasmic_Fc_Chat_Install::portal_settings();
         $body = $this->sanitize_body((string) $request->get_param('body'), $settings['max_length']);
         $attachment_id = (int) $request->get_param('attachment_id');
+        $reply_to = (int) $request->get_param('reply_to');
         if ($attachment_id > 0 && !$this->owned_attachment($attachment_id, $user_id)) {
             $attachment_id = 0;
         }
@@ -151,8 +152,11 @@ class Orgasmic_Fc_Chat_Rest
             return new WP_Error('empty', 'Nachricht ist leer.', ['status' => 400]);
         }
 
-        $message = $this->repo->insert_message($space_id, $user_id, $body, $attachment_id);
+        $message = $this->repo->insert_message($space_id, $user_id, $body, $attachment_id, $reply_to);
         $message['author'] = $this->access->user_payload($user_id);
+        if (!empty($message['reply']['user_id'])) {
+            $message['reply']['author'] = $this->access->user_payload((int) $message['reply']['user_id']);
+        }
 
         $this->webhook->message('chat.message', $user_id, [
             'message_id' => $message['id'],
@@ -425,6 +429,13 @@ class Orgasmic_Fc_Chat_Rest
             }
             if ($uid) {
                 $item['author'] = $cache[$uid];
+            }
+            $reply_uid = (int) ($item['reply']['user_id'] ?? 0);
+            if ($reply_uid) {
+                if (!isset($cache[$reply_uid])) {
+                    $cache[$reply_uid] = $this->access->user_payload($reply_uid);
+                }
+                $item['reply']['author'] = $cache[$reply_uid];
             }
         }
         unset($item);

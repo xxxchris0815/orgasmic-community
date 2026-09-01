@@ -768,18 +768,97 @@
   }
 
   function setupFeedRefresh() {
-    if (isNativeShell()) return;
-    if (/wv\)|; wv\)|Capacitor/i.test(String(navigator.userAgent || ''))) return;
-
     let startY = 0;
     let pulling = false;
     let armed = false;
     let refreshing = false;
+    let pullPx = 0;
+
     const bar = document.createElement('div');
     bar.id = 'orgasmic-ptr';
     bar.hidden = true;
-    bar.textContent = 'Loslassen zum Aktualisieren';
+    bar.innerHTML = '<span class="orgasmic-ptr-disc" aria-hidden="true">'
+      + '<svg class="orgasmic-ptr-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+      + '<path d="M21 12a9 9 0 1 1-3.2-6.9"></path>'
+      + '<polyline points="21 3 21 9 15 9"></polyline>'
+      + '</svg></span>';
     (document.body || document.documentElement).appendChild(bar);
+
+    function nativeLike() {
+      return isNativeShell() || /wv\)|; wv\)|Capacitor/i.test(String(navigator.userAgent || ''));
+    }
+
+    function setPull(px, busy) {
+      pullPx = px;
+      const show = busy || px > 12;
+      bar.hidden = !show;
+      bar.classList.toggle('is-busy', !!busy);
+      bar.classList.toggle('is-armed', !busy && px > 64);
+      const t = Math.max(0, Math.min(1, px / 88));
+      const y = Math.round(Math.min(72, px * 0.42));
+      const rot = busy ? 0 : Math.round(t * 270);
+      const scale = busy ? 1 : (0.55 + t * 0.45);
+      bar.style.opacity = busy ? '1' : String(0.35 + t * 0.65);
+      bar.style.transform = 'translate(-50%, ' + y + 'px) scale(' + scale + ')';
+      const arrow = bar.querySelector('.orgasmic-ptr-arrow');
+      if (arrow) arrow.style.transform = busy ? '' : 'rotate(' + rot + 'deg)';
+    }
+
+    function resetBar() {
+      bar.classList.remove('is-busy', 'is-armed');
+      bar.hidden = true;
+      bar.style.opacity = '';
+      bar.style.transform = '';
+      const arrow = bar.querySelector('.orgasmic-ptr-arrow');
+      if (arrow) arrow.style.transform = '';
+      pullPx = 0;
+    }
+
+    function navRoot() {
+      return document.querySelector(
+        '.fcom_mobile_menu, .fcom-mobile-menu, .fcom_mobile_nav, .fcom-mobile-nav, .fluent_community_mobile_menu, [class*="mobile_menu"], [class*="mobile-menu"], [class*="bottom-nav"], [class*="bottom_nav"]'
+      );
+    }
+
+    function clickNav(el) {
+      if (!el || !el.click) return false;
+      try {
+        el.click();
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function refreshPortal() {
+      window.scrollTo(0, 0);
+      const nav = navRoot();
+      const links = nav ? [...nav.querySelectorAll('a[href]')] : [];
+      const active = nav && nav.querySelector('a.is-active, a.active, [aria-current="page"], .is-active > a, .active > a');
+      if (clickNav(active)) return true;
+
+      const path = (location.pathname || '').replace(/\/$/, '') || '/';
+      const same = links.find((a) => {
+        try {
+          return new URL(a.href, location.origin).pathname.replace(/\/$/, '') === path;
+        } catch (e) {
+          return false;
+        }
+      });
+      if (clickNav(same)) return true;
+
+      const home = links.find((a) => {
+        const href = a.getAttribute('href') || '';
+        return /\/portal\/?(\?|#|$)/i.test(href);
+      });
+      if (clickNav(home)) return true;
+
+      if (!nativeLike()) {
+        window.location.reload();
+        return true;
+      }
+      return false;
+    }
 
     document.addEventListener('touchstart', (ev) => {
       if (refreshing || overlayOpen() || !atFeedTop()) {
@@ -792,33 +871,30 @@
     }, { passive: true });
 
     document.addEventListener('touchmove', (ev) => {
-      if (!pulling || refreshing) return;
+      if (!pulling || refreshing || overlayOpen()) return;
       const dy = ev.touches[0].clientY - startY;
-      if (dy > 64) {
-        armed = true;
-        bar.hidden = false;
+      if (dy > 8) {
+        armed = dy > 64;
+        setPull(dy, false);
       } else {
         armed = false;
-        bar.hidden = true;
+        if (!bar.hidden && !bar.classList.contains('is-busy')) resetBar();
       }
     }, { passive: true });
 
     document.addEventListener('touchend', () => {
       if (pulling && armed && !overlayOpen() && !refreshing) {
         refreshing = true;
-        bar.textContent = 'Aktualisieren…';
-        bar.hidden = false;
+        setPull(88, true);
         window.setTimeout(() => {
-          window.location.reload();
-        }, 160);
+          refreshPortal();
+        }, 120);
         window.setTimeout(() => {
-          bar.hidden = true;
-          bar.textContent = 'Loslassen zum Aktualisieren';
+          resetBar();
           refreshing = false;
-        }, 8000);
-      } else {
-        bar.hidden = true;
-        bar.textContent = 'Loslassen zum Aktualisieren';
+        }, 1400);
+      } else if (!refreshing) {
+        resetBar();
       }
       pulling = false;
       armed = false;
@@ -865,7 +941,7 @@
         plugins: plugins,
         ready: document.readyState,
         ptr: ptr ? (ptr.hidden ? 'hidden' : String(ptr.textContent || '').slice(0, 40)) : '',
-        ptrSkipped: isNativeShell() || /wv\)|; wv\)|Capacitor/i.test(String(navigator.userAgent || '')),
+        ptrSkipped: false,
         skel: document.querySelectorAll('[class*="skeleton"], [class*="Skeleton"], .el-skeleton').length,
         feed: document.querySelectorAll('.each_feed, [class*="each_feed"], [class*="EachFeed"]').length,
         load: document.querySelectorAll('.el-loading-mask, [class*="spinner"], [class*="is-loading"]').length,
