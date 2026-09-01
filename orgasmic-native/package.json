@@ -4,8 +4,9 @@
   "private": true,
   "description": "Capacitor shell for community.orgasmic.live/portal (Android + iOS)",
   "scripts": {
-    "sync": "npx cap sync",
-    "android:sync": "npx cap sync android"
+    "sync": "npx cap sync && python3 scripts/patch-ios-capacitor-config.py",
+    "android:sync": "npx cap sync android",
+    "ios:sync": "npx cap sync ios && python3 scripts/patch-ios-capacitor-config.py"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.3",

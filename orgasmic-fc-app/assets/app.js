@@ -248,6 +248,29 @@
     }
   });
 
+  document.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('[data-oa-delete-account]');
+    if (!btn) return;
+    ev.preventDefault();
+    if (!window.confirm('Konto wirklich dauerhaft löschen? Das kann nicht rückgängig gemacht werden.')) {
+      return;
+    }
+    const typed = window.prompt('Tippe DELETE, um die Löschung zu bestätigen.');
+    if (typed !== 'DELETE') {
+      setPrefsStatus('Löschung abgebrochen.', true);
+      return;
+    }
+    btn.disabled = true;
+    setPrefsStatus('Konto wird gelöscht …');
+    try {
+      await postJson('account/delete', { confirm: 'DELETE' });
+      window.location.href = '/portal/';
+    } catch (e) {
+      btn.disabled = false;
+      setPrefsStatus(e.message || 'Löschen fehlgeschlagen.', true);
+    }
+  });
+
   document.addEventListener('keydown', (ev) => {
     if (ev.key === 'Escape' && prefsRoot() && !prefsRoot().hidden) {
       closePrefs();
@@ -1260,7 +1283,14 @@
       });
       await Cap.PushNotifications.addListener('registration', async (ev) => {
         const platform = (window.Capacitor.getPlatform && window.Capacitor.getPlatform()) || '';
-        rememberFcmToken(ev.value, platform);
+        let token = ev.value;
+        if (Cap.OrgasmicNative && typeof Cap.OrgasmicNative.fcmToken === 'function') {
+          try {
+            const fcm = await Cap.OrgasmicNative.fcmToken();
+            if (fcm && fcm.token) token = fcm.token;
+          } catch (e) {}
+        }
+        rememberFcmToken(token, platform);
         tokenSynced = false;
         await syncFcmToken();
       });

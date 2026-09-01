@@ -1,12 +1,16 @@
 === ORGASMIC App ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.1.26
+Stable tag: 1.1.27
 License: GPLv2 or later
 
 PWA, offline cache, and Web Push for chat, posts, comments, and calendar events.
 
 == Changelog ==
+
+= 1.1.27 =
+* In-app account deletion (Profil → Benachrichtigungen) for App Store 5.1.1(v)
+* Native iOS push uses the Firebase FCM token instead of the raw APNs device token
 
 = 1.1.26 =
 * Admin membership assignment includes FluentCommunity role (member / moderator / admin)

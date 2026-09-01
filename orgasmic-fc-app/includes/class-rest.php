@@ -68,6 +68,12 @@ class Orgasmic_Fc_App_Rest
             ],
         ]);
 
+        register_rest_route($ns, '/account/delete', [
+            'methods' => 'POST',
+            'permission_callback' => static fn() => is_user_logged_in(),
+            'callback' => [$this, 'delete_account'],
+        ]);
+
         register_rest_route($ns, '/announce/intent', [
             'methods' => 'POST',
             'permission_callback' => [$this, 'can_announce'],
@@ -475,6 +481,57 @@ class Orgasmic_Fc_App_Rest
         $prefs = Orgasmic_Fc_App_Install::save_prefs(get_current_user_id(), $incoming);
 
         return rest_ensure_response(['ok' => true, 'prefs' => $prefs]);
+    }
+
+    /**
+     * Apple 5.1.1(v): account deletion must be available in-app, not only on the website.
+     */
+    public function delete_account(WP_REST_Request $request)
+    {
+        $user = wp_get_current_user();
+        if (!$user || !$user->ID) {
+            return new WP_Error('not_logged_in', 'Nicht angemeldet.', ['status' => 401]);
+        }
+
+        $params = $request->get_json_params();
+        if (!is_array($params)) {
+            $params = [];
+        }
+        $confirm = (string) ($params['confirm'] ?? $request->get_param('confirm') ?? '');
+        if ($confirm !== 'DELETE') {
+            return new WP_Error(
+                'confirm_required',
+                'Bitte bestätige die Löschung mit confirm=DELETE.',
+                ['status' => 400]
+            );
+        }
+
+        if (user_can($user, 'manage_options')) {
+            return new WP_Error(
+                'admin_forbidden',
+                'Administrator-Konten können nicht in der App gelöscht werden. Bitte einen anderen Admin kontaktieren.',
+                ['status' => 403]
+            );
+        }
+
+        $user_id = (int) $user->ID;
+        $this->store->delete_for_user($user_id);
+
+        if (!function_exists('wp_delete_user')) {
+            require_once ABSPATH . 'wp-admin/includes/user.php';
+        }
+        $deleted = wp_delete_user($user_id);
+        if (!$deleted) {
+            return new WP_Error('delete_failed', 'Konto konnte nicht gelöscht werden.', ['status' => 500]);
+        }
+
+        wp_logout();
+        wp_set_current_user(0);
+
+        return rest_ensure_response([
+            'ok' => true,
+            'deleted' => true,
+        ]);
     }
 
     public function subscribe(WP_REST_Request $request)

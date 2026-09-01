@@ -91,6 +91,29 @@ class Orgasmic_Fc_App_Store
         $wpdb->delete($table, ['endpoint_hash' => $hash], ['%s']);
     }
 
+    public function delete_for_user(int $user_id): void
+    {
+        if ($user_id < 1) {
+            return;
+        }
+        global $wpdb;
+        $wpdb->delete(Orgasmic_Fc_App_Install::subs_table(), ['user_id' => $user_id], ['%d']);
+        $wpdb->delete(Orgasmic_Fc_App_Install::queue_table(), ['user_id' => $user_id], ['%d']);
+        $mail = Orgasmic_Fc_App_Install::mail_table();
+        $found = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $mail));
+        if ($found === $mail) {
+            $wpdb->delete($mail, ['user_id' => $user_id], ['%d']);
+        }
+        delete_user_meta($user_id, Orgasmic_Fc_App_Install::META_PREFS);
+        delete_user_meta($user_id, Orgasmic_Fc_App_Install::META_ANNOUNCE);
+        foreach ([$wpdb->prefix . 'fcom_space_user', $wpdb->prefix . 'fcom_space_users'] as $pivot) {
+            $exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $pivot));
+            if ($exists === $pivot) {
+                $wpdb->delete($pivot, ['user_id' => $user_id], ['%d']);
+            }
+        }
+    }
+
     public function subscriptions_for_users(array $user_ids): array
     {
         $user_ids = array_values(array_unique(array_filter(array_map('intval', $user_ids))));

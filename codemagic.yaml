@@ -162,3 +162,114 @@ workflows:
         credentials: $GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS
         track: internal
         submit_as_draft: true
+
+  ios-ipa:
+    name: iOS IPA (TestFlight vorbereiten)
+    instance_type: mac_mini_m2
+    max_build_duration: 120
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: live.lo.community
+      groups:
+        - firebase
+      vars:
+        BUNDLE_ID: live.lo.community
+      xcode: latest
+      cocoapods: default
+      node: 22
+    scripts:
+      - name: Install npm packages
+        script: |
+          cd orgasmic-native
+          npm ci
+      - name: Write GoogleService-Info.plist
+        script: |
+          cd orgasmic-native
+          python3 scripts/write-google-service-info.py --required ios/App/App/GoogleService-Info.plist
+      - name: Sync Capacitor
+        script: |
+          cd orgasmic-native
+          npx cap sync ios
+          python3 scripts/patch-ios-capacitor-config.py
+      - name: CocoaPods
+        script: |
+          cd orgasmic-native/ios/App
+          pod install
+      - name: Set build number
+        script: |
+          BUILD_NO="${BUILD_NUMBER:-1}"
+          cd "$CM_BUILD_DIR/orgasmic-native/ios/App"
+          agvtool new-version -all "$BUILD_NO"
+          agvtool new-marketing-version "1.0.$BUILD_NO"
+      - name: Build IPA
+        script: |
+          xcode-project use-profiles
+          xcode-project build-ipa \
+            --workspace "$CM_BUILD_DIR/orgasmic-native/ios/App/App.xcworkspace" \
+            --scheme App \
+            --config Release
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+  ios-testflight:
+    name: iOS TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 120
+    integrations:
+      app_store_connect: orgasmic_asc
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: live.lo.community
+      groups:
+        - firebase
+      vars:
+        BUNDLE_ID: live.lo.community
+      xcode: latest
+      cocoapods: default
+      node: 22
+    scripts:
+      - name: Install npm packages
+        script: |
+          cd orgasmic-native
+          npm ci
+      - name: Write GoogleService-Info.plist
+        script: |
+          cd orgasmic-native
+          python3 scripts/write-google-service-info.py --required ios/App/App/GoogleService-Info.plist
+      - name: Sync Capacitor
+        script: |
+          cd orgasmic-native
+          npx cap sync ios
+          python3 scripts/patch-ios-capacitor-config.py
+      - name: CocoaPods
+        script: |
+          cd orgasmic-native/ios/App
+          pod install
+      - name: Set build number
+        script: |
+          BUILD_NO="${BUILD_NUMBER:-1}"
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$BUNDLE_ID" || true)
+          if [ -n "$LATEST" ]; then
+            BUILD_NO=$((LATEST + 1))
+          fi
+          cd "$CM_BUILD_DIR/orgasmic-native/ios/App"
+          agvtool new-version -all "$BUILD_NO"
+          agvtool new-marketing-version "1.0.$BUILD_NO"
+      - name: Build IPA
+        script: |
+          xcode-project use-profiles
+          xcode-project build-ipa \
+            --workspace "$CM_BUILD_DIR/orgasmic-native/ios/App/App.xcworkspace" \
+            --scheme App \
+            --config Release
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+

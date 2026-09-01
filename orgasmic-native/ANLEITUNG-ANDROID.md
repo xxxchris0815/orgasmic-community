@@ -16,7 +16,7 @@ Im Store und unter dem App-Icon **keine** sexuellen oder expliziten Wörter (auc
 
 Nicht in Titel, Kurztext, Screenshots, Icon-Schrift: orgasm, orgasmic, sex, xxx, nackt, escort, fetish usw.
 
-Reihenfolge einhalten. Android zuerst. iOS kommt später mit demselben Firebase-Projekt.
+Reihenfolge einhalten. Android zuerst. iOS: [`ANLEITUNG-IOS.md`](ANLEITUNG-IOS.md) (App Store / TestFlight).
 
 ---
 
@@ -36,6 +36,8 @@ Workflows in Codemagic:
 2. **Android Keystore einmal erzeugen** — Signing-Schlüssel, nur einmal  
 3. **Android Release (AAB + APK)** — signierte Store-Dateien  
 4. **Android zu Play (Internal)** — lädt die AAB in den internen Test-Track
+5. **iOS IPA (TestFlight vorbereiten)** — signierte IPA, siehe [`ANLEITUNG-IOS.md`](ANLEITUNG-IOS.md)
+6. **iOS TestFlight** — IPA zu TestFlight
 
 ---
 
@@ -528,14 +530,14 @@ Codemagic hat **keine** Laufzeit-Logs vom Handy — nur den APK-Build.
 
 ---
 
-## 12. iPhone (später, nicht jetzt)
+## 12. iPhone (App Store)
 
-Im Ordner `orgasmic-native/ios` ist die Hülle schon da. Dafür extra:
+Die iOS-Hülle und der TestFlight-Build sind beschrieben in [`ANLEITUNG-IOS.md`](ANLEITUNG-IOS.md). Kurz:
 
-- Apple Developer 99 $/Jahr  
-- Dieselbe Firebase-Projekt → **iOS-App** mit Bundle-ID `live.lo.community`  
-- `GoogleService-Info.plist`  
-- Codemagic-macOS-Workflow (legen wir an, wenn Android steht)
+- Apple Developer 99 $/Jahr, Bundle-ID `live.lo.community`
+- Dieselbe Firebase-Projekt → **iOS-App** + APNs-Key (`.p8`)
+- Codemagic-Variable `GOOGLE_SERVICE_INFO_PLIST` (nicht die Stub-Datei aus Git)
+- Plugin **ORGASMIC App ≥ 1.1.27** für Kontolöschung in der App (Apple 5.1.1)
 
 ---
 

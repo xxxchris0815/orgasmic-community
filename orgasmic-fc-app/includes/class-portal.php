@@ -74,7 +74,15 @@ class Orgasmic_Fc_App_Portal
         echo '<label><input type="checkbox" name="event" /> Events &amp; Erinnerungen</label>';
         echo '<p class="oa-help">Gilt für Push auf diesem Gerät. Ausgeschaltete Arten werden nicht zugestellt.</p>';
         echo '<button type="submit">Speichern</button>';
-        echo '</form></div></div></div>';
+        echo '</form>';
+        if ($logged) {
+            echo '<div class="oa-danger">';
+            echo '<h3>Konto löschen</h3>';
+            echo '<p>Dein Konto, deine Mitgliedschaften und Push-Geräte werden unwiderruflich gelöscht. Beiträge in Spaces können anonymisiert bleiben.</p>';
+            echo '<button type="button" class="oa-delete" data-oa-delete-account>Konto dauerhaft löschen</button>';
+            echo '</div>';
+        }
+        echo '</div></div></div>';
     }
 
     public function menu_groups($groups)

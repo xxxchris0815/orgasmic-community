@@ -180,6 +180,42 @@ a.oa-profile-notify svg {
   color: #b45309;
 }
 
+.orgasmic-app-prefs-card .oa-danger {
+  margin: 0 18px 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(180, 35, 24, 0.28);
+}
+
+.orgasmic-app-prefs-card .oa-danger h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  color: #b42318;
+}
+
+.orgasmic-app-prefs-card .oa-danger p {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  opacity: 0.82;
+}
+
+.orgasmic-app-prefs-card .oa-delete {
+  appearance: none;
+  border: 1px solid #b42318;
+  background: transparent;
+  color: #b42318;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.orgasmic-app-prefs-card .oa-delete:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 .el-dropdown-menu .oa-profile-notify-item,
 .el-dropdown-menu__item.oa-profile-notify,
 li.oa-profile-notify-item {
