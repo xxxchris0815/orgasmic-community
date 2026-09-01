@@ -12,6 +12,7 @@ class Orgasmic_Fc_Embeds_Store
     public const OPTION_CLICK_TO_PLAY = 'orgasmic_fc_embeds_click_to_play';
     public const OPTION_LIBRARY_ID = 'orgasmic_fc_embeds_library_id';
     public const OPTION_API_KEY = 'orgasmic_fc_embeds_api_key';
+    public const OPTION_COLLECTION_ID = 'orgasmic_fc_embeds_collection_id';
     public const OPTION_CDN_HOSTNAME = 'orgasmic_fc_embeds_cdn_hostname';
     public const OPTION_WEBHOOK_URL = 'orgasmic_fc_embeds_webhook_url';
     public const OPTION_WEBHOOK_SECRET = 'orgasmic_fc_embeds_webhook_secret';
