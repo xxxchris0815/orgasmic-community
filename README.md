@@ -12,7 +12,7 @@ Moved from `evolution-api` (`Extras/orgasmic-community`).
 | `orgasmic-fc-events/` | **1.0.12** | Kalender im Portal (RSVP, Zoom, Markieren/Duplizieren/Löschen mobil+Desktop) |
 | `orgasmic-fc-embeds/` | **1.2.19** | Video-Player im Feed, optional nur Vorschaubild bis zum Klick |
 | `orgasmic-fc-chat/` | **1.1.17** | Space-Chat (Antworten mit Zitat, Zeile markieren, letzte 40 Nachrichten) |
-| `orgasmic-fc-app/` | **1.1.23** | PWA, Web Push, Pull-to-Refresh mit Android-Kreis; Geräte-Logs |
+| `orgasmic-fc-app/` | **1.1.24** | PWA, Web Push, Pull-to-Refresh mit Reload und Android-Kreis; Geräte-Logs |
 
 ## ORGASMIC Community Kalender
 

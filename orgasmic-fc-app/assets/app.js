@@ -784,10 +784,6 @@
       + '</svg></span>';
     (document.body || document.documentElement).appendChild(bar);
 
-    function nativeLike() {
-      return isNativeShell() || /wv\)|; wv\)|Capacitor/i.test(String(navigator.userAgent || ''));
-    }
-
     function setPull(px, busy) {
       pullPx = px;
       const show = busy || px > 12;
@@ -814,50 +810,8 @@
       pullPx = 0;
     }
 
-    function navRoot() {
-      return document.querySelector(
-        '.fcom_mobile_menu, .fcom-mobile-menu, .fcom_mobile_nav, .fcom-mobile-nav, .fluent_community_mobile_menu, [class*="mobile_menu"], [class*="mobile-menu"], [class*="bottom-nav"], [class*="bottom_nav"]'
-      );
-    }
-
-    function clickNav(el) {
-      if (!el || !el.click) return false;
-      try {
-        el.click();
-        return true;
-      } catch (e) {
-        return false;
-      }
-    }
-
     function refreshPortal() {
-      window.scrollTo(0, 0);
-      const nav = navRoot();
-      const links = nav ? [...nav.querySelectorAll('a[href]')] : [];
-      const active = nav && nav.querySelector('a.is-active, a.active, [aria-current="page"], .is-active > a, .active > a');
-      if (clickNav(active)) return true;
-
-      const path = (location.pathname || '').replace(/\/$/, '') || '/';
-      const same = links.find((a) => {
-        try {
-          return new URL(a.href, location.origin).pathname.replace(/\/$/, '') === path;
-        } catch (e) {
-          return false;
-        }
-      });
-      if (clickNav(same)) return true;
-
-      const home = links.find((a) => {
-        const href = a.getAttribute('href') || '';
-        return /\/portal\/?(\?|#|$)/i.test(href);
-      });
-      if (clickNav(home)) return true;
-
-      if (!nativeLike()) {
-        window.location.reload();
-        return true;
-      }
-      return false;
+      window.location.reload();
     }
 
     document.addEventListener('touchstart', (ev) => {

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ORGASMIC App
  * Description: PWA shell, offline cache, and push notifications for chat, posts, comments, and calendar events. Same APIs later wrap in Capacitor for the App Store.
- * Version: 1.1.23
+ * Version: 1.1.24
  * Requires at least: 6.4
  * Requires PHP: 8.1
  * Author: ORGASMIC
