@@ -1,59 +1,33 @@
 # LO Community — Android Hybrid (Test)
 
-Eigener Branch: `cursor/android-hybrid-shell-d4ba`. Unten eine native Tab-Leiste. Feed / Chat / Kalender sind die **gleichen Web-UIs** wie im Portal, damit Features nicht auseinanderlaufen.
+Eigener Branch: `cursor/android-hybrid-shell-d4ba`.
 
-## Was du siehst
+Native Bottom-Bar, native Chat / Kalender / Profil. Nur der **Feed** bleibt ein WebView (FluentCommunity). Das ist der Store-Weg: echte native Screens, kein zweites Portal-WebView für Chat und Kalender.
 
-| Tab | Was passiert |
+## Tabs
+
+| Tab | Umsetzung |
 | --- | --- |
-| **Feed** | WebView `https://community.orgasmic.live/portal` (FluentCommunity). Login bleibt hier. |
-| **Chat** | Dieselbe Chat-Oberfläche wie im Web: Avatare, Bilder, Sprache, Markieren, Löschen, Antworten |
-| **Kalender** | Dieselbe Kalender-Oberfläche wie im Web: Monat, Event-Karten, RSVP, Details |
+| **Feed** | WebView `https://community.orgasmic.live/portal` — Login, Beiträge, Kurse |
+| **Chat** | Native Räume + Thread: Avatare, Text, Bild, Sprache, Antworten, Markieren, Löschen |
+| **Kalender** | Native Monatskachel + Event-Karten, Detail mit RSVP |
 | **Profil** | Native Schalter, Datenschutz, Konto löschen |
 
-Die untere Icon-Leiste ist nativ (weiße Leiste, dieselben Chat-/Kalender-Icons wie im Web). Die FluentCommunity-Tab-Leiste im WebView bleibt ausgeblendet.
+## Backend
 
-## Backend — was nötig ist
+Für den Hybrid-Test reicht **ORGASMIC App 1.1.29+** plus die bestehenden Chat-/Kalender-Plugins. Die REST-Routen sind unverändert (`/wp-json/orgasmic-chat/v1/`, `/wp-json/orgasmic-events/v1/`).
 
-1. **ORGASMIC App 1.1.30**
-2. **ORGASMIC Chat 1.1.19**
-3. **ORGASMIC Community Kalender 1.0.13**
-
-Ohne die drei Updates fehlen Vollbild-Overlay, Sprache/Kalender-Grid oder der Close-Button fällt auf den Feed zurück.
-
-ZIPs auf diesem Branch:
-
-- [`orgasmic-fc-app-1.1.30.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/android-hybrid-shell-d4ba/orgasmic-fc-app-1.1.30.zip)
-- [`orgasmic-fc-chat-1.1.19.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/android-hybrid-shell-d4ba/orgasmic-fc-chat-1.1.19.zip)
-- [`orgasmic-fc-events-1.0.13.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/android-hybrid-shell-d4ba/orgasmic-fc-events-1.0.13.zip)
-
-Session: Login im Feed, Cookies aus dem WebView, Nonce per `admin-ajax.php?action=orgasmic_fc_app_boot`. Push unverändert.
+Session: Login im Feed, Cookies aus dem WebView, Nonce per `admin-ajax.php?action=orgasmic_fc_app_boot`.
 
 ## Testen
 
-1. Die drei Plugins auf den Server.
-2. Codemagic: Workflow **Android Debug** auf Branch `cursor/android-hybrid-shell-d4ba`.
-3. APK installieren, alte App-Daten ggf. löschen.
-4. **Feed** → einloggen.
-5. **Chat** → Raum, Avatar, Sprache, Bild, Markieren/Löschen.
-6. **Kalender** → Monatsraster, Event öffnen, RSVP.
-7. **Profil** → Schalter.
+1. Codemagic **Android Debug** auf `cursor/android-hybrid-shell-d4ba`.
+2. Feed → einloggen.
+3. Chat → Raum, Avatar, Sprache, Bild, lange auf eine Nachricht drücken (Antworten / Markieren / Löschen).
+4. Kalender → Monat blättern, Tag antippen, Event, RSVP.
 
-Sprachnachricht: Android fragt nach Mikrofon. Wenn die Aufnahme nicht startet, Berechtigung in den Systemeinstellungen prüfen.
-
-## Absturz-Logs (Logcat)
-
-```bash
-adb logcat -d -s AndroidRuntime:E LOCommunity:E chromium:E
-```
-
-Oder:
+## Absturz-Logs
 
 ```bash
 adb logcat -d | grep -A 60 "FATAL EXCEPTION"
 ```
-
-## Bewusst nativ (nicht Web)
-
-- Untere Tab-Leiste
-- Profil (Mitteilungen, Konto löschen)

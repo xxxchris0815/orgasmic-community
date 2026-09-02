@@ -86,6 +86,26 @@ final class ApiClient {
         });
     }
 
+    void delete(String restPath, JsonCallback cb) {
+        io.execute(() -> {
+            try {
+                ok(cb, request("DELETE", HybridConfig.REST + restPath.replaceAll("^/+", ""), null, true));
+            } catch (Exception e) {
+                err(cb, e);
+            }
+        });
+    }
+
+    void upload(java.io.File file, String mime, String filename, int duration, JsonCallback cb) {
+        io.execute(() -> {
+            try {
+                ok(cb, uploadFile(file, mime, filename, duration));
+            } catch (Exception e) {
+                err(cb, e);
+            }
+        });
+    }
+
     void postAjax(String action, String extraBody, JsonCallback cb) {
         io.execute(() -> {
             try {
@@ -148,6 +168,60 @@ final class ApiClient {
         if (code >= 400) {
             String message = json.optString("message", json.optString("code", "Fehler " + code));
             throw new Exception(message);
+        }
+        return json;
+    }
+
+    private JSONObject uploadFile(java.io.File file, String mime, String filename, int duration) throws Exception {
+        String boundary = "----oa" + System.currentTimeMillis();
+        HttpURLConnection conn = (HttpURLConnection) new URL(HybridConfig.REST + "orgasmic-chat/v1/upload").openConnection();
+        conn.setConnectTimeout(20000);
+        conn.setReadTimeout(60000);
+        conn.setRequestMethod("POST");
+        conn.setDoOutput(true);
+        conn.setRequestProperty("Accept", "application/json");
+        conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+        String cookie = CookieManager.getInstance().getCookie(HybridConfig.ORIGIN);
+        if (cookie != null && !cookie.isEmpty()) {
+            conn.setRequestProperty("Cookie", cookie);
+        }
+        if (session.nonce != null && !session.nonce.isEmpty()) {
+            conn.setRequestProperty("X-WP-Nonce", session.nonce);
+        }
+        OutputStream os = conn.getOutputStream();
+        String header = "--" + boundary + "\r\n"
+                + "Content-Disposition: form-data; name=\"file\"; filename=\"" + filename + "\"\r\n"
+                + "Content-Type: " + mime + "\r\n\r\n";
+        os.write(header.getBytes(StandardCharsets.UTF_8));
+        java.io.FileInputStream in = new java.io.FileInputStream(file);
+        byte[] buf = new byte[8192];
+        int n;
+        while ((n = in.read(buf)) >= 0) {
+            os.write(buf, 0, n);
+        }
+        in.close();
+        os.write("\r\n".getBytes(StandardCharsets.UTF_8));
+        if (duration > 0) {
+            String dur = "--" + boundary + "\r\n"
+                    + "Content-Disposition: form-data; name=\"duration\"\r\n\r\n"
+                    + duration + "\r\n";
+            os.write(dur.getBytes(StandardCharsets.UTF_8));
+        }
+        os.write(("--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+        os.close();
+        int code = conn.getResponseCode();
+        storeCookies(conn);
+        InputStream stream = code >= 400 ? conn.getErrorStream() : conn.getInputStream();
+        String raw = readAll(stream);
+        conn.disconnect();
+        JSONObject json;
+        try {
+            json = raw == null || raw.isEmpty() ? new JSONObject() : new JSONObject(raw);
+        } catch (Exception e) {
+            throw new Exception(code + ": " + raw);
+        }
+        if (code >= 400) {
+            throw new Exception(json.optString("message", "Upload fehlgeschlagen"));
         }
         return json;
     }

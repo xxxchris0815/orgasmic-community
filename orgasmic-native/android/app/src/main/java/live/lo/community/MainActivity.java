@@ -30,8 +30,8 @@ public class MainActivity extends AppCompatActivity {
 
     private BottomNavigationView nav;
     private FeedFragment feed;
-    private PortalTabFragment chat;
-    private PortalTabFragment calendar;
+    private ChatListFragment chat;
+    private CalendarFragment calendar;
     private ProfileFragment profile;
     private PermissionRequest pendingWebPermission;
 
@@ -57,8 +57,8 @@ public class MainActivity extends AppCompatActivity {
                     .commit();
         } else {
             feed = (FeedFragment) getSupportFragmentManager().findFragmentByTag("feed");
-            chat = (PortalTabFragment) getSupportFragmentManager().findFragmentByTag("chat");
-            calendar = (PortalTabFragment) getSupportFragmentManager().findFragmentByTag("cal");
+            chat = (ChatListFragment) getSupportFragmentManager().findFragmentByTag("chat");
+            calendar = (CalendarFragment) getSupportFragmentManager().findFragmentByTag("cal");
             profile = (ProfileFragment) getSupportFragmentManager().findFragmentByTag("profile");
         }
         nav.setOnItemSelectedListener(item -> {
@@ -84,12 +84,6 @@ public class MainActivity extends AppCompatActivity {
                 if (selected == R.id.nav_feed && feed.goBack()) {
                     return;
                 }
-                if (selected == R.id.nav_chat && chat != null && chat.goBack()) {
-                    return;
-                }
-                if (selected == R.id.nav_cal && calendar != null && calendar.goBack()) {
-                    return;
-                }
                 if (selected != R.id.nav_feed) {
                     openTab(R.id.nav_feed);
                     return;
@@ -108,12 +102,22 @@ public class MainActivity extends AppCompatActivity {
 
     void openChat(String hash) {
         openTab(R.id.nav_chat);
-        ensureChat().openHash(hash == null || hash.isEmpty() ? "#orgasmic-chat" : hash);
+        int spaceId = parseId(hash, "orgasmic-chat-");
+        if (spaceId > 0) {
+            android.content.Intent intent = new android.content.Intent(this, ChatThreadActivity.class);
+            intent.putExtra("space_id", spaceId);
+            startActivity(intent);
+        }
     }
 
     void openCalendar(String hash) {
         openTab(R.id.nav_cal);
-        ensureCalendar().openHash(hash == null || hash.isEmpty() ? "#orgasmic-calendar" : hash);
+        int eventId = parseId(hash, "orgasmic-event-");
+        if (eventId > 0) {
+            android.content.Intent intent = new android.content.Intent(this, EventDetailActivity.class);
+            intent.putExtra("event_id", eventId);
+            startActivity(intent);
+        }
     }
 
     void onPortalLoaded() {
@@ -157,12 +161,12 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private PortalTabFragment ensureChat() {
+    private ChatListFragment ensureChat() {
         if (chat == null) {
-            chat = (PortalTabFragment) getSupportFragmentManager().findFragmentByTag("chat");
+            chat = (ChatListFragment) getSupportFragmentManager().findFragmentByTag("chat");
         }
         if (chat == null) {
-            chat = PortalTabFragment.chat();
+            chat = new ChatListFragment();
             getSupportFragmentManager()
                     .beginTransaction()
                     .add(R.id.tab_host, chat, "chat")
@@ -172,12 +176,12 @@ public class MainActivity extends AppCompatActivity {
         return chat;
     }
 
-    private PortalTabFragment ensureCalendar() {
+    private CalendarFragment ensureCalendar() {
         if (calendar == null) {
-            calendar = (PortalTabFragment) getSupportFragmentManager().findFragmentByTag("cal");
+            calendar = (CalendarFragment) getSupportFragmentManager().findFragmentByTag("cal");
         }
         if (calendar == null) {
-            calendar = PortalTabFragment.calendar();
+            calendar = new CalendarFragment();
             getSupportFragmentManager()
                     .beginTransaction()
                     .add(R.id.tab_host, calendar, "cal")
@@ -185,6 +189,22 @@ public class MainActivity extends AppCompatActivity {
                     .commitNow();
         }
         return calendar;
+    }
+
+    private static int parseId(String hash, String prefix) {
+        if (hash == null) {
+            return 0;
+        }
+        int at = hash.indexOf(prefix);
+        if (at < 0) {
+            return 0;
+        }
+        String rest = hash.substring(at + prefix.length()).replaceAll("[^0-9].*$", "");
+        try {
+            return Integer.parseInt(rest);
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     private void show(Fragment target) {
