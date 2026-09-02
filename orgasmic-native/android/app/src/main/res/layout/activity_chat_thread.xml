@@ -116,6 +116,8 @@
             android:maxLines="4"
             android:background="@android:color/transparent"
             android:padding="10dp"
+            android:textColor="@color/ink"
+            android:textColorHint="@color/ink_muted"
             android:textSize="16sp" />
 
         <ImageButton

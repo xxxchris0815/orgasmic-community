@@ -59,6 +59,7 @@
             android:paddingStart="20dp"
             android:paddingEnd="20dp"
             android:text="Chat"
+            android:textColor="@color/ink"
             android:background="#FFFFFF" />
 
         <com.google.android.material.switchmaterial.SwitchMaterial
@@ -68,6 +69,7 @@
             android:paddingStart="20dp"
             android:paddingEnd="20dp"
             android:text="Neue Beiträge"
+            android:textColor="@color/ink"
             android:background="#FFFFFF" />
 
         <com.google.android.material.switchmaterial.SwitchMaterial
@@ -77,6 +79,7 @@
             android:paddingStart="20dp"
             android:paddingEnd="20dp"
             android:text="Kommentare"
+            android:textColor="@color/ink"
             android:background="#FFFFFF" />
 
         <com.google.android.material.switchmaterial.SwitchMaterial
@@ -86,6 +89,7 @@
             android:paddingStart="20dp"
             android:paddingEnd="20dp"
             android:text="Events"
+            android:textColor="@color/ink"
             android:background="#FFFFFF" />
 
         <TextView

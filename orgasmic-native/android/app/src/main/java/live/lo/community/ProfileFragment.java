@@ -130,6 +130,8 @@ public class ProfileFragment extends Fragment {
         EditText field = new EditText(requireContext());
         field.setHint("DELETE");
         field.setInputType(InputType.TYPE_CLASS_TEXT);
+        field.setTextColor(0xFF121C30);
+        field.setHintTextColor(0xFF7A746A);
         new AlertDialog.Builder(requireContext())
                 .setTitle("Konto löschen")
                 .setMessage("Tippe DELETE, um dein Konto unwiderruflich zu löschen.")
