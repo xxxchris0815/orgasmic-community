@@ -5,6 +5,7 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.webkit.CookieManager;
 import android.webkit.WebView;
 import androidx.activity.OnBackPressedCallback;
@@ -12,6 +13,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.splashscreen.SplashScreen;
 import androidx.core.view.WindowCompat;
 import androidx.fragment.app.Fragment;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -19,6 +21,8 @@ import java.net.URLEncoder;
 import org.json.JSONObject;
 
 public class MainActivity extends AppCompatActivity {
+    static final String TAG = "LOCommunity";
+
     final Session session = HybridRuntime.SESSION;
     final ApiClient api = HybridRuntime.API;
 
@@ -30,6 +34,10 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // Launch theme is Theme.SplashScreen. Without this call AppCompat/Material
+        // inflate crashes immediately after the splash (IllegalStateException /
+        // "requires Theme.MaterialComponents"). Capacitor's BridgeActivity did this.
+        SplashScreen.installSplashScreen(this);
         super.onCreate(savedInstanceState);
         WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
         CookieManager.getInstance().setAcceptCookie(true);
@@ -90,6 +98,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         maybeAskNotifications();
+        Log.i(TAG, "hybrid shell started");
     }
 
     void openTab(int id) {

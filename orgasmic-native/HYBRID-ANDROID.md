@@ -38,6 +38,26 @@ Kein neues WordPress-Plugin-Modell. Es reicht:
 
 Wenn Chat „Bitte zuerst im Feed einloggen“ bleibt: Cookies kamen nicht an. Einmal Feed neu laden, eingeloggt bleiben, Tab wechseln.
 
+## Absturz-Logs (Logcat)
+
+Wenn die App nach dem Ladescreen stirbt, brauchen wir den Java-Stacktrace — nicht den Codemagic-Build-Log.
+
+Am einfachsten mit USB-Debugging und einem Computer:
+
+```bash
+adb logcat -d -s AndroidRuntime:E LOCommunity:E Capacitor:E chromium:E
+```
+
+Oder der komplette Fatal-Block:
+
+```bash
+adb logcat -d | grep -A 60 "FATAL EXCEPTION"
+```
+
+Ohne Computer: Play-Store-App **Logcat Reader** (oder ähnlich) öffnen, Filter `AndroidRuntime` bzw. `LOCommunity`, Absturz provozieren, Text kopieren.
+
+In Android Studio: Logcat-Fenster, Paket `live.lo.community`, Level Error.
+
 ## Bewusst nicht in v1
 
 - Native Chat-Bilder / Voice
