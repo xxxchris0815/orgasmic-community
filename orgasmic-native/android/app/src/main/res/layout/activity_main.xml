@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#F7F5F1">
+    android:background="#FFFFFF">
 
     <FrameLayout
         android:id="@+id/tab_host"
@@ -12,13 +12,23 @@
         android:layout_height="0dp"
         android:layout_weight="1" />
 
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#E8E4DC" />
+
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottom_nav"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#FFFFFFF2"
-        app:elevation="8dp"
+        android:background="#FFFFFF"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
+        app:elevation="0dp"
+        app:itemActiveIndicatorEnabled="false"
+        app:itemIconSize="22dp"
         app:itemIconTint="@color/nav_color"
+        app:itemRippleColor="@android:color/transparent"
         app:itemTextColor="@color/nav_color"
         app:labelVisibilityMode="labeled"
         app:menu="@menu/bottom_nav" />

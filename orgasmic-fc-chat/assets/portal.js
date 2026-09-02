@@ -1,4 +1,11 @@
 (function () {
+  const ua = navigator.userAgent || '';
+  if (/LOCommunityHybrid/i.test(ua)) {
+    const html = document.documentElement;
+    html.classList.add('orgasmic-hybrid-shell');
+    if (/OAShell\/chat/i.test(ua)) html.classList.add('orgasmic-hybrid-chat');
+  }
+
   const cfg = window.OrgasmicFcChat || {};
   if (!cfg.root) return;
 
@@ -457,8 +464,16 @@
     return null;
   }
 
+  function isHybridChat() {
+    return document.documentElement.classList.contains('orgasmic-hybrid-chat');
+  }
+
   function applyMobileBarInset() {
     let height = 0;
+    if (isHybridChat()) {
+      document.documentElement.style.setProperty('--orgasmic-mobile-bar', '0px');
+      return;
+    }
     if (window.matchMedia('(max-width: 760px)').matches) {
       const skip = '#orgasmic-chat-root, #orgasmic-cal-root, #orgasmic-app-prefs';
       const selectors = [
@@ -599,6 +614,18 @@
   }
 
   function closeOverlay() {
+    if (isHybridChat()) {
+      hideMsgMenu();
+      stopVoicePlayback();
+      cancelVoice(true);
+      state.replyTo = null;
+      state.selectMode = false;
+      state.selected = {};
+      if (state.spaceId) {
+        location.hash = '#orgasmic-chat';
+      }
+      return;
+    }
     const root = document.getElementById('orgasmic-chat-root');
     if (!root) return;
     hideMsgMenu();
@@ -2233,5 +2260,8 @@
     window.setTimeout(pinOverlayToViewport, 320);
   }, true);
   pollUnread();
+  if (isHybridChat() && !hashRoute()) {
+    history.replaceState(null, '', location.pathname + location.search + '#orgasmic-chat');
+  }
   if (hashRoute()) bootFromHash();
 })();

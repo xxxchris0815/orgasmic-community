@@ -1,4 +1,11 @@
 (function () {
+  const ua = navigator.userAgent || '';
+  if (/LOCommunityHybrid/i.test(ua)) {
+    const html = document.documentElement;
+    html.classList.add('orgasmic-hybrid-shell');
+    if (/OAShell\/cal/i.test(ua)) html.classList.add('orgasmic-hybrid-cal');
+  }
+
   const cfg = window.OrgasmicFcEvents || {};
   if (!cfg.root) return;
 
@@ -325,8 +332,16 @@
     return null;
   }
 
+  function isHybridCal() {
+    return document.documentElement.classList.contains('orgasmic-hybrid-cal');
+  }
+
   function applyMobileBarInset() {
     let height = 0;
+    if (isHybridCal()) {
+      document.documentElement.style.setProperty('--orgasmic-mobile-bar', '0px');
+      return;
+    }
     if (window.matchMedia('(max-width: 760px)').matches) {
       const skip = '#orgasmic-chat-root, #orgasmic-cal-root, #orgasmic-app-prefs';
       const selectors = [
@@ -401,6 +416,13 @@
   }
 
   function closeOverlay() {
+    if (isHybridCal()) {
+      const hash = location.hash || '';
+      if (/#orgasmic-event/.test(hash)) {
+        location.hash = '#orgasmic-calendar';
+      }
+      return;
+    }
     const root = document.getElementById('orgasmic-cal-root');
     if (!root) return;
     clearOverlayPin();
@@ -1192,6 +1214,9 @@
     watchNavIcons();
     hydrateFromCache();
     updateNavIndicator();
+    if (isHybridCal() && !hashEvent()) {
+      history.replaceState(null, '', location.pathname + location.search + '#orgasmic-calendar');
+    }
     if (hashEvent()) bootFromHash();
     else prefetch();
   }

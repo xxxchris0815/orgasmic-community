@@ -1,66 +1,59 @@
 # LO Community — Android Hybrid (Test)
 
-Eigener Branch: `cursor/android-hybrid-shell-d4ba`. Die App ist **kein** Voll-WebView mehr.
+Eigener Branch: `cursor/android-hybrid-shell-d4ba`. Unten eine native Tab-Leiste. Feed / Chat / Kalender sind die **gleichen Web-UIs** wie im Portal, damit Features nicht auseinanderlaufen.
 
 ## Was du siehst
 
-Unten vier native Tabs:
-
 | Tab | Was passiert |
 | --- | --- |
-| **Feed** | WebView auf `https://community.orgasmic.live/portal` (FluentCommunity). Login bleibt hier. |
-| **Chat** | Native Liste + Thread gegen `/wp-json/orgasmic-chat/v1/` |
-| **Kalender** | Native Liste + RSVP gegen `/wp-json/orgasmic-events/v1/` |
-| **Profil** | Schalter, Datenschutz, Konto löschen gegen `/wp-json/orgasmic-app/v1/` |
+| **Feed** | WebView `https://community.orgasmic.live/portal` (FluentCommunity). Login bleibt hier. |
+| **Chat** | Dieselbe Chat-Oberfläche wie im Web: Avatare, Bilder, Sprache, Markieren, Löschen, Antworten |
+| **Kalender** | Dieselbe Kalender-Oberfläche wie im Web: Monat, Event-Karten, RSVP, Details |
+| **Profil** | Native Schalter, Datenschutz, Konto löschen |
 
-Kamera/Mikro im Feed (Beiträge) laufen über den WebView-Dateidialog. Chat in dieser Testversion: **Text**. Bilder/Sprachnachrichten kommen später.
+Die untere Icon-Leiste ist nativ (weiße Leiste, dieselben Chat-/Kalender-Icons wie im Web). Die FluentCommunity-Tab-Leiste im WebView bleibt ausgeblendet.
 
 ## Backend — was nötig ist
 
-Kein neues WordPress-Plugin-Modell. Es reicht:
+1. **ORGASMIC App 1.1.30**
+2. **ORGASMIC Chat 1.1.19**
+3. **ORGASMIC Community Kalender 1.0.13**
 
-1. Plugin **ORGASMIC App 1.1.29** (Session-JSON + Blendet FC-Tab-Leiste/Chat/Kalender-Icons im Hybrid-WebView aus). Ohne das funktioniert die API trotzdem, du siehst aber doppelte Navigation im Feed.
-2. Chat- und Kalender-Plugins wie bisher aktiv.
-3. WordPress-**Cookies + REST-Nonce**. Die App holt den Nonce nach dem Login per `admin-ajax.php?action=orgasmic_fc_app_boot` (kein REST, deshalb kein Huhn-Ei). Danach: `Cookie` + `X-WP-Nonce`.
-4. Push: dasselbe Firebase wie die alte App. Token geht an `orgasmic_fc_app_push_token`.
+Ohne die drei Updates fehlen Vollbild-Overlay, Sprache/Kalender-Grid oder der Close-Button fällt auf den Feed zurück.
 
-**Keine** Application Passwords, kein JWT, kein CORS (native HTTP).
+ZIPs auf diesem Branch:
+
+- [`orgasmic-fc-app-1.1.30.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/android-hybrid-shell-d4ba/orgasmic-fc-app-1.1.30.zip)
+- [`orgasmic-fc-chat-1.1.19.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/android-hybrid-shell-d4ba/orgasmic-fc-chat-1.1.19.zip)
+- [`orgasmic-fc-events-1.0.13.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/android-hybrid-shell-d4ba/orgasmic-fc-events-1.0.13.zip)
+
+Session: Login im Feed, Cookies aus dem WebView, Nonce per `admin-ajax.php?action=orgasmic_fc_app_boot`. Push unverändert.
 
 ## Testen
 
-1. App **1.1.29** auf den Server.
+1. Die drei Plugins auf den Server.
 2. Codemagic: Workflow **Android Debug** auf Branch `cursor/android-hybrid-shell-d4ba`.
-3. APK installieren.
-4. Tab **Feed** → einloggen.
-5. Tab **Chat** → Raum öffnen, Text senden.
-6. Tab **Kalender** → Event, RSVP.
-7. Tab **Profil** → Schalter, optional Konto löschen nur an einem Wegwerf-User.
+3. APK installieren, alte App-Daten ggf. löschen.
+4. **Feed** → einloggen.
+5. **Chat** → Raum, Avatar, Sprache, Bild, Markieren/Löschen.
+6. **Kalender** → Monatsraster, Event öffnen, RSVP.
+7. **Profil** → Schalter.
 
-Wenn Chat „Bitte zuerst im Feed einloggen“ bleibt: Cookies kamen nicht an. Einmal Feed neu laden, eingeloggt bleiben, Tab wechseln.
+Sprachnachricht: Android fragt nach Mikrofon. Wenn die Aufnahme nicht startet, Berechtigung in den Systemeinstellungen prüfen.
 
 ## Absturz-Logs (Logcat)
 
-Wenn die App nach dem Ladescreen stirbt, brauchen wir den Java-Stacktrace — nicht den Codemagic-Build-Log.
-
-Am einfachsten mit USB-Debugging und einem Computer:
-
 ```bash
-adb logcat -d -s AndroidRuntime:E LOCommunity:E Capacitor:E chromium:E
+adb logcat -d -s AndroidRuntime:E LOCommunity:E chromium:E
 ```
 
-Oder der komplette Fatal-Block:
+Oder:
 
 ```bash
 adb logcat -d | grep -A 60 "FATAL EXCEPTION"
 ```
 
-Ohne Computer: Play-Store-App **Logcat Reader** (oder ähnlich) öffnen, Filter `AndroidRuntime` bzw. `LOCommunity`, Absturz provozieren, Text kopieren.
+## Bewusst nativ (nicht Web)
 
-In Android Studio: Logcat-Fenster, Paket `live.lo.community`, Level Error.
-
-## Bewusst nicht in v1
-
-- Native Chat-Bilder / Voice
-- Native Event-Anlage
-- iOS-Hybrid (gleicher Plan, andere Hülle)
-- Capacitor-Bridge (die alte Voll-WebView-App). Dieser Branch **ersetzt** MainActivity.
+- Untere Tab-Leiste
+- Profil (Mitteilungen, Konto löschen)

@@ -1,12 +1,15 @@
 === ORGASMIC App ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.1.29
+Stable tag: 1.1.30
 License: GPLv2 or later
 
 PWA, offline cache, and Web Push for chat, posts, comments, and calendar events.
 
 == Changelog ==
+
+= 1.1.30 =
+* Hybrid Android Chat/Kalender tabs reuse the portal overlays so features stay in sync with the web app
 
 = 1.1.29 =
 * Hybrid Android shell: session payload (display name, privacy URLs) and hide portal chrome in the feed WebView

@@ -7,6 +7,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.webkit.CookieManager;
+import android.webkit.PermissionRequest;
 import android.webkit.WebView;
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
@@ -18,6 +19,7 @@ import androidx.core.view.WindowCompat;
 import androidx.fragment.app.Fragment;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import java.net.URLEncoder;
+import java.util.ArrayList;
 import org.json.JSONObject;
 
 public class MainActivity extends AppCompatActivity {
@@ -28,15 +30,13 @@ public class MainActivity extends AppCompatActivity {
 
     private BottomNavigationView nav;
     private FeedFragment feed;
-    private ChatListFragment chat;
-    private CalendarFragment calendar;
+    private PortalTabFragment chat;
+    private PortalTabFragment calendar;
     private ProfileFragment profile;
+    private PermissionRequest pendingWebPermission;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        // Launch theme is Theme.SplashScreen. Without this call AppCompat/Material
-        // inflate crashes immediately after the splash (IllegalStateException /
-        // "requires Theme.MaterialComponents"). Capacitor's BridgeActivity did this.
         SplashScreen.installSplashScreen(this);
         super.onCreate(savedInstanceState);
         WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
@@ -48,23 +48,17 @@ public class MainActivity extends AppCompatActivity {
         nav = findViewById(R.id.bottom_nav);
         if (savedInstanceState == null) {
             feed = new FeedFragment();
-            chat = new ChatListFragment();
-            calendar = new CalendarFragment();
             profile = new ProfileFragment();
             getSupportFragmentManager()
                     .beginTransaction()
                     .add(R.id.tab_host, feed, "feed")
-                    .add(R.id.tab_host, chat, "chat")
-                    .add(R.id.tab_host, calendar, "cal")
                     .add(R.id.tab_host, profile, "profile")
-                    .hide(chat)
-                    .hide(calendar)
                     .hide(profile)
                     .commit();
         } else {
             feed = (FeedFragment) getSupportFragmentManager().findFragmentByTag("feed");
-            chat = (ChatListFragment) getSupportFragmentManager().findFragmentByTag("chat");
-            calendar = (CalendarFragment) getSupportFragmentManager().findFragmentByTag("cal");
+            chat = (PortalTabFragment) getSupportFragmentManager().findFragmentByTag("chat");
+            calendar = (PortalTabFragment) getSupportFragmentManager().findFragmentByTag("cal");
             profile = (ProfileFragment) getSupportFragmentManager().findFragmentByTag("profile");
         }
         nav.setOnItemSelectedListener(item -> {
@@ -72,10 +66,10 @@ public class MainActivity extends AppCompatActivity {
             if (id == R.id.nav_feed) {
                 show(feed);
             } else if (id == R.id.nav_chat) {
-                show(chat);
+                show(ensureChat());
                 chat.reload();
             } else if (id == R.id.nav_cal) {
-                show(calendar);
+                show(ensureCalendar());
                 calendar.reload();
             } else if (id == R.id.nav_profile) {
                 show(profile);
@@ -86,10 +80,17 @@ public class MainActivity extends AppCompatActivity {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                if (nav.getSelectedItemId() == R.id.nav_feed && feed.goBack()) {
+                int selected = nav.getSelectedItemId();
+                if (selected == R.id.nav_feed && feed.goBack()) {
                     return;
                 }
-                if (nav.getSelectedItemId() != R.id.nav_feed) {
+                if (selected == R.id.nav_chat && chat != null && chat.goBack()) {
+                    return;
+                }
+                if (selected == R.id.nav_cal && calendar != null && calendar.goBack()) {
+                    return;
+                }
+                if (selected != R.id.nav_feed) {
                     openTab(R.id.nav_feed);
                     return;
                 }
@@ -105,8 +106,41 @@ public class MainActivity extends AppCompatActivity {
         nav.setSelectedItemId(id);
     }
 
+    void openChat(String hash) {
+        openTab(R.id.nav_chat);
+        ensureChat().openHash(hash == null || hash.isEmpty() ? "#orgasmic-chat" : hash);
+    }
+
+    void openCalendar(String hash) {
+        openTab(R.id.nav_cal);
+        ensureCalendar().openHash(hash == null || hash.isEmpty() ? "#orgasmic-calendar" : hash);
+    }
+
     void onPortalLoaded() {
         refreshSessionAndPush();
+    }
+
+    void grantWebMedia(PermissionRequest request) {
+        pendingWebPermission = request;
+        ArrayList<String> needed = new ArrayList<>();
+        for (String resource : request.getResources()) {
+            if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource)
+                    && ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                    != PackageManager.PERMISSION_GRANTED) {
+                needed.add(Manifest.permission.RECORD_AUDIO);
+            }
+            if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource)
+                    && ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                    != PackageManager.PERMISSION_GRANTED) {
+                needed.add(Manifest.permission.CAMERA);
+            }
+        }
+        if (needed.isEmpty()) {
+            request.grant(request.getResources());
+            pendingWebPermission = null;
+            return;
+        }
+        ActivityCompat.requestPermissions(this, needed.toArray(new String[0]), 72);
     }
 
     void refreshSessionAndPush() {
@@ -115,7 +149,6 @@ public class MainActivity extends AppCompatActivity {
             public void onOk(JSONObject json) {
                 if (session.loggedIn) {
                     registerPush();
-                    chat.reload();
                 }
             }
 
@@ -124,10 +157,40 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private PortalTabFragment ensureChat() {
+        if (chat == null) {
+            chat = (PortalTabFragment) getSupportFragmentManager().findFragmentByTag("chat");
+        }
+        if (chat == null) {
+            chat = PortalTabFragment.chat();
+            getSupportFragmentManager()
+                    .beginTransaction()
+                    .add(R.id.tab_host, chat, "chat")
+                    .hide(chat)
+                    .commitNow();
+        }
+        return chat;
+    }
+
+    private PortalTabFragment ensureCalendar() {
+        if (calendar == null) {
+            calendar = (PortalTabFragment) getSupportFragmentManager().findFragmentByTag("cal");
+        }
+        if (calendar == null) {
+            calendar = PortalTabFragment.calendar();
+            getSupportFragmentManager()
+                    .beginTransaction()
+                    .add(R.id.tab_host, calendar, "cal")
+                    .hide(calendar)
+                    .commitNow();
+        }
+        return calendar;
+    }
+
     private void show(Fragment target) {
         androidx.fragment.app.FragmentTransaction tx = getSupportFragmentManager().beginTransaction();
         for (Fragment fragment : new Fragment[] {feed, chat, calendar, profile}) {
-            if (fragment.isAdded()) {
+            if (fragment != null && fragment.isAdded()) {
                 if (fragment == target) {
                     tx.show(fragment);
                 } else {
@@ -180,6 +243,21 @@ public class MainActivity extends AppCompatActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == 71 && session.loggedIn) {
             registerPush();
+        }
+        if (requestCode == 72 && pendingWebPermission != null) {
+            boolean ok = true;
+            for (int result : grantResults) {
+                if (result != PackageManager.PERMISSION_GRANTED) {
+                    ok = false;
+                    break;
+                }
+            }
+            if (ok) {
+                pendingWebPermission.grant(pendingWebPermission.getResources());
+            } else {
+                pendingWebPermission.deny();
+            }
+            pendingWebPermission = null;
         }
     }
 }

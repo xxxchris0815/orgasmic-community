@@ -1,10 +1,15 @@
 (function () {
+  const ua = navigator.userAgent || '';
+  if (/LOCommunityHybrid/i.test(ua)) {
+    const html = document.documentElement;
+    html.classList.add('orgasmic-hybrid-shell');
+    if (/OAShell\/feed/i.test(ua)) html.classList.add('orgasmic-hybrid-feed');
+    if (/OAShell\/chat/i.test(ua)) html.classList.add('orgasmic-hybrid-chat');
+    if (/OAShell\/cal/i.test(ua)) html.classList.add('orgasmic-hybrid-cal');
+  }
+
   const cfg = window.OrgasmicFcApp || {};
   if (!cfg.root) return;
-
-  if (/LOCommunityHybrid/i.test(navigator.userAgent || '')) {
-    document.documentElement.classList.add('orgasmic-hybrid-feed');
-  }
 
   function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
