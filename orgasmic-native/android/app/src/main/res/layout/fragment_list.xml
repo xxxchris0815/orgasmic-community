@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#F7F5F1">
+    android:background="@color/canvas">
 
     <TextView
         android:id="@+id/screen_title"
@@ -12,10 +12,10 @@
         android:gravity="center_vertical"
         android:paddingStart="20dp"
         android:paddingEnd="20dp"
-        android:textColor="#121c30"
+        android:textColor="@color/ink"
         android:textSize="22sp"
         android:textStyle="bold"
-        android:background="#FFFFFF" />
+        android:background="@color/surface" />
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/refresh"
@@ -40,7 +40,7 @@
                 android:layout_gravity="center"
                 android:gravity="center"
                 android:padding="24dp"
-                android:textColor="#7A746A"
+                android:textColor="@color/ink_muted"
                 android:visibility="gone" />
         </FrameLayout>
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>

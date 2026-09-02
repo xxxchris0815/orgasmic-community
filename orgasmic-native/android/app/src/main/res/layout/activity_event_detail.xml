@@ -2,7 +2,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F7F5F1">
+    android:background="@color/canvas">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -15,7 +15,7 @@
             android:layout_height="56dp"
             android:gravity="center_vertical"
             android:paddingStart="8dp"
-            android:background="#FFFFFF">
+            android:background="@color/surface">
 
             <ImageButton
                 android:id="@+id/event_back"
@@ -31,10 +31,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:padding="20dp"
-            android:textColor="#121c30"
+            android:textColor="@color/ink"
             android:textSize="24sp"
             android:textStyle="bold"
-            android:background="#FFFFFF" />
+            android:background="@color/surface" />
 
         <TextView
             android:id="@+id/event_when"
@@ -43,15 +43,15 @@
             android:paddingStart="20dp"
             android:paddingEnd="20dp"
             android:paddingBottom="12dp"
-            android:textColor="#7A746A"
-            android:background="#FFFFFF" />
+            android:textColor="@color/ink_muted"
+            android:background="@color/surface" />
 
         <TextView
             android:id="@+id/event_body"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:padding="20dp"
-            android:textColor="#1A1625" />
+            android:textColor="@color/ink_body" />
 
         <TextView
             android:id="@+id/event_join"
@@ -61,7 +61,7 @@
             android:paddingEnd="20dp"
             android:paddingBottom="12dp"
             android:text="Zum Event öffnen"
-            android:textColor="#121c30"
+            android:textColor="@color/ink"
             android:textStyle="bold"
             android:visibility="gone" />
 
@@ -72,7 +72,7 @@
             android:paddingStart="20dp"
             android:paddingEnd="20dp"
             android:paddingBottom="8dp"
-            android:textColor="#121c30" />
+            android:textColor="@color/ink" />
 
         <LinearLayout
             android:layout_width="match_parent"

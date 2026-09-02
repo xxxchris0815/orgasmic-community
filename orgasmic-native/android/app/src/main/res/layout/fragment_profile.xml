@@ -2,7 +2,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F7F5F1">
+    android:background="@color/canvas">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -16,10 +16,10 @@
             android:gravity="center_vertical"
             android:paddingStart="20dp"
             android:text="Profil"
-            android:textColor="#121c30"
+            android:textColor="@color/ink"
             android:textSize="22sp"
             android:textStyle="bold"
-            android:background="#FFFFFF" />
+            android:background="@color/surface" />
 
         <TextView
             android:id="@+id/profile_name"
@@ -28,7 +28,7 @@
             android:paddingStart="20dp"
             android:paddingEnd="20dp"
             android:paddingTop="16dp"
-            android:textColor="#121c30"
+            android:textColor="@color/ink"
             android:textSize="20sp"
             android:textStyle="bold" />
 
@@ -39,7 +39,7 @@
             android:paddingStart="20dp"
             android:paddingEnd="20dp"
             android:paddingBottom="16dp"
-            android:textColor="#7A746A" />
+            android:textColor="@color/ink_muted" />
 
         <TextView
             android:layout_width="match_parent"
@@ -49,7 +49,7 @@
             android:paddingBottom="8dp"
             android:text="Mitteilungen"
             android:textAllCaps="true"
-            android:textColor="#7A746A"
+            android:textColor="@color/ink_muted"
             android:textSize="12sp" />
 
         <com.google.android.material.switchmaterial.SwitchMaterial
@@ -60,7 +60,7 @@
             android:paddingEnd="20dp"
             android:text="Chat"
             android:textColor="@color/ink"
-            android:background="#FFFFFF" />
+            android:background="@color/surface" />
 
         <com.google.android.material.switchmaterial.SwitchMaterial
             android:id="@+id/pref_feed"
@@ -70,7 +70,7 @@
             android:paddingEnd="20dp"
             android:text="Neue Beiträge"
             android:textColor="@color/ink"
-            android:background="#FFFFFF" />
+            android:background="@color/surface" />
 
         <com.google.android.material.switchmaterial.SwitchMaterial
             android:id="@+id/pref_comment"
@@ -80,7 +80,7 @@
             android:paddingEnd="20dp"
             android:text="Kommentare"
             android:textColor="@color/ink"
-            android:background="#FFFFFF" />
+            android:background="@color/surface" />
 
         <com.google.android.material.switchmaterial.SwitchMaterial
             android:id="@+id/pref_event"
@@ -90,7 +90,7 @@
             android:paddingEnd="20dp"
             android:text="Events"
             android:textColor="@color/ink"
-            android:background="#FFFFFF" />
+            android:background="@color/surface" />
 
         <TextView
             android:layout_width="match_parent"
@@ -100,7 +100,7 @@
             android:paddingBottom="8dp"
             android:text="Rechtliches"
             android:textAllCaps="true"
-            android:textColor="#7A746A"
+            android:textColor="@color/ink_muted"
             android:textSize="12sp" />
 
         <Button
@@ -127,7 +127,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:text="Konto löschen"
-            android:textColor="#B42318"
+            android:textColor="@color/danger"
             style="@style/Widget.MaterialComponents.Button.TextButton" />
     </LinearLayout>
 </ScrollView>

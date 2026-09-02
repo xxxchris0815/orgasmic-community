@@ -20,7 +20,7 @@
             android:id="@+id/event_day"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/on_dateblock"
             android:textSize="20sp"
             android:textStyle="bold" />
 
@@ -28,7 +28,7 @@
             android:id="@+id/event_month"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#EFE4C8"
+            android:textColor="@color/on_dateblock_muted"
             android:textSize="11sp" />
     </LinearLayout>
 
@@ -43,7 +43,7 @@
             android:id="@+id/event_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="#121c30"
+            android:textColor="@color/ink"
             android:textSize="16sp"
             android:textStyle="bold" />
 
@@ -52,7 +52,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:textColor="#7A746A"
+            android:textColor="@color/ink_muted"
             android:textSize="13sp" />
 
         <TextView
@@ -60,7 +60,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
-            android:textColor="#7A746A"
+            android:textColor="@color/ink_muted"
             android:textSize="12sp" />
     </LinearLayout>
 </LinearLayout>

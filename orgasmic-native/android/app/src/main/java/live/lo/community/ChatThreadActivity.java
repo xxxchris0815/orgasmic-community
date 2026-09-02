@@ -493,7 +493,8 @@ public class ChatThreadActivity extends AppCompatActivity {
                 holder.body.setVisibility(View.VISIBLE);
                 holder.body.setText(body);
             }
-            holder.itemView.setBackgroundColor(selected.contains(id) ? 0x33121C30 : 0x00000000);
+            holder.itemView.setBackgroundColor(
+                    selected.contains(id) ? ContextCompat.getColor(ChatThreadActivity.this, R.color.select_wash) : 0x00000000);
             holder.itemView.setOnLongClickListener(v -> {
                 showActions(msg);
                 return true;

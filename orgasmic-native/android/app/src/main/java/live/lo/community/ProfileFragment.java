@@ -14,6 +14,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 import org.json.JSONObject;
@@ -130,8 +131,8 @@ public class ProfileFragment extends Fragment {
         EditText field = new EditText(requireContext());
         field.setHint("DELETE");
         field.setInputType(InputType.TYPE_CLASS_TEXT);
-        field.setTextColor(0xFF121C30);
-        field.setHintTextColor(0xFF7A746A);
+        field.setTextColor(ContextCompat.getColor(requireContext(), R.color.ink));
+        field.setHintTextColor(ContextCompat.getColor(requireContext(), R.color.ink_muted));
         new AlertDialog.Builder(requireContext())
                 .setTitle("Konto löschen")
                 .setMessage("Tippe DELETE, um dein Konto unwiderruflich zu löschen.")

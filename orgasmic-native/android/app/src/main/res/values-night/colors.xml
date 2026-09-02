@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#EFE4C8</color>
+    <color name="colorPrimaryDark">#0B1018</color>
+    <color name="colorAccent">#c4a35a</color>
+    <color name="splash_background">#121c30</color>
+    <color name="ink">#F4EFE4</color>
+    <color name="ink_muted">#A39C90</color>
+    <color name="ink_faint">#6B6458</color>
+    <color name="ink_body">#F4EFE4</color>
+    <color name="ink_soft">#C4BDB0</color>
+    <color name="canvas">#121c30</color>
+    <color name="surface">#1A2233</color>
+    <color name="divider">#2A3346</color>
+    <color name="bubble_mine">#4A3F28</color>
+    <color name="bubble_theirs">#1E2738</color>
+    <color name="stroke">#2A3346</color>
+    <color name="avatar">#4A3F28</color>
+    <color name="dateblock">#EFE4C8</color>
+    <color name="on_dateblock">#121c30</color>
+    <color name="on_dateblock_muted">#4A3F28</color>
+    <color name="danger">#F97066</color>
+    <color name="quote_wash">#33FFFFFF</color>
+    <color name="select_wash">#33EFE4C8</color>
+</resources>

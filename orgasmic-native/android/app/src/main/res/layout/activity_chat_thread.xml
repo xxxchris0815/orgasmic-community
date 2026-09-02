@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#F6F5F3">
+    android:background="@color/canvas">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -11,7 +11,7 @@
         android:gravity="center_vertical"
         android:paddingStart="8dp"
         android:paddingEnd="8dp"
-        android:background="#FFFFFF">
+        android:background="@color/surface">
 
         <ImageButton
             android:id="@+id/thread_back"
@@ -31,7 +31,7 @@
                 android:layout_height="match_parent"
                 android:background="@drawable/bg_avatar"
                 android:gravity="center"
-                android:textColor="#121c30"
+                android:textColor="@color/ink"
                 android:textStyle="bold" />
 
             <ImageView
@@ -51,7 +51,7 @@
             android:layout_marginStart="10dp"
             android:ellipsize="end"
             android:maxLines="1"
-            android:textColor="#121c30"
+            android:textColor="@color/ink"
             android:textSize="17sp"
             android:textStyle="bold" />
 
@@ -78,8 +78,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:padding="10dp"
-        android:background="#FFFFFF"
-        android:textColor="#7A746A"
+        android:background="@color/surface"
+        android:textColor="@color/ink_muted"
         android:visibility="gone" />
 
     <LinearLayout
@@ -88,7 +88,7 @@
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:padding="8dp"
-        android:background="#FFFFFF">
+        android:background="@color/surface">
 
         <ImageButton
             android:id="@+id/thread_image"

@@ -1,7 +1,6 @@
 package live.lo.community;
 
 import android.content.Intent;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -13,6 +12,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import java.net.URLEncoder;
@@ -170,7 +170,7 @@ public class CalendarFragment extends Fragment {
         int cell = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 40, getResources().getDisplayMetrics());
         for (String label : DOW) {
             TextView dow = dayView(label, cell, false, false, false, null);
-            dow.setTextColor(0xFF7A746A);
+            dow.setTextColor(col(R.color.ink_muted));
             grid.addView(dow);
         }
         Calendar cursor = (Calendar) month.clone();
@@ -211,12 +211,12 @@ public class CalendarFragment extends Fragment {
         view.setGravity(Gravity.CENTER);
         view.setText(text);
         view.setTextSize(13);
-        view.setTextColor(mute ? 0xFFB8B2A8 : 0xFF121C30);
+        view.setTextColor(col(mute ? R.color.ink_faint : R.color.ink));
         if (today) {
             view.setBackgroundResource(R.drawable.bg_avatar);
         }
         if (selected) {
-            view.setTextColor(Color.WHITE);
+            view.setTextColor(col(R.color.on_dateblock));
             view.setBackgroundResource(R.drawable.bg_dateblock);
         }
         if (key != null) {
@@ -226,5 +226,9 @@ public class CalendarFragment extends Fragment {
             });
         }
         return view;
+    }
+
+    private int col(int id) {
+        return ContextCompat.getColor(requireContext(), id);
     }
 }

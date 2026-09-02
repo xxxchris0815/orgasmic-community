@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#F7F5F1">
+    android:background="@color/canvas">
 
     <TextView
         android:id="@+id/screen_title"
@@ -13,10 +13,10 @@
         android:paddingStart="20dp"
         android:paddingEnd="20dp"
         android:text="Kalender"
-        android:textColor="#121c30"
+        android:textColor="@color/ink"
         android:textSize="22sp"
         android:textStyle="bold"
-        android:background="#FFFFFF" />
+        android:background="@color/surface" />
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/refresh"
@@ -59,7 +59,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:gravity="center"
-                            android:textColor="#121c30"
+                            android:textColor="@color/ink"
                             android:textStyle="bold"
                             android:textSize="16sp" />
 
@@ -86,7 +86,7 @@
                     android:layout_height="wrap_content"
                     android:gravity="center"
                     android:padding="24dp"
-                    android:textColor="#7A746A"
+                    android:textColor="@color/ink_muted"
                     android:visibility="gone" />
 
                 <LinearLayout
