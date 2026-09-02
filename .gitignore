@@ -1,0 +1,6 @@
+orgasmic-native/node_modules/
+*.keystore
+*.jks
+.DS_Store
+__pycache__/
+*.pyc

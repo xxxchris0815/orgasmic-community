@@ -1,0 +1,216 @@
+.orgasmic-bunny-embed {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  margin: 10px 0 4px;
+  padding-top: 56.25%;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0b0b0c;
+}
+
+.orgasmic-bunny-embed iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+.orgasmic-bunny-embed + .orgasmic-bunny-embed {
+  display: none !important;
+}
+
+.orgasmic-bunny-embed.is-compact {
+  padding-top: 0 !important;
+  width: auto;
+  max-width: 100%;
+  height: auto !important;
+  display: inline-flex;
+  align-items: center;
+  margin: 2px 0 4px;
+  background: #1a1625;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.orgasmic-bunny-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 5px 8px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.orgasmic-bunny-chip-play {
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 5px 0 5px 8px;
+  border-color: transparent transparent transparent #c4a35a;
+}
+
+.orgasmic-bunny-embed--poster {
+  cursor: pointer;
+  background:
+    radial-gradient(circle at 50% 42%, #3d3850 0%, #1a1625 68%);
+}
+
+.orgasmic-bunny-poster-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+
+.orgasmic-bunny-poster-play {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  width: 68px;
+  height: 68px;
+  margin: -34px 0 0 -34px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+}
+
+.orgasmic-bunny-poster-play::after {
+  content: '';
+  position: absolute;
+  left: 26px;
+  top: 22px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 12px 0 12px 20px;
+  border-color: transparent transparent transparent #c4a35a;
+}
+
+.orgasmic-bunny-embed--poster:hover .orgasmic-bunny-poster-play,
+.orgasmic-bunny-embed--poster:focus-visible .orgasmic-bunny-poster-play {
+  background: rgba(15, 23, 42, 0.88);
+}
+
+.orgasmic-bunny-url-hide {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.fcom_right_sidebar a[href*="mediadelivery.net"],
+.fcom-portal-sidebar a[href*="mediadelivery.net"],
+.fcom_space_sidebar a[href*="mediadelivery.net"] {
+  display: none !important;
+}
+
+.orgasmic-bunny-composer,
+.orgasmic-bunny-object {
+  margin: 8px 0 12px;
+  user-select: none;
+}
+
+.orgasmic-bunny-object .orgasmic-bunny-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 8;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.78);
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0 2px;
+}
+
+.orgasmic-bunny-object .orgasmic-bunny-remove:hover {
+  background: #1a1625;
+}
+
+[contenteditable="true"] .orgasmic-bunny-object {
+  display: block;
+}
+
+#orgasmic-bunny-upload {
+  position: fixed;
+  right: 16px;
+  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  z-index: 100010;
+  max-width: min(360px, calc(100vw - 24px));
+}
+
+#orgasmic-bunny-upload[hidden] {
+  display: none !important;
+}
+
+#orgasmic-bunny-upload .obu-card {
+  position: relative;
+  padding: 12px 32px 12px 14px;
+  border-radius: 14px;
+  background: var(--el-bg-color, #fff);
+  color: inherit;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+  border: 1px solid var(--el-border-color, rgba(15, 23, 42, 0.12));
+}
+
+#orgasmic-bunny-upload .obu-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.55;
+}
+
+#orgasmic-bunny-upload .obu-title {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+#orgasmic-bunny-upload .obu-status {
+  margin: 0 0 8px;
+  font-size: 13px;
+  opacity: 0.78;
+}
+
+#orgasmic-bunny-upload .obu-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+}
+
+#orgasmic-bunny-upload .obu-bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--el-color-primary, #c4a35a);
+}

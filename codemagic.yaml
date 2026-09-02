@@ -1,0 +1,275 @@
+workflows:
+  android-debug:
+    name: Android Debug (testen)
+    instance_type: linux_x2
+    max_build_duration: 60
+    environment:
+      groups:
+        - firebase
+      ubuntu: 24.04
+      node: 22
+      java: 21
+      vars:
+        PACKAGE_NAME: live.lo.community
+    scripts:
+      - name: Install npm packages
+        script: |
+          cd orgasmic-native
+          npm ci
+      - name: Write google-services.json
+        script: |
+          cd orgasmic-native
+          python3 scripts/write-google-services.py android/app/google-services.json
+      - name: Sync Capacitor
+        script: |
+          cd orgasmic-native
+          npx cap sync android
+      - name: Build debug APK
+        script: |
+          if [ -d /usr/lib/jvm/java-1.21.0-openjdk-amd64 ]; then
+            export JAVA_HOME=/usr/lib/jvm/java-1.21.0-openjdk-amd64
+            export PATH="$JAVA_HOME/bin:$PATH"
+          fi
+          java -version
+          cd orgasmic-native/android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+    artifacts:
+      - orgasmic-native/android/app/build/outputs/apk/debug/*.apk
+
+  android-create-keystore:
+    name: Android Keystore einmal erzeugen
+    instance_type: linux_x2
+    max_build_duration: 20
+    environment:
+      groups:
+        - android_keystore
+      ubuntu: 24.04
+      java: 21
+    scripts:
+      - name: Generate keystore
+        script: |
+          if [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "Lege in Codemagic die Secret-Variable KEYSTORE_PASSWORD in der Gruppe android_keystore an."
+            exit 1
+          fi
+          keytool -genkeypair -v \
+            -keystore "$CM_BUILD_DIR/orgasmic-release.keystore" \
+            -storetype JKS \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -alias orgasmic \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -keypass "$KEYSTORE_PASSWORD" \
+            -dname "CN=LO Community, OU=App, O=LO Community, L=Berlin, ST=Berlin, C=DE"
+    artifacts:
+      - orgasmic-release.keystore
+
+  android-release:
+    name: Android Release (AAB + APK)
+    instance_type: linux_x2
+    max_build_duration: 60
+    environment:
+      android_signing:
+        - orgasmic_android
+      groups:
+        - firebase
+      ubuntu: 24.04
+      node: 22
+      java: 21
+      vars:
+        PACKAGE_NAME: live.lo.community
+    scripts:
+      - name: Install npm packages
+        script: |
+          cd orgasmic-native
+          npm ci
+      - name: Write google-services.json
+        script: |
+          cd orgasmic-native
+          python3 scripts/write-google-services.py --required android/app/google-services.json
+      - name: Sync Capacitor
+        script: |
+          cd orgasmic-native
+          npx cap sync android
+      - name: Build release AAB + APK
+        script: |
+          if [ -d /usr/lib/jvm/java-1.21.0-openjdk-amd64 ]; then
+            export JAVA_HOME=/usr/lib/jvm/java-1.21.0-openjdk-amd64
+            export PATH="$JAVA_HOME/bin:$PATH"
+          fi
+          java -version
+          cd orgasmic-native/android
+          chmod +x gradlew
+          BUILD_NO="${BUILD_NUMBER:-1}"
+          ./gradlew bundleRelease assembleRelease \
+            -PversionCode="$BUILD_NO" \
+            -PversionName="1.0.$BUILD_NO"
+    artifacts:
+      - orgasmic-native/android/app/build/outputs/bundle/release/*.aab
+      - orgasmic-native/android/app/build/outputs/apk/release/*.apk
+
+  android-play:
+    name: Android zu Play (Internal)
+    instance_type: linux_x2
+    max_build_duration: 60
+    environment:
+      android_signing:
+        - orgasmic_android
+      groups:
+        - firebase
+        - google_play
+      ubuntu: 24.04
+      node: 22
+      java: 21
+      vars:
+        PACKAGE_NAME: live.lo.community
+    scripts:
+      - name: Install npm packages
+        script: |
+          cd orgasmic-native
+          npm ci
+      - name: Write google-services.json
+        script: |
+          cd orgasmic-native
+          python3 scripts/write-google-services.py --required android/app/google-services.json
+      - name: Sync Capacitor
+        script: |
+          cd orgasmic-native
+          npx cap sync android
+      - name: Build AAB
+        script: |
+          if [ -d /usr/lib/jvm/java-1.21.0-openjdk-amd64 ]; then
+            export JAVA_HOME=/usr/lib/jvm/java-1.21.0-openjdk-amd64
+            export PATH="$JAVA_HOME/bin:$PATH"
+          fi
+          java -version
+          cd orgasmic-native/android
+          chmod +x gradlew
+          BUILD_NO="${BUILD_NUMBER:-1}"
+          LATEST=$(google-play get-latest-build-number --package-name "$PACKAGE_NAME" || true)
+          if [ -n "$LATEST" ]; then
+            BUILD_NO=$((LATEST + 1))
+          fi
+          ./gradlew bundleRelease \
+            -PversionCode="$BUILD_NO" \
+            -PversionName="1.0.$BUILD_NO"
+    artifacts:
+      - orgasmic-native/android/app/build/outputs/bundle/release/*.aab
+    publishing:
+      google_play:
+        credentials: $GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
+        submit_as_draft: true
+
+  ios-ipa:
+    name: iOS IPA (TestFlight vorbereiten)
+    instance_type: mac_mini_m2
+    max_build_duration: 120
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: live.lo.community
+      groups:
+        - firebase
+      vars:
+        BUNDLE_ID: live.lo.community
+      xcode: latest
+      cocoapods: default
+      node: 22
+    scripts:
+      - name: Install npm packages
+        script: |
+          cd orgasmic-native
+          npm ci
+      - name: Write GoogleService-Info.plist
+        script: |
+          cd orgasmic-native
+          python3 scripts/write-google-service-info.py --required ios/App/App/GoogleService-Info.plist
+      - name: Sync Capacitor
+        script: |
+          cd orgasmic-native
+          npx cap sync ios
+          python3 scripts/patch-ios-capacitor-config.py
+      - name: CocoaPods
+        script: |
+          cd orgasmic-native/ios/App
+          pod install
+      - name: Set build number
+        script: |
+          BUILD_NO="${BUILD_NUMBER:-1}"
+          cd "$CM_BUILD_DIR/orgasmic-native/ios/App"
+          agvtool new-version -all "$BUILD_NO"
+          agvtool new-marketing-version "1.0.$BUILD_NO"
+      - name: Build IPA
+        script: |
+          xcode-project use-profiles
+          xcode-project build-ipa \
+            --workspace "$CM_BUILD_DIR/orgasmic-native/ios/App/App.xcworkspace" \
+            --scheme App \
+            --config Release
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+  ios-testflight:
+    name: iOS TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 120
+    integrations:
+      app_store_connect: orgasmic_asc
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: live.lo.community
+      groups:
+        - firebase
+      vars:
+        BUNDLE_ID: live.lo.community
+      xcode: latest
+      cocoapods: default
+      node: 22
+    scripts:
+      - name: Install npm packages
+        script: |
+          cd orgasmic-native
+          npm ci
+      - name: Write GoogleService-Info.plist
+        script: |
+          cd orgasmic-native
+          python3 scripts/write-google-service-info.py --required ios/App/App/GoogleService-Info.plist
+      - name: Sync Capacitor
+        script: |
+          cd orgasmic-native
+          npx cap sync ios
+          python3 scripts/patch-ios-capacitor-config.py
+      - name: CocoaPods
+        script: |
+          cd orgasmic-native/ios/App
+          pod install
+      - name: Set build number
+        script: |
+          BUILD_NO="${BUILD_NUMBER:-1}"
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$BUNDLE_ID" || true)
+          if [ -n "$LATEST" ]; then
+            BUILD_NO=$((LATEST + 1))
+          fi
+          cd "$CM_BUILD_DIR/orgasmic-native/ios/App"
+          agvtool new-version -all "$BUILD_NO"
+          agvtool new-marketing-version "1.0.$BUILD_NO"
+      - name: Build IPA
+        script: |
+          xcode-project use-profiles
+          xcode-project build-ipa \
+            --workspace "$CM_BUILD_DIR/orgasmic-native/ios/App/App.xcworkspace" \
+            --scheme App \
+            --config Release
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+

@@ -1,0 +1,305 @@
+<?php
+
+declare(strict_types=1);
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+class Orgasmic_Fc_Chat_Access
+{
+    public function can_manage(?int $user_id = null): bool
+    {
+        $user_id = $user_id ?: get_current_user_id();
+        if (!$user_id) {
+            return false;
+        }
+
+        if (user_can($user_id, 'manage_options')) {
+            return true;
+        }
+
+        if (class_exists('FluentCommunity\\App\\Services\\Helper')) {
+            $helper = 'FluentCommunity\\App\\Services\\Helper';
+            if (method_exists($helper, 'isSiteAdmin') && $helper::isSiteAdmin($user_id)) {
+                return true;
+            }
+            if (method_exists($helper, 'isSuperAdmin') && $helper::isSuperAdmin($user_id)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function user_space_ids(int $user_id): array
+    {
+        if (class_exists('FluentCommunity\\App\\Services\\Helper')) {
+            $helper = 'FluentCommunity\\App\\Services\\Helper';
+            if (method_exists($helper, 'getUserSpaceIds')) {
+                $ids = $helper::getUserSpaceIds($user_id);
+                if (is_array($ids)) {
+                    return array_values(array_unique(array_map('intval', $ids)));
+                }
+            }
+        }
+
+        global $wpdb;
+        $pivot = $this->table_if_exists($wpdb->prefix . 'fcom_space_user');
+        if (!$pivot) {
+            $pivot = $this->table_if_exists($wpdb->prefix . 'fcom_space_users');
+        }
+        if (!$pivot) {
+            return [];
+        }
+
+        $ids = $wpdb->get_col(
+            $wpdb->prepare(
+                "SELECT space_id FROM {$pivot} WHERE user_id = %d AND (status IS NULL OR status = %s OR status = %s)",
+                $user_id,
+                'active',
+                'accepted'
+            )
+        );
+
+        return array_values(array_unique(array_map('intval', $ids ?: [])));
+    }
+
+    public function chat_enabled_for_space(int $space_id): bool
+    {
+        $enabled = Orgasmic_Fc_Chat_Install::enabled_space_ids();
+        if ($enabled === null) {
+            return true;
+        }
+
+        return in_array($space_id, $enabled, true);
+    }
+
+    public function filter_enabled_spaces(array $space_ids): array
+    {
+        $enabled = Orgasmic_Fc_Chat_Install::enabled_space_ids();
+        $space_ids = array_values(array_unique(array_filter(array_map('intval', $space_ids))));
+        if ($enabled === null) {
+            return $space_ids;
+        }
+
+        return array_values(array_intersect($space_ids, $enabled));
+    }
+
+    public function can_access_space(int $space_id, ?int $user_id = null): bool
+    {
+        $user_id = $user_id ?: get_current_user_id();
+        if (!$user_id || $space_id < 1 || !$this->chat_enabled_for_space($space_id)) {
+            return false;
+        }
+        if ($this->can_manage($user_id)) {
+            return true;
+        }
+
+        return in_array($space_id, $this->user_space_ids($user_id), true);
+    }
+
+    public function visible_space_ids(int $user_id): array
+    {
+        $owned = $this->user_space_ids($user_id);
+        if ($this->can_manage($user_id)) {
+            $all = array_map(static fn(array $space): int => $space['id'], $this->list_spaces());
+            $owned = array_values(array_unique(array_merge($all, $owned)));
+        }
+
+        return $this->filter_enabled_spaces($owned);
+    }
+
+    public function list_spaces(): array
+    {
+        global $wpdb;
+        $table = $this->table_if_exists($wpdb->prefix . 'fcom_spaces');
+        if (!$table) {
+            return [];
+        }
+
+        $columns = $wpdb->get_col("SHOW COLUMNS FROM {$table}");
+        $columns = is_array($columns) ? $columns : [];
+        $select = ['id', 'title', 'slug'];
+        foreach (['privacy', 'type', 'status', 'logo', 'logo_url', 'icon', 'cover_photo', 'featured_image', 'settings'] as $optional) {
+            if (in_array($optional, $columns, true)) {
+                $select[] = $optional;
+            }
+        }
+
+        $sql = 'SELECT ' . implode(', ', $select) . " FROM {$table} ORDER BY title ASC";
+        $rows = $wpdb->get_results($sql, ARRAY_A) ?: [];
+
+        $out = [];
+        foreach ($rows as $row) {
+            $type = (string) ($row['type'] ?? '');
+            if (in_array($type, ['course', 'courses'], true)) {
+                continue;
+            }
+            $status = strtolower((string) ($row['status'] ?? ''));
+            if (in_array($status, ['draft', 'archived', 'deleted', 'trashed'], true)) {
+                continue;
+            }
+            $out[] = [
+                'id' => (int) $row['id'],
+                'title' => (string) $row['title'],
+                'slug' => (string) ($row['slug'] ?? ''),
+                'privacy' => (string) ($row['privacy'] ?? ''),
+                'type' => $type,
+                'logo' => $this->space_image_url($row),
+            ];
+        }
+
+        return $out;
+    }
+
+    public function space_map(): array
+    {
+        $map = [];
+        foreach ($this->list_spaces() as $space) {
+            $map[$space['id']] = $space;
+        }
+
+        return $map;
+    }
+
+    public function user_payload(int $user_id): array
+    {
+        $user = get_userdata($user_id);
+        if (!$user) {
+            return [
+                'id' => $user_id,
+                'display_name' => 'Mitglied #' . $user_id,
+                'avatar' => '',
+            ];
+        }
+
+        return [
+            'id' => $user_id,
+            'display_name' => (string) $user->display_name,
+            'avatar' => $this->user_avatar_url($user_id),
+        ];
+    }
+
+    private function user_avatar_url(int $user_id): string
+    {
+        global $wpdb;
+        $url = '';
+        $table = $wpdb->prefix . 'fcom_xprofile';
+        $suppress = $wpdb->suppress_errors(true);
+        $row = $wpdb->get_row(
+            $wpdb->prepare("SELECT avatar FROM {$table} WHERE user_id = %d", $user_id),
+            ARRAY_A
+        );
+        $wpdb->suppress_errors($suppress);
+        if (is_array($row)) {
+            $url = $this->normalize_logo((string) ($row['avatar'] ?? ''));
+        }
+        if ($url === '') {
+            $url = (string) (get_avatar_url($user_id, ['size' => 96]) ?: '');
+        }
+        if ($url === '') {
+            return '';
+        }
+        $url .= (strpos($url, '?') === false ? '?' : '&') . 'ochv=' . rawurlencode(substr(sha1($url), 0, 8));
+
+        return $url;
+    }
+
+    private function space_image_url(array $row): string
+    {
+        $candidates = [
+            $row['logo'] ?? '',
+            $row['logo_url'] ?? '',
+            $row['icon'] ?? '',
+            $row['cover_photo'] ?? '',
+            $row['featured_image'] ?? '',
+        ];
+        $settings = $row['settings'] ?? '';
+        if (is_string($settings) && $settings !== '') {
+            $decoded = json_decode($settings, true);
+            if (!is_array($decoded) && is_string($settings)) {
+                $maybe = maybe_unserialize($settings);
+                $decoded = is_array($maybe) ? $maybe : [];
+            }
+            if (is_array($decoded)) {
+                foreach (['logo', 'logo_url', 'icon', 'cover_photo', 'featured_image', 'image', 'avatar'] as $key) {
+                    if (!empty($decoded[$key])) {
+                        $candidates[] = $decoded[$key];
+                    }
+                }
+            }
+        }
+
+        foreach ($candidates as $raw) {
+            $url = $this->normalize_logo(is_array($raw) ? wp_json_encode($raw) : (string) $raw);
+            if ($url !== '') {
+                return $url;
+            }
+        }
+
+        return '';
+    }
+
+    private function normalize_logo(string $logo): string
+    {
+        $logo = trim($logo);
+        if ($logo === '' || $logo === 'null' || $logo === '[]' || $logo === '{}') {
+            return '';
+        }
+
+        if ($logo[0] === '{' || $logo[0] === '[') {
+            $json = json_decode($logo, true);
+            if (is_array($json)) {
+                foreach (['url', 'src', 'logo', 'cover_photo', 'full', 'medium', 'thumbnail'] as $key) {
+                    if (!empty($json[$key]) && is_string($json[$key])) {
+                        $found = $this->normalize_logo($json[$key]);
+                        if ($found !== '') {
+                            return $found;
+                        }
+                    }
+                }
+                foreach (['id', 'attachment_id', 'image_id'] as $key) {
+                    if (!empty($json[$key]) && is_numeric($json[$key])) {
+                        $url = wp_get_attachment_image_url((int) $json[$key], 'medium');
+                        if (!$url) {
+                            $url = wp_get_attachment_image_url((int) $json[$key], 'thumbnail');
+                        }
+                        if ($url) {
+                            return esc_url_raw($url);
+                        }
+                    }
+                }
+            }
+        }
+
+        $unserialized = maybe_unserialize($logo);
+        if (is_array($unserialized)) {
+            return $this->normalize_logo((string) wp_json_encode($unserialized));
+        }
+
+        if (str_starts_with($logo, 'http://') || str_starts_with($logo, 'https://') || str_starts_with($logo, '//')) {
+            return esc_url_raw($logo);
+        }
+        if (is_numeric($logo)) {
+            $url = wp_get_attachment_image_url((int) $logo, 'medium')
+                ?: wp_get_attachment_image_url((int) $logo, 'thumbnail');
+            return $url ? esc_url_raw($url) : '';
+        }
+        if (str_starts_with($logo, '/')) {
+            return esc_url_raw(home_url($logo));
+        }
+        if (str_contains($logo, 'wp-content/uploads')) {
+            return esc_url_raw(home_url('/' . ltrim($logo, '/')));
+        }
+
+        return '';
+    }
+
+    private function table_if_exists(string $table): ?string
+    {
+        global $wpdb;
+        $found = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table));
+        return $found === $table ? $table : null;
+    }
+}

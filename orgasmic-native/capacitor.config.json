@@ -1,0 +1,42 @@
+{
+  "appId": "live.lo.community",
+  "appName": "LO Community",
+  "webDir": "www",
+  "server": {
+    "url": "https://community.orgasmic.live/portal",
+    "androidScheme": "https",
+    "cleartext": false,
+    "allowNavigation": [
+      "community.orgasmic.live",
+      "*.orgasmic.live"
+    ]
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "ios": {
+    "contentInset": "never",
+    "preferredContentMode": "mobile",
+    "scheme": "App",
+    "limitsNavigationsToAppBoundDomains": false,
+    "backgroundColor": "#ffffff"
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    },
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "launchFadeOutDuration": 200,
+      "backgroundColor": "#121c30",
+      "androidScaleType": "CENTER_CROP",
+      "splashFullScreen": true,
+      "splashImmersive": true
+    },
+    "StatusBar": {
+      "overlaysWebView": false,
+      "style": "LIGHT",
+      "backgroundColor": "#ffffff"
+    }
+  }
+}

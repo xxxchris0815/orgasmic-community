@@ -1,0 +1,2237 @@
+(function () {
+  const cfg = window.OrgasmicFcChat || {};
+  if (!cfg.root) return;
+
+  const EMOJI = ['😀', '😍', '🔥', '❤️', '😂', '👍', '🙏', '🎉', '😢', '😮', '🤝', '✨', '💋', '🥵', '🌙', '✅'];
+
+  const state = {
+    rooms: [],
+    messages: [],
+    authors: {},
+    spaceId: 0,
+    me: cfg.me || { id: 0 },
+    portal: {
+      subtitle: cfg.subtitle || '',
+      appearance: cfg.appearance || 'auto',
+      accent: cfg.accent || '',
+      bg: cfg.bg || '',
+      text: cfg.text || '',
+      card: cfg.card || '',
+      mine: cfg.mine || '',
+      theirs: cfg.theirs || '',
+      maxLength: cfg.maxLength || 2000,
+    },
+    unread: cfg.unread || 0,
+    canManage: !!cfg.canManage,
+    query: '',
+    error: '',
+    selectMode: false,
+    selected: {},
+    replyTo: null,
+    emojiOpen: false,
+    pendingImage: null,
+    recording: false,
+    recordSeconds: 0,
+    offline: false,
+    filter: 'all',
+    loadingRooms: false,
+    loadingThread: false,
+    sending: false,
+    hasOlder: false,
+    loadingOlder: false,
+  };
+
+  const PAGE = 40;
+
+  let unreadTimer = null;
+  let threadTimer = null;
+  let lastId = 0;
+  let mediaRecorder = null;
+  let mediaStream = null;
+  let recordTimer = null;
+  let recordChunks = [];
+  let usingNativeVoice = false;
+  let voiceAudio = null;
+  let voiceBtn = null;
+  let voiceSource = null;
+  let voiceStartedAt = 0;
+  let voiceDuration = 0;
+  let voiceRaf = 0;
+  let voiceObjectUrl = '';
+  let audioCtx = null;
+  let voiceRate = 1;
+  let voicePlayRate = 1;
+  let voiceBuffer = null;
+  let voiceOffset = 0;
+  let voiceNodes = [];
+  let bootSeq = 0;
+  const MEDIA_CACHE = 'orgasmic-chat-media-v1';
+  const MAX_VOICE = cfg.maxVoiceSeconds || 90;
+  const RATES = [1, 1.5, 2];
+
+  function $(sel, root) {
+    return (root || document).querySelector(sel);
+  }
+
+  function escapeHtml(str) {
+    return String(str || '').replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
+  }
+
+  function linkify(str) {
+    const escaped = escapeHtml(str);
+    return escaped.replace(/(https?:\/\/[^\s<]+)/g, (url) => {
+      if (!/^https?:\/\//i.test(url)) return url;
+      return '<a href="' + url + '" target="_blank" rel="noopener noreferrer">' + url + '</a>';
+    });
+  }
+
+  function initial(name) {
+    const text = String(name || '?').trim();
+    return escapeHtml(text.slice(0, 1).toUpperCase() || '?');
+  }
+
+  function avatarHtml(url, name, cls) {
+    if (url) {
+      return '<img class="' + cls + '" src="' + escapeHtml(url) + '" alt="" data-och-fallback="' + initial(name) + '" />';
+    }
+    return '<span class="' + cls + '" aria-hidden="true">' + initial(name) + '</span>';
+  }
+
+  function rememberAuthors(items) {
+    (items || []).forEach((item) => {
+      if (item && item.author && item.user_id) {
+        state.authors[item.user_id] = item.author;
+      }
+      const last = item && item.last_message;
+      if (last && last.author && last.user_id) {
+        state.authors[last.user_id] = last.author;
+      }
+      const reply = item && item.reply;
+      if (reply && reply.author && reply.user_id) {
+        state.authors[reply.user_id] = reply.author;
+      }
+    });
+    if (state.me && state.me.id) {
+      state.authors[state.me.id] = {
+        id: state.me.id,
+        display_name: state.me.display_name || 'Du',
+        avatar: state.me.avatar || (state.authors[state.me.id] && state.authors[state.me.id].avatar) || '',
+      };
+    }
+  }
+
+  function authorFor(msg) {
+    return (msg && state.authors[msg.user_id]) || (msg && msg.author) || {};
+  }
+
+  function bindAvatarFallback(root) {
+    (root || document).querySelectorAll('#orgasmic-chat-root img.och-avatar[data-och-fallback]').forEach((img) => {
+      if (img.getAttribute('data-och-bound')) return;
+      img.setAttribute('data-och-bound', '1');
+      img.addEventListener('error', () => {
+        const span = document.createElement('span');
+        span.className = img.className;
+        span.textContent = img.getAttribute('data-och-fallback') || '?';
+        span.setAttribute('aria-hidden', 'true');
+        img.replaceWith(span);
+      });
+    });
+  }
+
+  function fmtTime(iso) {
+    if (!iso) return '';
+    const date = parseUtc(iso);
+    if (!date) return '';
+    return new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' }).format(date);
+  }
+
+  function fmtRelative(iso) {
+    const date = parseUtc(iso);
+    if (!date) return '';
+    const sec = Math.max(0, (Date.now() - date.getTime()) / 1000);
+    if (sec < 45) return 'jetzt';
+    if (sec < 3600) return Math.floor(sec / 60) + ' Min';
+    if (sec < 86400) return Math.floor(sec / 3600) + ' Std';
+    if (sec < 7 * 86400) return Math.floor(sec / 86400) + ' T';
+    if (sec < 30 * 86400) return Math.floor(sec / 604800) + ' Wo';
+    return new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: 'short' }).format(date);
+  }
+
+  function fmtAgo(iso) {
+    const rel = fmtRelative(iso);
+    if (!rel) return '';
+    if (rel === 'jetzt') return 'gerade eben';
+    return 'vor ' + rel;
+  }
+
+  function fmtDay(iso) {
+    const date = parseUtc(iso);
+    if (!date) return '';
+    return new Intl.DateTimeFormat('de-DE', {
+      weekday: 'short',
+      day: '2-digit',
+      month: 'short',
+    }).format(date);
+  }
+
+  function parseUtc(iso) {
+    if (!iso) return null;
+    const raw = String(iso).includes('T') ? iso : String(iso).replace(' ', 'T') + 'Z';
+    const date = new Date(raw);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  function solidBackground() {
+    let el = document.body;
+    while (el) {
+      const bg = getComputedStyle(el).backgroundColor;
+      if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') return bg;
+      el = el.parentElement;
+    }
+    return '#ffffff';
+  }
+
+  function applyPortal(data) {
+    if (!data) return;
+    ['subtitle', 'appearance', 'accent', 'bg', 'text', 'card', 'mine', 'theirs'].forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(data, key)) state.portal[key] = data[key] || '';
+    });
+    if (data.max_length) state.portal.maxLength = data.max_length;
+    const sub = $('[data-och-subtitle]');
+    if (sub) {
+      sub.textContent = state.portal.subtitle || '';
+      sub.hidden = !state.portal.subtitle;
+    }
+    const root = document.getElementById('orgasmic-chat-root');
+    if (root && !root.hidden) applyTheme(root);
+  }
+
+  function applyTheme(root) {
+    const cs = getComputedStyle(document.body);
+    root.style.setProperty('--och-portal-bg', solidBackground());
+    root.style.setProperty('--och-portal-text', cs.color || '#1d2327');
+    const overlay = root.querySelector('.orgasmic-chat-overlay');
+    if (!overlay) return;
+    overlay.classList.remove('och-theme-auto', 'och-theme-light', 'och-theme-dark');
+    overlay.classList.add('och-theme-' + (state.portal.appearance || 'auto'));
+    const map = {
+      accent: '--och-accent-set',
+      bg: '--och-bg',
+      text: '--och-text',
+      card: '--och-card',
+      mine: '--och-mine',
+      theirs: '--och-theirs',
+    };
+    Object.keys(map).forEach((key) => {
+      const value = state.portal[key];
+      if (!value || (key === 'mine' && /^#([fF]{3}|[fF]{6})$/.test(value))) {
+        overlay.style.removeProperty(map[key]);
+        return;
+      }
+      overlay.style.setProperty(map[key], value);
+    });
+  }
+
+  async function api(path, options) {
+    const opts = Object.assign({
+      credentials: 'same-origin',
+      headers: {
+        'X-WP-Nonce': cfg.nonce,
+        Accept: 'application/json',
+      },
+    }, options || {});
+    if (opts.body && !(opts.body instanceof FormData) && !opts.headers['Content-Type']) {
+      opts.headers['Content-Type'] = 'application/json';
+    }
+    const res = await fetch(cfg.root + path.replace(/^\//, ''), opts);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.message || 'Fehler ' + res.status);
+    }
+    return data;
+  }
+
+  function cacheUid() {
+    return String((state.me && state.me.id) || (cfg.me && cfg.me.id) || 0);
+  }
+
+  function cacheGet(key) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function cacheSet(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) {
+      /* quota */
+    }
+  }
+
+  async function mediaStore() {
+    if (!('caches' in window)) return null;
+    try {
+      return await caches.open(MEDIA_CACHE);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function mediaMatch(url) {
+    const cache = await mediaStore();
+    if (!cache || !url) return null;
+    try {
+      return await cache.match(url);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function mediaPut(url, buffer, type) {
+    const cache = await mediaStore();
+    if (!cache || !url || !buffer) return;
+    try {
+      await cache.put(url, new Response(buffer, {
+        headers: { 'Content-Type': type || 'application/octet-stream' },
+      }));
+    } catch (e) {}
+  }
+
+  async function mediaBytes(url) {
+    if (!url) return null;
+    const hit = await mediaMatch(url);
+    if (hit) {
+      return {
+        buffer: await hit.arrayBuffer(),
+        type: (hit.headers.get('Content-Type') || '').split(';')[0],
+      };
+    }
+    const res = await fetch(url, { credentials: 'same-origin' });
+    if (!res.ok) return null;
+    const type = (res.headers.get('content-type') || '').split(';')[0];
+    const buffer = await res.arrayBuffer();
+    await mediaPut(url, buffer, type);
+    return { buffer: buffer, type: type };
+  }
+
+  function prefetchAttachments(messages) {
+    (messages || []).forEach((msg) => {
+      const url = msg && msg.attachment && msg.attachment.url;
+      if (!url) return;
+      mediaMatch(url).then((hit) => {
+        if (hit) return;
+        mediaBytes(url).catch(() => {});
+      });
+    });
+  }
+
+  function hydrateImages() {
+    document.querySelectorAll('#orgasmic-chat-root img.och-photo').forEach(async (img) => {
+      const url = img.getAttribute('data-och-src') || img.getAttribute('src');
+      if (!url) return;
+      img.setAttribute('data-och-src', url);
+      const hit = await mediaMatch(url);
+      if (!hit) return;
+      const blob = await hit.blob();
+      img.src = URL.createObjectURL(blob);
+    });
+  }
+
+  function getAudioCtx() {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) return null;
+    if (!audioCtx) audioCtx = new Ctor();
+    return audioCtx;
+  }
+
+  function audioMime(type) {
+    const t = String(type || '').toLowerCase();
+    if (!t || t === 'video/webm' || t === 'application/octet-stream') return 'audio/webm';
+    return t;
+  }
+
+  function setOffline(on) {
+    state.offline = !!on;
+    const el = $('[data-och-offline]');
+    if (el) el.hidden = !state.offline;
+  }
+
+  function nativePlugins() {
+    return (window.Capacitor && window.Capacitor.Plugins) || {};
+  }
+
+  function attachPreview(att) {
+    if (!att) return '';
+    if (att.kind === 'audio' || (att.mime && (String(att.mime).indexOf('audio/') === 0 || att.mime === 'video/webm'))) {
+      return '🎤 Sprachnachricht';
+    }
+    return '📷 Bild';
+  }
+
+  function fmtDuration(sec) {
+    const n = Math.max(0, parseInt(sec, 10) || 0);
+    return Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0');
+  }
+
+  function base64ToFile(b64, mime, name) {
+    const raw = atob(b64);
+    const bytes = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i += 1) bytes[i] = raw.charCodeAt(i);
+    return new File([bytes], name, { type: mime || 'application/octet-stream' });
+  }
+
+  function badgeText(n) {
+    if (n < 1) return '';
+    return n > 99 ? '99+' : String(n);
+  }
+
+  function paintNavIcons() {
+    const svg = cfg.navIcon;
+    if (!svg) return;
+    document.querySelectorAll('.orgasmic-chat-nav a, a[data-orgasmic-chat], a[href*="#orgasmic-chat"]').forEach((host) => {
+      host.querySelectorAll('.el-icon, i[class*="el-icon"]').forEach((node) => {
+        if (!node.querySelector('path, rect, circle')) node.remove();
+      });
+      const existing = host.querySelector('svg');
+      if (existing && existing.querySelector('path, rect, circle')) return;
+      if (existing) existing.remove();
+      host.insertAdjacentHTML('afterbegin', svg);
+    });
+  }
+
+  function watchNavIcons() {
+    let scheduled = 0;
+    const run = () => {
+      scheduled = 0;
+      paintNavIcons();
+    };
+    const schedule = () => {
+      if (scheduled) return;
+      scheduled = requestAnimationFrame(run);
+    };
+    paintNavIcons();
+    [200, 800, 2000].forEach((ms) => setTimeout(paintNavIcons, ms));
+    if (typeof MutationObserver === 'undefined' || !document.body) return;
+    const obs = new MutationObserver(schedule);
+    obs.observe(document.body, { childList: true, subtree: true });
+    setTimeout(() => obs.disconnect(), 8000);
+  }
+
+  function updateNavBadge(total) {
+    state.unread = total;
+    const nodes = document.querySelectorAll('.orgasmic-chat-nav, a[data-orgasmic-chat], a[href*="#orgasmic-chat"]');
+    nodes.forEach((el) => {
+      const node = el.classList && el.classList.contains('orgasmic-chat-nav') ? el : el.closest('.orgasmic-chat-nav') || el;
+      node.classList.toggle('has-unread', total > 0);
+      const link = node.tagName === 'A' ? node : node.querySelector('a') || node;
+      if (!link) return;
+      let badge = link.querySelector('[data-orgasmic-chat-badge]');
+      if (total > 0) {
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'och-nav-badge';
+          badge.setAttribute('data-orgasmic-chat-badge', '1');
+          link.appendChild(badge);
+        }
+        badge.textContent = badgeText(total);
+      } else if (badge) {
+        badge.remove();
+      }
+      if (link.getAttribute('aria-label') !== null || node.classList.contains('orgasmic-chat-nav')) {
+        link.setAttribute('aria-label', total > 0 ? 'Chat, ' + total + ' ungelesen' : 'Chat');
+      }
+    });
+  }
+
+  function hashRoute() {
+    const hash = location.hash || '';
+    if (hash === '#orgasmic-chat') return { spaceId: 0 };
+    const match = hash.match(/^#orgasmic-chat-(\d+)$/);
+    if (match) return { spaceId: parseInt(match[1], 10) };
+    return null;
+  }
+
+  function applyMobileBarInset() {
+    let height = 0;
+    if (window.matchMedia('(max-width: 760px)').matches) {
+      const skip = '#orgasmic-chat-root, #orgasmic-cal-root, #orgasmic-app-prefs';
+      const selectors = [
+        '.fcom_mobile_menu',
+        '.fcom-mobile-menu',
+        '.fcom_mobile_nav',
+        '.fcom-mobile-nav',
+        '.fluent_community_mobile_menu',
+        '[class*="mobile_menu"]',
+        '[class*="mobile-menu"]',
+        '[class*="bottom-nav"]',
+        '[class*="bottom_nav"]',
+      ];
+      const seen = new Set();
+      selectors.forEach((sel) => {
+        document.querySelectorAll(sel).forEach((el) => {
+          if (el.closest(skip) || seen.has(el)) return;
+          const st = getComputedStyle(el);
+          if (st.display === 'none' || st.visibility === 'hidden') return;
+          if (st.position !== 'fixed' && st.position !== 'sticky') return;
+          const r = el.getBoundingClientRect();
+          if (r.height >= 46 && r.height <= 96 && r.width >= window.innerWidth * 0.55 && r.bottom >= window.innerHeight - 8) {
+            seen.add(el);
+            height = Math.max(height, Math.ceil(r.height));
+          }
+        });
+      });
+      if (!height) height = 56;
+    }
+    document.documentElement.style.setProperty('--orgasmic-mobile-bar', height + 'px');
+  }
+
+  function isFluentBottomNav(node) {
+    return !!(node && node.closest && node.closest(
+      '.fcom_mobile_menu, .fcom-mobile-menu, .fcom_mobile_nav, .fcom-mobile-nav, .fluent_community_mobile_menu, [class*="mobile_menu"], [class*="mobile-menu"], [class*="bottom-nav"], [class*="bottom_nav"]'
+    ));
+  }
+
+  let pageLockY = 0;
+  let closedLayoutH = 0;
+
+  function isTextField(el) {
+    if (!el || !el.tagName) return false;
+    if (el.tagName === 'TEXTAREA' || el.isContentEditable) return true;
+    if (el.tagName !== 'INPUT') return false;
+    const type = (el.type || 'text').toLowerCase();
+    return ['button', 'checkbox', 'radio', 'file', 'submit', 'reset', 'hidden', 'range', 'color'].indexOf(type) === -1;
+  }
+
+  function keyboardOpen(root) {
+    const el = document.activeElement;
+    if (el && root.contains(el) && isTextField(el)) return true;
+    const vv = window.visualViewport;
+    if (vv) {
+      const covered = Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0));
+      if (covered > 60) return true;
+    }
+    // Android adjustResize shrinks window.innerHeight to the area above the keyboard,
+    // so visualViewport "covered" stays ~0 and the old 80px check never fired.
+    if (closedLayoutH > 0 && window.innerHeight < closedLayoutH - 80) return true;
+    return false;
+  }
+
+  function lockPageForOverlay() {
+    pageLockY = window.scrollY || window.pageYOffset || 0;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = '-' + pageLockY + 'px';
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
+  }
+
+  function unlockPageForOverlay() {
+    document.documentElement.style.overflow = '';
+    document.body.style.overflow = '';
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.left = '';
+    document.body.style.right = '';
+    document.body.style.width = '';
+    window.scrollTo(0, pageLockY || 0);
+  }
+
+  function pinOverlayToViewport() {
+    const root = document.getElementById('orgasmic-chat-root');
+    if (!root || root.hidden) return;
+    const kb = keyboardOpen(root);
+    if (!kb) applyMobileBarInset();
+    const vv = window.visualViewport;
+    const visTop = vv ? Math.max(0, vv.offsetTop || 0) : 0;
+    const visH = vv ? vv.height : window.innerHeight;
+    let bar = 0;
+    if (!kb) {
+      bar = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--orgasmic-mobile-bar')) || 0;
+    }
+    document.documentElement.classList.toggle('orgasmic-chat-keyboard', kb);
+    root.classList.toggle('is-keyboard', kb);
+    root.style.left = '0px';
+    root.style.right = '0px';
+    root.style.width = '100%';
+    root.style.transform = 'none';
+    root.style.top = visTop + 'px';
+    if (kb) {
+      root.style.bottom = '0px';
+      root.style.height = Math.ceil(visH) + 'px';
+    } else {
+      root.style.bottom = bar + 'px';
+      root.style.height = Math.max(120, Math.ceil(visH - bar)) + 'px';
+    }
+  }
+
+  function clearOverlayPin() {
+    const root = document.getElementById('orgasmic-chat-root');
+    document.documentElement.classList.remove('orgasmic-chat-open', 'orgasmic-chat-keyboard');
+    closedLayoutH = 0;
+    if (!root) return;
+    root.classList.remove('is-keyboard');
+    root.style.top = '';
+    root.style.left = '';
+    root.style.right = '';
+    root.style.bottom = '';
+    root.style.height = '';
+    root.style.width = '';
+    root.style.transform = '';
+  }
+
+  function openOverlay() {
+    const root = document.getElementById('orgasmic-chat-root');
+    if (!root) return;
+    applyMobileBarInset();
+    closedLayoutH = window.innerHeight;
+    document.documentElement.classList.add('orgasmic-chat-open');
+    root.hidden = false;
+    lockPageForOverlay();
+    pinOverlayToViewport();
+  }
+
+  function closeOverlay() {
+    const root = document.getElementById('orgasmic-chat-root');
+    if (!root) return;
+    hideMsgMenu();
+    state.replyTo = null;
+    clearOverlayPin();
+    root.hidden = true;
+    root.innerHTML = '';
+    unlockPageForOverlay();
+    state.spaceId = 0;
+    state.messages = [];
+    lastId = 0;
+    stopThreadPoll();
+    stopVoicePlayback();
+    cancelVoice(true);
+    state.selectMode = false;
+    state.selected = {};
+    if ((location.hash || '').indexOf('orgasmic-chat') === 1) {
+      history.replaceState(null, '', location.pathname + location.search);
+    }
+  }
+
+  function roomById(id) {
+    return state.rooms.find((r) => r.space_id === id) || null;
+  }
+
+  function filteredRooms() {
+    let rooms = state.rooms;
+    if (state.filter === 'unread') {
+      rooms = rooms.filter((r) => r.unread > 0);
+    }
+    const q = state.query.trim().toLowerCase();
+    if (!q) return rooms;
+    return rooms.filter((r) => String(r.title || '').toLowerCase().includes(q));
+  }
+
+  function roomsHtml() {
+    if (state.loadingRooms && !state.rooms.length) {
+      return '<div class="och-loading">Chats werden geladen…</div>';
+    }
+    const rooms = filteredRooms();
+    if (!rooms.length) {
+      return '<div class="orgasmic-chat-empty">'
+        + (state.filter === 'unread' ? 'Keine ungelesenen Chats.' : 'Keine Chats in deinen Kreisen.')
+        + '</div>';
+    }
+    return rooms.map((room) => {
+      const last = room.last_message || {};
+      const preview = last.preview || last.body || (last.attachment ? attachPreview(last.attachment) : 'Noch keine Nachrichten');
+      const who = last.author && last.author.display_name ? last.author.display_name + ': ' : '';
+      return '<div class="orgasmic-chat-room' + (state.spaceId === room.space_id ? ' is-active' : '') + '" role="button" tabindex="0" data-och-room="' + room.space_id + '">'
+        + avatarHtml(room.logo, room.title, 'och-avatar')
+        + '<span class="och-copy"><span class="och-name">' + escapeHtml(room.title) + '</span>'
+        + '<span class="och-preview">' + escapeHtml((who + preview).slice(0, 90)) + '</span></span>'
+        + '<span class="och-meta"><span class="och-time">' + escapeHtml(fmtRelative(last.created_at)) + '</span>'
+        + (room.unread > 0 ? '<span class="och-unread">' + escapeHtml(badgeText(room.unread)) + '</span>' : '')
+        + '</span></div>';
+    }).join('');
+  }
+
+  function iconSvg(path) {
+    return '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + path + '</svg>';
+  }
+
+  function sendIcon() {
+    return '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 4.4 5.7 10.7l1.4 1.4L11 8.2V20h2V8.2l3.9 3.9 1.4-1.4z"></path></svg>';
+  }
+
+  function trashIcon() {
+    return iconSvg('<path d="M4 7h16M9 7V5h6v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M10 11v6M14 11v6"></path>');
+  }
+
+  function rateLabel() {
+    return (voiceRate === 1 ? '1' : String(voiceRate)) + 'x';
+  }
+
+  function waveBarsHtml(seed, count) {
+    const n = count || 36;
+    let x = 2166136261;
+    const s = String(seed || 'voice');
+    for (let i = 0; i < s.length; i += 1) {
+      x ^= s.charCodeAt(i);
+      x = Math.imul(x, 16777619);
+    }
+    let html = '';
+    for (let i = 0; i < n; i += 1) {
+      x = Math.imul(x, 16807) >>> 0;
+      html += '<i style="height:' + (22 + (x % 72)) + '%"></i>';
+    }
+    return html;
+  }
+
+  function playIcon() {
+    return '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M8 5.2v13.6L19 12z"></path></svg>';
+  }
+
+  function pauseIcon() {
+    return '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M7 5h4v14H7zm6 0h4v14h-4z"></path></svg>';
+  }
+
+  function voicePlayerHtml(url, duration) {
+    const len = duration || 0;
+    return '<div class="och-voice">'
+      + '<button type="button" class="och-voice-play" data-och-play="' + escapeHtml(url) + '" aria-label="Abspielen">' + playIcon() + '</button>'
+      + '<span class="och-voice-wave" aria-hidden="true">' + waveBarsHtml(url, 40) + '</span>'
+      + '<span class="och-voice-dur" data-och-voice-dur data-och-len="' + len + '">' + escapeHtml(fmtDuration(len)) + '</span>'
+      + '<button type="button" class="och-voice-rate" data-och-rate aria-label="Tempo">' + escapeHtml(rateLabel()) + '</button>'
+      + '</div>';
+  }
+
+  function stopVoiceNodes() {
+    voiceNodes.forEach((node) => {
+      try {
+        node.onended = null;
+        if (node.stop) node.stop();
+        if (node.disconnect) node.disconnect();
+      } catch (e) {}
+    });
+    voiceNodes = [];
+    voiceSource = null;
+  }
+
+  function stopVoicePlayback() {
+    if (voiceRaf) {
+      cancelAnimationFrame(voiceRaf);
+      voiceRaf = 0;
+    }
+    stopVoiceNodes();
+    voiceBuffer = null;
+    voiceOffset = 0;
+    voicePlayRate = 1;
+    if (voiceAudio) {
+      try { voiceAudio.pause(); } catch (e) {}
+      if (voiceAudio.parentNode) voiceAudio.parentNode.removeChild(voiceAudio);
+      voiceAudio = null;
+    }
+    if (voiceObjectUrl) {
+      URL.revokeObjectURL(voiceObjectUrl);
+      voiceObjectUrl = '';
+    }
+    if (voiceBtn) {
+      voiceBtn.classList.remove('is-playing');
+      voiceBtn.setAttribute('aria-label', 'Abspielen');
+      voiceBtn.innerHTML = playIcon();
+      const wave = voiceBtn.parentElement && voiceBtn.parentElement.querySelector('.och-voice-wave');
+      if (wave) wave.querySelectorAll('i').forEach((bar) => bar.classList.remove('is-on'));
+      const label = voiceBtn.parentElement && voiceBtn.parentElement.querySelector('[data-och-voice-dur]');
+      if (label) label.textContent = fmtDuration(parseInt(label.getAttribute('data-och-len'), 10) || 0);
+      voiceBtn = null;
+    }
+  }
+
+  function paintVoiceProgress(btn, current, total) {
+    const card = btn.parentElement;
+    const wave = card && card.querySelector('.och-voice-wave');
+    const label = card && card.querySelector('[data-och-voice-dur]');
+    const bars = wave ? wave.querySelectorAll('i') : [];
+    const ratio = total ? Math.min(1, current / total) : 0;
+    bars.forEach((bar, i) => {
+      bar.classList.toggle('is-on', i <= Math.round((bars.length - 1) * ratio));
+    });
+    if (label) {
+      const remain = total ? Math.max(0, Math.round(total - current)) : parseInt(label.getAttribute('data-och-len'), 10) || 0;
+      label.textContent = fmtDuration(remain);
+    }
+  }
+
+  function lockPitch(audio) {
+    if (!audio) return;
+    audio.preservesPitch = true;
+    audio.mozPreservesPitch = true;
+    audio.webkitPreservesPitch = true;
+  }
+
+  function paintRateButtons() {
+    document.querySelectorAll('#orgasmic-chat-root [data-och-rate]').forEach((el) => {
+      el.textContent = rateLabel();
+    });
+  }
+
+  function currentVoicePos() {
+    const ctx = audioCtx;
+    if (!ctx || !voiceStartedAt) return voiceOffset;
+    return Math.min(voiceDuration || 0, voiceOffset + Math.max(0, ctx.currentTime - voiceStartedAt) * voicePlayRate);
+  }
+
+  function startDecodedPlayback(ctx, buffer, from, rate, onEnded) {
+    stopVoiceNodes();
+    voiceBuffer = buffer;
+    voiceDuration = buffer.duration || 0;
+    voiceOffset = Math.max(0, Math.min(voiceDuration, from || 0));
+    voicePlayRate = rate || 1;
+    if (voiceOffset >= voiceDuration - 0.02) {
+      if (onEnded) onEnded();
+      return;
+    }
+
+    if (voicePlayRate === 1) {
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      src.connect(ctx.destination);
+      src.onended = onEnded;
+      src.start(0, voiceOffset);
+      voiceSource = src;
+      voiceNodes = [src];
+      voiceStartedAt = ctx.currentTime;
+      return;
+    }
+
+    const grain = 0.09;
+    const overlap = 0.5;
+    const outHop = grain * (1 - overlap);
+    const inHop = outHop * voicePlayRate;
+    const fade = 0.016;
+    const master = ctx.createGain();
+    master.connect(ctx.destination);
+    voiceStartedAt = ctx.currentTime + 0.015;
+    let offset = voiceOffset;
+    let i = 0;
+    let last = null;
+    while (offset < voiceDuration - 0.012) {
+      const dur = Math.min(grain, voiceDuration - offset);
+      if (dur < 0.02) break;
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      src.playbackRate.value = 1;
+      const g = ctx.createGain();
+      const t = voiceStartedAt + i * outHop;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(1, t + fade);
+      g.gain.setValueAtTime(1, Math.max(t + fade, t + dur - fade));
+      g.gain.linearRampToValueAtTime(0.0001, t + dur);
+      src.connect(g);
+      g.connect(master);
+      src.start(t, offset, dur);
+      src.stop(t + dur + 0.006);
+      last = src;
+      voiceNodes.push(src);
+      offset += inHop;
+      i += 1;
+    }
+    voiceNodes.push(master);
+    voiceSource = last || master;
+    if (last) last.onended = onEnded;
+  }
+
+  function applyVoiceRate() {
+    paintRateButtons();
+    if (voiceBuffer && voiceBtn && getAudioCtx()) {
+      const btn = voiceBtn;
+      startDecodedPlayback(getAudioCtx(), voiceBuffer, currentVoicePos(), voiceRate, () => {
+        if (voiceBtn === btn) stopVoicePlayback();
+      });
+      return;
+    }
+    if (voiceAudio) {
+      lockPitch(voiceAudio);
+      voiceAudio.defaultPlaybackRate = voiceRate;
+      voiceAudio.playbackRate = voiceRate;
+    }
+  }
+
+  function cycleVoiceRate() {
+    voiceRate = RATES[(RATES.indexOf(voiceRate) + 1) % RATES.length] || 1;
+    applyVoiceRate();
+  }
+
+  async function playViaElement(btn, buffer, mime) {
+    const blob = new Blob([buffer], { type: mime });
+    voiceObjectUrl = URL.createObjectURL(blob);
+    const audio = document.createElement('audio');
+    audio.preload = 'auto';
+    audio.muted = false;
+    audio.defaultMuted = false;
+    audio.volume = 1;
+    audio.setAttribute('playsinline', 'true');
+    audio.src = voiceObjectUrl;
+    const root = document.getElementById('orgasmic-chat-root');
+    if (root) root.appendChild(audio);
+    lockPitch(audio);
+    const apply = () => {
+      lockPitch(audio);
+      audio.defaultPlaybackRate = voiceRate;
+      audio.playbackRate = voiceRate;
+    };
+    audio.addEventListener('loadedmetadata', apply);
+    audio.addEventListener('playing', apply);
+    await audio.play();
+    apply();
+    voiceAudio = audio;
+    voiceBtn = btn;
+    btn.classList.add('is-playing');
+    btn.setAttribute('aria-label', 'Pause');
+    btn.innerHTML = pauseIcon();
+    audio.addEventListener('timeupdate', () => {
+      if (voiceBtn !== btn) return;
+      paintVoiceProgress(btn, audio.currentTime || 0, audio.duration || 0);
+    });
+    audio.addEventListener('ended', stopVoicePlayback);
+    audio.addEventListener('error', () => {
+      stopVoicePlayback();
+      setError('Sprachnachricht konnte nicht abgespielt werden.');
+    });
+  }
+
+  async function toggleVoicePlayback(btn) {
+    const url = btn.getAttribute('data-och-play');
+    if (!url) return;
+    if (voiceBtn === btn && (voiceSource || voiceAudio || voiceNodes.length)) {
+      stopVoicePlayback();
+      return;
+    }
+    stopVoicePlayback();
+    setError('');
+    let packed = null;
+    try {
+      packed = await mediaBytes(url);
+    } catch (e) {
+      packed = null;
+    }
+    if (!packed || !packed.buffer || !packed.buffer.byteLength) {
+      setError('Sprachnachricht nicht gefunden.');
+      return;
+    }
+    const mime = audioMime(packed.type);
+    const ctx = getAudioCtx();
+    if (ctx) {
+      try {
+        if (ctx.state === 'suspended') await ctx.resume();
+        const decoded = await ctx.decodeAudioData(packed.buffer.slice(0));
+        voiceBtn = btn;
+        btn.classList.add('is-playing');
+        btn.setAttribute('aria-label', 'Pause');
+        btn.innerHTML = pauseIcon();
+        startDecodedPlayback(ctx, decoded, 0, voiceRate, () => {
+          if (voiceBtn === btn) stopVoicePlayback();
+        });
+        const tick = () => {
+          if (voiceBtn !== btn || (!voiceSource && !voiceNodes.length)) return;
+          paintVoiceProgress(btn, currentVoicePos(), voiceDuration);
+          voiceRaf = requestAnimationFrame(tick);
+        };
+        voiceRaf = requestAnimationFrame(tick);
+        return;
+      } catch (e) {}
+    }
+    try {
+      await playViaElement(btn, packed.buffer, mime);
+    } catch (e) {
+      setError('Sprachnachricht konnte nicht abgespielt werden.');
+    }
+  }
+
+  function messageHtml(msg, prevDay) {
+    const day = fmtDay(msg.created_at);
+    let html = '';
+    if (day && day !== prevDay) {
+      html += '<div class="och-day">' + escapeHtml(day) + '</div>';
+    }
+    const mine = isMine(msg);
+    const author = authorFor(msg);
+    const canDelete = mine || state.canManage;
+    const selected = !!(state.selectMode && state.selected[msg.id]);
+    const name = author.display_name || (mine ? 'Du' : 'Mitglied');
+    html += '<article class="orgasmic-chat-msg' + (mine ? ' is-mine' : '') + (canDelete ? ' is-deletable' : '') + (selected ? ' is-selected' : '') + '" data-och-msg="' + msg.id + '" data-och-uid="' + msg.user_id + '"' + (canDelete ? ' data-och-can-del="1"' : '') + '>';
+    if (canDelete) {
+      html += '<button type="button" class="och-pick" data-och-pick="' + msg.id + '" aria-label="Markieren" title="Markieren"></button>';
+    }
+    html += '<div class="och-cluster">';
+    html += avatarHtml(author.avatar, name, 'och-avatar');
+    html += '<div class="och-bubble">';
+    html += '<div class="och-msg-head"><span class="och-author">' + escapeHtml(name) + '</span>'
+      + '<span class="och-when">' + escapeHtml(fmtAgo(msg.created_at)) + '</span></div>';
+    html += quoteHtml(msg);
+    if (msg.body) html += '<div class="och-text">' + linkify(msg.body) + '</div>';
+    if (msg.attachment && (msg.attachment.kind === 'audio' || (msg.attachment.mime && String(msg.attachment.mime).indexOf('audio/') === 0) || msg.attachment.mime === 'video/webm')) {
+      html += voicePlayerHtml(msg.attachment.url, msg.attachment.duration);
+    } else if (msg.attachment && (msg.attachment.thumb || msg.attachment.url)) {
+      html += '<a href="' + escapeHtml(msg.attachment.url || msg.attachment.thumb) + '" target="_blank" rel="noopener">'
+        + '<img class="och-photo" data-och-src="' + escapeHtml(msg.attachment.thumb || msg.attachment.url) + '" src="' + escapeHtml(msg.attachment.thumb || msg.attachment.url) + '" alt="" />'
+        + '</a>';
+    }
+    html += '</div></div></article>';
+    return { html: html, day: day || prevDay };
+  }
+
+  function quotePreview(msg) {
+    if (!msg) return '';
+    if (msg.deleted) return 'Nachricht gelöscht';
+    const body = String(msg.body || '').replace(/\s+/g, ' ').trim();
+    if (body) return body.length > 90 ? body.slice(0, 89) + '…' : body;
+    if (msg.attachment) return msg.attachment.kind === 'audio' ? 'Sprachnachricht' : 'Bild';
+    return 'Nachricht';
+  }
+
+  function quoteHtml(msg) {
+    const quote = msg && msg.reply;
+    if (!quote || !quote.id) return '';
+    const who = (quote.author && quote.author.display_name)
+      || (authorFor(quote).display_name)
+      || (Number(quote.user_id) === Number(state.me && state.me.id) ? 'Du' : 'Mitglied');
+    return '<div class="och-quote" role="button" tabindex="0" data-och-jump="' + quote.id + '">'
+      + '<span class="och-quote-name">' + escapeHtml(who) + '</span>'
+      + '<span class="och-quote-body">' + escapeHtml(quotePreview(quote)) + '</span>'
+      + '</div>';
+  }
+
+  function startReply(msg) {
+    if (!msg || !msg.id) return;
+    exitSelect();
+    hideMsgMenu();
+    const author = authorFor(msg);
+    state.replyTo = {
+      id: msg.id,
+      user_id: msg.user_id,
+      body: msg.body,
+      attachment: msg.attachment,
+      author: author,
+    };
+    composerExtras();
+    const box = $('textarea[name="body"]');
+    if (box) box.focus();
+  }
+
+  function clearReply() {
+    if (!state.replyTo) return;
+    state.replyTo = null;
+    composerExtras();
+  }
+
+  function jumpToMessage(id) {
+    const el = document.querySelector('#och-scroll [data-och-msg="' + id + '"]');
+    if (!el) return;
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    el.classList.add('is-flash');
+    window.setTimeout(() => el.classList.remove('is-flash'), 1200);
+  }
+
+  function messagesHtml() {
+    if (!state.messages.length) {
+      return '<div class="orgasmic-chat-empty" data-och-empty>Schreib die erste Nachricht in diesem Kreis.</div>';
+    }
+    let lastDay = '';
+    return state.messages.map((msg) => {
+      const built = messageHtml(msg, lastDay);
+      lastDay = built.day;
+      return built.html;
+    }).join('');
+  }
+
+  function lastRenderedDay() {
+    const days = document.querySelectorAll('#och-scroll .och-day');
+    return days.length ? days[days.length - 1].textContent : '';
+  }
+
+  function appendMessages(items, stick) {
+    const scroller = $('#och-scroll');
+    if (!scroller || !items.length) return;
+    const empty = scroller.querySelector('[data-och-empty]');
+    if (empty) empty.remove();
+    let day = lastRenderedDay();
+    const wrap = document.createElement('div');
+    items.forEach((msg) => {
+      const built = messageHtml(msg, day);
+      day = built.day;
+      wrap.insertAdjacentHTML('beforeend', built.html);
+    });
+    while (wrap.firstChild) scroller.appendChild(wrap.firstChild);
+    if (stick) scroller.scrollTop = scroller.scrollHeight;
+    prefetchAttachments(items);
+    hydrateImages();
+    bindAvatarFallback();
+  }
+
+  function olderBannerHtml() {
+    if (!state.hasOlder && !state.loadingOlder) return '';
+    return '<div class="och-load-older" data-och-older>'
+      + (state.loadingOlder ? 'Lade ältere Nachrichten…' : 'Nach oben für ältere Nachrichten')
+      + '</div>';
+  }
+
+  function paintOlderBanner() {
+    const scroller = $('#och-scroll');
+    if (!scroller) return;
+    const existing = scroller.querySelector('[data-och-older]');
+    const html = olderBannerHtml();
+    if (!html) {
+      if (existing) existing.remove();
+      return;
+    }
+    if (existing) {
+      existing.outerHTML = html;
+      return;
+    }
+    scroller.insertAdjacentHTML('afterbegin', html);
+  }
+
+  function prependMessages(items) {
+    const scroller = $('#och-scroll');
+    if (!scroller || !items.length) return;
+    const empty = scroller.querySelector('[data-och-empty]');
+    if (empty) empty.remove();
+    const firstDayEl = scroller.querySelector('.och-day');
+    const firstDayText = firstDayEl ? firstDayEl.textContent : '';
+    const prevH = scroller.scrollHeight;
+    const prevTop = scroller.scrollTop;
+    let day = '';
+    let html = '';
+    items.forEach((msg) => {
+      const built = messageHtml(msg, day);
+      day = built.day;
+      html += built.html;
+    });
+    const banner = scroller.querySelector('[data-och-older]');
+    if (banner) banner.insertAdjacentHTML('afterend', html);
+    else scroller.insertAdjacentHTML('afterbegin', html);
+    if (firstDayEl && day && firstDayText === day) {
+      firstDayEl.remove();
+    }
+    scroller.scrollTop = prevTop + (scroller.scrollHeight - prevH);
+    paintOlderBanner();
+    prefetchAttachments(items);
+    hydrateImages();
+    bindAvatarFallback();
+  }
+
+  function refreshRooms() {
+    const list = $('[data-och-rooms]');
+    if (!list) return;
+    list.innerHTML = roomsHtml();
+    bindAvatarFallback();
+  }
+
+  function setSending(on) {
+    state.sending = on;
+    const btn = $('[data-och-send-btn]');
+    if (btn) {
+      btn.disabled = on;
+      btn.setAttribute('aria-label', on ? 'Senden…' : 'Senden');
+      btn.innerHTML = sendIcon();
+    }
+  }
+
+  function setError(message) {
+    state.error = message || '';
+    const box = $('[data-och-error]');
+    if (!box) return;
+    box.textContent = state.error;
+    box.hidden = !state.error;
+  }
+
+  function composerExtras() {
+    const host = $('[data-och-extras]');
+    if (!host) return;
+    let html = '';
+    if (state.replyTo) {
+      const who = (state.replyTo.author && state.replyTo.author.display_name)
+        || (Number(state.replyTo.user_id) === Number(state.me && state.me.id) ? 'Du' : 'Mitglied');
+      html += '<div class="och-reply-bar">'
+        + '<div class="och-reply-bar-accent" aria-hidden="true"></div>'
+        + '<div class="och-reply-bar-text"><strong>' + escapeHtml(who) + '</strong><span>' + escapeHtml(quotePreview(state.replyTo)) + '</span></div>'
+        + '<button type="button" class="och-icon-btn" data-och-reply-clear aria-label="Antwort verwerfen">×</button>'
+        + '</div>';
+    }
+    if (state.emojiOpen) {
+      html += '<div class="och-emoji-panel">' + EMOJI.map((e) => '<button type="button" data-och-emoji="' + e + '">' + e + '</button>').join('') + '</div>';
+    }
+    if (state.recording) {
+      html += '<div class="och-record"><span class="och-rec-dot" aria-hidden="true"></span><span>Aufnahme ' + escapeHtml(fmtDuration(state.recordSeconds)) + '</span>'
+        + '<button type="button" class="och-ghost" data-och-voice-stop>Fertig</button>'
+        + '<button type="button" class="och-ghost" data-och-voice-cancel>Abbrechen</button></div>';
+    } else if (state.pendingImage && (state.pendingImage.kind === 'audio' || (state.pendingImage.mime && String(state.pendingImage.mime).indexOf('audio/') === 0))) {
+      html += '<div class="och-pending och-pending-voice">' + voicePlayerHtml(state.pendingImage.url, state.pendingImage.duration)
+        + '<button type="button" class="och-icon-btn och-voice-discard" data-och-clear-image title="Verwerfen" aria-label="Verwerfen">' + trashIcon() + '</button></div>';
+    } else if (state.pendingImage) {
+      html += '<div class="och-pending"><img src="' + escapeHtml(state.pendingImage.thumb || state.pendingImage.url) + '" alt="" /><span>Bild angehängt</span><button type="button" class="och-ghost" data-och-clear-image>Entfernen</button></div>';
+    }
+    host.innerHTML = html;
+  }
+
+  function composerHtml(room) {
+    if (!room) return '';
+    return '<div class="orgasmic-chat-composer">'
+      + '<p class="och-sub" data-och-error hidden></p>'
+      + '<form data-och-send class="och-composer-box">'
+      + '<div data-och-extras></div>'
+      + '<textarea name="body" maxlength="' + (state.portal.maxLength || 2000) + '" placeholder="Nachricht an ' + escapeHtml(room.title) + '…" rows="1"></textarea>'
+      + '<div class="och-composer-bar">'
+      + '<div class="orgasmic-chat-tools">'
+      + '<button type="button" class="och-icon-btn" data-och-image title="Bild" aria-label="Bild">' + iconSvg('<rect x="4" y="5" width="16" height="14" rx="2"></rect><circle cx="9" cy="10" r="1.4"></circle><path d="m8 16 3-3 2 2 3-4 3 5"></path>') + '</button>'
+      + '<button type="button" class="och-icon-btn" data-och-emoji-toggle title="Emoji" aria-label="Emoji">' + iconSvg('<circle cx="12" cy="12" r="9"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"></path>') + '</button>'
+      + '<button type="button" class="och-icon-btn' + (state.recording ? ' is-rec' : '') + '" data-och-voice title="Sprachnachricht" aria-label="Sprachnachricht">' + iconSvg('<path d="M12 15a3 3 0 0 0 3-3V8a3 3 0 0 0-6 0v4a3 3 0 0 0 3 3z"></path><path d="M19 12a7 7 0 0 1-14 0M12 19v2"></path>') + '</button>'
+      + '</div>'
+      + '<button type="submit" class="och-send" data-och-send-btn aria-label="Senden"' + (state.sending ? ' disabled' : '') + '>' + sendIcon() + '</button>'
+      + '</div></form><input type="file" accept="image/*" hidden data-och-file /></div>';
+  }
+
+  function filtersHtml() {
+    return '<div class="och-filters" role="tablist">'
+      + '<button type="button" class="och-chip' + (state.filter === 'all' ? ' is-on' : '') + '" data-och-filter="all">Alle</button>'
+      + '<button type="button" class="och-chip' + (state.filter === 'unread' ? ' is-on' : '') + '" data-och-filter="unread">Ungelesen</button>'
+      + '</div>';
+  }
+
+  function isMine(msg) {
+    return Number((msg && msg.user_id) || 0) > 0 && Number(msg.user_id) === Number(state.me && state.me.id);
+  }
+
+  function threadHeaderHtml(room) {
+    if (state.selectMode) {
+      const n = Object.keys(state.selected).length;
+      return '<div class="orgasmic-chat-thread-top is-selecting">'
+        + '<button type="button" class="och-icon-btn" data-och-select-cancel aria-label="Fertig">' + iconSvg('<path d="M6 6l12 12M18 6 6 18"></path>') + '</button>'
+        + '<div class="och-thread-who"><h2>' + n + ' ausgewählt</h2><p class="och-sub">' + (isFinePointer() ? 'Klicken zum Markieren' : 'Tippen zum Markieren') + '</p></div>'
+        + '<button type="button" class="och-icon-btn" data-och-select-delete aria-label="Löschen" title="Löschen"' + (n ? '' : ' disabled') + '>' + trashIcon() + '</button></div>';
+    }
+    return '<div class="orgasmic-chat-thread-top">'
+      + '<button type="button" class="och-icon-btn orgasmic-chat-back" data-och-back aria-label="Zurück">' + iconSvg('<path d="M15 6 9 12l6 6"></path>') + '</button>'
+      + avatarHtml(room.logo, room.title, 'och-avatar')
+      + '<div class="och-thread-who"><h2>' + escapeHtml(room.title) + '</h2><p class="och-sub">Chat</p></div>'
+      + '<button type="button" class="och-icon-btn" data-och-select-start aria-label="Markieren" title="Nachrichten markieren">'
+      + iconSvg('<circle cx="12" cy="12" r="7.2"></circle><path d="m8.8 12.1 2.1 2.1 4.3-4.4"></path>') + '</button>'
+      + '<button type="button" class="och-icon-btn orgasmic-chat-thread-close" data-och-close aria-label="Schließen">'
+      + iconSvg('<path d="M6 6l12 12M18 6 6 18"></path>') + '</button></div>';
+  }
+
+  function selectedIds() {
+    return Object.keys(state.selected).map((id) => parseInt(id, 10)).filter((id) => id > 0);
+  }
+
+  function applySelectUi() {
+    const shell = $('.orgasmic-chat');
+    if (shell) {
+      shell.classList.toggle('is-thread', !!state.spaceId);
+      shell.classList.toggle('is-selecting', !!state.selectMode);
+    }
+    const room = roomById(state.spaceId);
+    const top = $('.orgasmic-chat-thread-top');
+    if (top && room) {
+      top.outerHTML = threadHeaderHtml(room);
+    }
+    document.querySelectorAll('#orgasmic-chat-root [data-och-msg]').forEach((el) => {
+      const id = el.getAttribute('data-och-msg');
+      el.classList.toggle('is-selected', !!(state.selectMode && state.selected[id]));
+    });
+  }
+
+  function exitSelect() {
+    if (!state.selectMode && !Object.keys(state.selected).length) return;
+    state.selectMode = false;
+    state.selected = {};
+    applySelectUi();
+  }
+
+  function enterSelect(id) {
+    state.selectMode = true;
+    if (id) {
+      state.selected = {};
+      state.selected[id] = true;
+      state.selected[String(id)] = true;
+    }
+    applySelectUi();
+  }
+
+  function toggleSelect(id) {
+    if (!id) return;
+    const key = String(id);
+    if (!state.selectMode) {
+      enterSelect(id);
+      return;
+    }
+    if (state.selected[key] || state.selected[id]) {
+      delete state.selected[key];
+      delete state.selected[id];
+    } else {
+      state.selected[key] = true;
+    }
+    if (!Object.keys(state.selected).length) {
+      exitSelect();
+      return;
+    }
+    applySelectUi();
+  }
+
+  async function deleteSelected() {
+    const ids = selectedIds();
+    if (!ids.length) return;
+    const btn = $('[data-och-select-delete]');
+    if (btn) btn.disabled = true;
+    try {
+      for (let i = 0; i < ids.length; i += 1) {
+        await api('messages/' + ids[i], { method: 'DELETE' });
+        state.messages = state.messages.filter((m) => m.id !== ids[i]);
+      }
+      state.selectMode = false;
+      state.selected = {};
+      paintThread({ focus: false, stick: false, keepScroll: true });
+    } catch (e) {
+      setError(e.message || 'Löschen fehlgeschlagen.');
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  function threadBodyHtml() {
+    const room = roomById(state.spaceId);
+    if (!room) {
+      return '<div class="orgasmic-chat-placeholder">Wähle links einen Kreis, um zu schreiben.</div>';
+    }
+    const body = (state.loadingThread && !state.messages.length)
+      ? '<div class="orgasmic-chat-messages" id="och-scroll"><div class="och-loading" data-och-empty>Chat wird geladen…</div></div>'
+      : '<div class="orgasmic-chat-messages" id="och-scroll">' + olderBannerHtml() + messagesHtml() + '</div>';
+    return threadHeaderHtml(room) + body + composerHtml(room);
+  }
+
+  function finishThreadPaint(opts) {
+    composerExtras();
+    if (state.error) setError(state.error);
+    const scroller = $('#och-scroll');
+    if (scroller && (!opts || opts.stick !== false)) scroller.scrollTop = scroller.scrollHeight;
+    const box = $('textarea[name="body"]');
+    if (box && state.spaceId && !state.selectMode && (!opts || opts.focus !== false)) box.focus();
+    prefetchAttachments(state.messages);
+    hydrateImages();
+    bindAvatarFallback();
+  }
+
+  function isFinePointer() {
+    try {
+      return window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    } catch (e) {
+      return !('ontouchstart' in window);
+    }
+  }
+
+  function paintThread(opts) {
+    const section = $('.orgasmic-chat-thread');
+    if (!section) {
+      render(opts);
+      return;
+    }
+    const scrollerNow = $('#och-scroll');
+    const savedTop = scrollerNow ? scrollerNow.scrollTop : 0;
+    const box = $('textarea[name="body"]');
+    const draft = box ? box.value : '';
+    const draftH = box ? box.style.height : '';
+    const keepFocus = !!(box && document.activeElement === box);
+    const shell = $('.orgasmic-chat');
+    if (shell) {
+      shell.classList.toggle('is-thread', !!state.spaceId);
+      shell.classList.toggle('is-selecting', !!state.selectMode);
+    }
+    section.innerHTML = threadBodyHtml();
+    const next = $('textarea[name="body"]');
+    if (next && draft) {
+      next.value = draft;
+      next.style.height = draftH;
+    }
+    finishThreadPaint(Object.assign({}, opts, { focus: keepFocus || !!(opts && opts.focus) }));
+    if (opts && opts.keepScroll) {
+      const restored = $('#och-scroll');
+      if (restored) restored.scrollTop = savedTop;
+    }
+  }
+
+  function render(opts) {
+    const root = document.getElementById('orgasmic-chat-root');
+    if (!root || root.hidden) return;
+
+    root.innerHTML = '<div class="orgasmic-chat-overlay"><div class="orgasmic-chat' + (state.spaceId ? ' is-thread' : '') + (state.selectMode ? ' is-selecting' : '') + '">'
+      + '<p class="orgasmic-chat-offline" data-och-offline' + (state.offline ? '' : ' hidden') + '>Offline — zuletzt geladene Nachrichten.</p>'
+      + '<div class="orgasmic-chat-body">'
+      + '<aside class="orgasmic-chat-rooms">'
+      + '<header class="orgasmic-chat-list-top"><div><h1>Chat</h1>'
+      + '<p class="och-sub" data-och-subtitle' + (state.portal.subtitle ? '' : ' hidden') + '>' + escapeHtml(state.portal.subtitle || '') + '</p>'
+      + '</div><button type="button" class="och-icon-btn" data-och-close aria-label="Schließen" title="Schließen">'
+      + iconSvg('<path d="M6 6l12 12M18 6 6 18"></path>') + '</button></header>'
+      + '<div class="orgasmic-chat-search">'
+      + iconSvg('<circle cx="11" cy="11" r="6.2"></circle><path d="m16 16 4 4"></path>')
+      + '<input type="search" value="' + escapeHtml(state.query) + '" placeholder="Suche" data-och-search /></div>'
+      + filtersHtml()
+      + '<div class="orgasmic-chat-roomlist" data-och-rooms>' + roomsHtml() + '</div>'
+      + '</aside>'
+      + '<section class="orgasmic-chat-thread">' + threadBodyHtml() + '</section></div></div></div>';
+
+    applyTheme(root);
+    finishThreadPaint(opts);
+  }
+
+  function hydrateRoomsFromCache() {
+    if (state.rooms.length) return true;
+    const cached = cacheGet('orgasmic-chat-rooms:' + cacheUid());
+    if (!cached || !Array.isArray(cached.rooms) || !cached.rooms.length) return false;
+    state.rooms = cached.rooms;
+    if (cached.me) state.me = cached.me;
+    if (typeof cached.can_manage !== 'undefined') state.canManage = !!cached.can_manage;
+    applyPortal(cached.portal);
+    updateNavBadge(cached.unread || 0);
+    return true;
+  }
+
+  function hydrateMessagesFromCache(spaceId) {
+    if (!spaceId) {
+      state.messages = [];
+      lastId = 0;
+      state.hasOlder = false;
+      return false;
+    }
+    const cached = cacheGet('orgasmic-chat-msgs:' + cacheUid() + ':' + spaceId);
+    if (cached && Array.isArray(cached) && cached.length) {
+      state.messages = cached;
+      lastId = cached[cached.length - 1].id;
+      state.hasOlder = cached.length >= PAGE;
+      rememberAuthors(cached);
+      return true;
+    }
+    state.messages = [];
+    lastId = 0;
+    state.hasOlder = false;
+    return false;
+  }
+
+  function paintNow() {
+    const root = document.getElementById('orgasmic-chat-root');
+    const already = root && root.querySelector('.orgasmic-chat');
+    if (already) {
+      refreshRooms();
+      paintThread({ focus: !!state.spaceId });
+      return;
+    }
+    render({ focus: !!state.spaceId });
+  }
+
+  async function loadRooms() {
+    try {
+      const data = await api('rooms');
+      state.rooms = data.rooms || [];
+      state.me = data.me || state.me;
+      state.canManage = !!data.can_manage;
+      applyPortal(data.portal);
+      updateNavBadge(data.unread || 0);
+      rememberAuthors(state.rooms);
+      cacheSet('orgasmic-chat-rooms:' + cacheUid(), {
+        rooms: state.rooms,
+        me: state.me,
+        can_manage: state.canManage,
+        portal: data.portal || null,
+        unread: data.unread || 0,
+      });
+      state.loadingRooms = false;
+      setOffline(false);
+    } catch (err) {
+      const cached = cacheGet('orgasmic-chat-rooms:' + cacheUid());
+      if (cached && Array.isArray(cached.rooms) && cached.rooms.length) {
+        state.rooms = cached.rooms;
+        if (cached.me) state.me = cached.me;
+        if (typeof cached.can_manage !== 'undefined') state.canManage = !!cached.can_manage;
+        applyPortal(cached.portal);
+        updateNavBadge(cached.unread || 0);
+        state.loadingRooms = false;
+        setOffline(true);
+        return;
+      }
+      state.loadingRooms = false;
+      throw err;
+    }
+  }
+
+  async function loadMessages(reset) {
+    if (!state.spaceId) return [];
+    const path = reset
+      ? 'rooms/' + state.spaceId + '/messages?limit=' + PAGE
+      : 'rooms/' + state.spaceId + '/messages?after=' + lastId + '&limit=' + PAGE;
+    try {
+      const data = await api(path);
+      const items = data.items || [];
+      rememberAuthors(items);
+      const incoming = [];
+      if (reset) {
+        state.messages = items;
+        lastId = state.messages.length ? state.messages[state.messages.length - 1].id : 0;
+        state.hasOlder = !!data.has_older;
+      } else if (items.length) {
+        const seen = new Set(state.messages.map((m) => m.id));
+        items.forEach((m) => {
+          if (!seen.has(m.id)) {
+            state.messages.push(m);
+            incoming.push(m);
+          }
+        });
+        if (state.messages.length) lastId = state.messages[state.messages.length - 1].id;
+      }
+      cacheSet('orgasmic-chat-msgs:' + cacheUid() + ':' + state.spaceId, state.messages.slice(-PAGE));
+      prefetchAttachments(reset ? state.messages : incoming);
+      setOffline(false);
+      await api('rooms/' + state.spaceId + '/read', {
+        method: 'POST',
+        body: JSON.stringify({ last_id: lastId || data.latest_id || 0 }),
+      }).then((res) => {
+        const room = roomById(state.spaceId);
+        if (room) room.unread = 0;
+        if (typeof res.unread === 'number') updateNavBadge(res.unread);
+      }).catch(() => {});
+      return incoming;
+    } catch (err) {
+      if (!reset) {
+        setOffline(true);
+        throw err;
+      }
+      const cached = cacheGet('orgasmic-chat-msgs:' + cacheUid() + ':' + state.spaceId);
+      if (cached && Array.isArray(cached) && cached.length) {
+        state.messages = cached;
+        if (state.messages.length) lastId = state.messages[state.messages.length - 1].id;
+        state.hasOlder = cached.length >= PAGE;
+        setOffline(true);
+        return [];
+      }
+      throw err;
+    }
+  }
+
+  async function loadOlder() {
+    if (!state.spaceId || state.loadingOlder || !state.hasOlder || !state.messages.length) return;
+    const first = state.messages[0];
+    if (!first || !first.id) return;
+    state.loadingOlder = true;
+    paintOlderBanner();
+    try {
+      const data = await api('rooms/' + state.spaceId + '/messages?before=' + first.id + '&limit=' + PAGE);
+      const items = data.items || [];
+      rememberAuthors(items);
+      state.hasOlder = !!data.has_older;
+      if (!items.length) {
+        state.hasOlder = false;
+        paintOlderBanner();
+        return;
+      }
+      const seen = new Set(state.messages.map((m) => m.id));
+      const fresh = items.filter((m) => !seen.has(m.id));
+      if (!fresh.length) {
+        state.hasOlder = false;
+        paintOlderBanner();
+        return;
+      }
+      state.messages = fresh.concat(state.messages);
+      prependMessages(fresh);
+    } catch (e) {
+      state.hasOlder = true;
+      paintOlderBanner();
+    } finally {
+      state.loadingOlder = false;
+      paintOlderBanner();
+    }
+  }
+
+  function stopThreadPoll() {
+    if (threadTimer) {
+      clearInterval(threadTimer);
+      threadTimer = null;
+    }
+  }
+
+  function startThreadPoll() {
+    stopThreadPoll();
+    const ms = Math.max(3000, ((cfg.pollSeconds || 6) * 1000) / 2);
+    threadTimer = setInterval(async () => {
+      if (document.hidden || !state.spaceId || state.loadingOlder) return;
+      try {
+        const incoming = await loadMessages(false);
+        if (incoming.length) {
+          const scroller = $('#och-scroll');
+          const stick = !scroller || (scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 80);
+          appendMessages(incoming, stick);
+        }
+        refreshRooms();
+      } catch (e) {}
+    }, ms);
+  }
+
+  async function bootFromHash() {
+    const route = hashRoute();
+    if (!route) {
+      closeOverlay();
+      return;
+    }
+    const seq = ++bootSeq;
+    openOverlay();
+    const nextId = route.spaceId || 0;
+    if (state.spaceId !== nextId) {
+      stopVoicePlayback();
+      state.selectMode = false;
+      state.selected = {};
+      state.hasOlder = false;
+      state.loadingOlder = false;
+      state.replyTo = null;
+      hideMsgMenu();
+    }
+    state.spaceId = nextId;
+    state.error = '';
+    state.emojiOpen = false;
+    state.pendingImage = null;
+    cancelVoice(true);
+
+    const hadRooms = hydrateRoomsFromCache();
+    const hadMsgs = hydrateMessagesFromCache(state.spaceId);
+    state.loadingRooms = !hadRooms && !state.rooms.length;
+    state.loadingThread = !!(state.spaceId && !hadMsgs);
+    paintNow();
+
+    try {
+      await loadRooms();
+      if (seq !== bootSeq) return;
+      if (state.spaceId && !roomById(state.spaceId)) {
+        state.spaceId = 0;
+        state.loadingThread = false;
+      }
+      refreshRooms();
+      if (state.spaceId) {
+        await loadMessages(true);
+        if (seq !== bootSeq) return;
+        state.loadingThread = false;
+        paintThread({ focus: false });
+        startThreadPoll();
+      } else {
+        stopThreadPoll();
+        paintThread({ focus: false });
+      }
+    } catch (e) {
+      if (seq !== bootSeq) return;
+      state.loadingRooms = false;
+      state.loadingThread = false;
+      state.error = e.message || 'Chat konnte nicht geladen werden.';
+      paintNow();
+    }
+  }
+
+  async function sendMessage(body) {
+    if (!state.spaceId || state.sending) return;
+    if (state.recording) {
+      try {
+        await stopVoice();
+      } catch (e) {
+        setError(e.message || 'Aufnahme fehlgeschlagen.');
+        return;
+      }
+    }
+    const box = $('textarea[name="body"]');
+    const text = String(body || (box ? box.value : '')).trim();
+    if (!text && !state.pendingImage) return;
+    setSending(true);
+    setError('');
+    try {
+      const payload = { body: text };
+      if (state.pendingImage && state.pendingImage.id) payload.attachment_id = state.pendingImage.id;
+      if (state.replyTo && state.replyTo.id) payload.reply_to = state.replyTo.id;
+      const msg = await api('rooms/' + state.spaceId + '/messages', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      if (msg) rememberAuthors([msg]);
+      if (box) {
+        box.value = '';
+        box.style.height = '';
+      }
+      state.pendingImage = null;
+      state.emojiOpen = false;
+      state.replyTo = null;
+      composerExtras();
+      if (msg && msg.id && !state.messages.some((m) => m.id === msg.id)) {
+        state.messages.push(msg);
+        lastId = Math.max(lastId, msg.id);
+        appendMessages([msg], true);
+      }
+      await loadRooms();
+      refreshRooms();
+    } catch (e) {
+      setError(e.message || 'Senden fehlgeschlagen.');
+    }
+    setSending(false);
+    if (box) box.focus();
+  }
+
+  async function uploadFile(file, extra) {
+    const data = new FormData();
+    data.append('file', file);
+    if (extra && extra.duration) data.append('duration', String(extra.duration));
+    const uploaded = await api('upload', { method: 'POST', body: data });
+    state.pendingImage = uploaded;
+    if (uploaded && uploaded.url && file && file.arrayBuffer) {
+      file.arrayBuffer().then((buf) => mediaPut(uploaded.url, buf, file.type || uploaded.mime)).catch(() => {});
+    }
+    composerExtras();
+    return uploaded;
+  }
+
+  async function pickNativeImage() {
+    const Camera = nativePlugins().Camera;
+    if (!Camera || !Camera.getPhoto) return null;
+    const photo = await Camera.getPhoto({
+      quality: 80,
+      resultType: 'base64',
+      source: 'PROMPT',
+      width: 1600,
+    });
+    if (!photo || !photo.base64String) return null;
+    const format = (photo.format || 'jpeg').replace('jpg', 'jpeg');
+    return base64ToFile(photo.base64String, 'image/' + format, 'photo.' + (format === 'jpeg' ? 'jpg' : format));
+  }
+
+  async function chooseImage() {
+    try {
+      const file = await pickNativeImage();
+      if (file) {
+        await uploadFile(file);
+        return;
+      }
+    } catch (e) {
+      if (e && (e.message === 'User cancelled photos app' || e.message === 'canceled')) return;
+    }
+    const input = $('[data-och-file]');
+    if (input) input.click();
+  }
+
+  function tickRecord() {
+    state.recordSeconds += 1;
+    const label = $('.och-record span:not(.och-rec-dot)');
+    if (label) label.textContent = 'Aufnahme ' + fmtDuration(state.recordSeconds);
+    if (state.recordSeconds >= MAX_VOICE) {
+      stopVoice().catch((e) => setError(e.message || 'Aufnahme fehlgeschlagen.'));
+    }
+  }
+
+  async function startVoice() {
+    if (state.recording || state.sending) return;
+    setError('');
+    state.recordSeconds = 0;
+    recordChunks = [];
+    usingNativeVoice = false;
+
+    const VoiceRecorder = nativePlugins().VoiceRecorder;
+    if (VoiceRecorder && VoiceRecorder.startRecording) {
+      if (VoiceRecorder.requestAudioRecordingPermission) {
+        const perm = await VoiceRecorder.requestAudioRecordingPermission();
+        if (perm && perm.value === false) throw new Error('Mikrofon nicht erlaubt.');
+      }
+      await VoiceRecorder.startRecording();
+      usingNativeVoice = true;
+      state.recording = true;
+      composerExtras();
+      recordTimer = setInterval(tickRecord, 1000);
+      return;
+    }
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+      throw new Error('Sprachnachrichten braucht Mikrofonzugriff (HTTPS) oder die Capacitor-App.');
+    }
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'].find((t) => MediaRecorder.isTypeSupported(t)) || '';
+    mediaRecorder = new MediaRecorder(mediaStream, mime ? { mimeType: mime } : undefined);
+    recordChunks = [];
+    mediaRecorder.ondataavailable = (ev) => {
+      if (ev.data && ev.data.size) recordChunks.push(ev.data);
+    };
+    mediaRecorder.start();
+    state.recording = true;
+    composerExtras();
+    recordTimer = setInterval(tickRecord, 1000);
+  }
+
+  async function stopVoice() {
+    if (!state.recording) return;
+    if (recordTimer) {
+      clearInterval(recordTimer);
+      recordTimer = null;
+    }
+    const seconds = state.recordSeconds || 1;
+    state.recording = false;
+    composerExtras();
+
+    if (usingNativeVoice) {
+      usingNativeVoice = false;
+      const VoiceRecorder = nativePlugins().VoiceRecorder;
+      const res = VoiceRecorder && VoiceRecorder.stopRecording ? await VoiceRecorder.stopRecording() : null;
+      const value = (res && res.value) || res || {};
+      const b64 = value.recordDataBase64 || value.base64 || '';
+      if (!b64) throw new Error('Keine Aufnahme.');
+      const mime = value.mimeType || 'audio/aac';
+      const ext = mime.indexOf('webm') >= 0 ? 'webm' : (mime.indexOf('ogg') >= 0 ? 'ogg' : 'm4a');
+      const file = base64ToFile(b64, mime, 'voice.' + ext);
+      const duration = value.msDuration ? Math.round(value.msDuration / 1000) : seconds;
+      await uploadFile(file, { duration: duration });
+      return;
+    }
+
+    await new Promise((resolve, reject) => {
+      if (!mediaRecorder) {
+        resolve();
+        return;
+      }
+      mediaRecorder.onstop = () => resolve();
+      mediaRecorder.onerror = () => reject(new Error('Aufnahme fehlgeschlagen.'));
+      if (mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+      else resolve();
+    });
+    if (mediaStream) {
+      mediaStream.getTracks().forEach((t) => t.stop());
+      mediaStream = null;
+    }
+    const type = (mediaRecorder && mediaRecorder.mimeType) || 'audio/webm';
+    mediaRecorder = null;
+    const blob = new Blob(recordChunks, { type: type.split(';')[0] });
+    recordChunks = [];
+    if (!blob.size) throw new Error('Keine Aufnahme.');
+    const ext = type.indexOf('mp4') >= 0 ? 'm4a' : (type.indexOf('ogg') >= 0 ? 'ogg' : 'webm');
+    const file = new File([blob], 'voice.' + ext, { type: blob.type });
+    await uploadFile(file, { duration: seconds });
+  }
+
+  function cancelVoice(silent) {
+    if (recordTimer) {
+      clearInterval(recordTimer);
+      recordTimer = null;
+    }
+    state.recording = false;
+    state.recordSeconds = 0;
+    if (usingNativeVoice) {
+      usingNativeVoice = false;
+      const VoiceRecorder = nativePlugins().VoiceRecorder;
+      if (VoiceRecorder && VoiceRecorder.stopRecording) {
+        VoiceRecorder.stopRecording().catch(() => {});
+      }
+    }
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      try { mediaRecorder.stop(); } catch (e) {}
+    }
+    mediaRecorder = null;
+    if (mediaStream) {
+      mediaStream.getTracks().forEach((t) => t.stop());
+      mediaStream = null;
+    }
+    recordChunks = [];
+    if (!silent) composerExtras();
+  }
+
+  let ignoreSelectClick = false;
+
+  document.addEventListener('click', (ev) => {
+    const t = ev.target.closest ? ev.target : ev.target.parentElement;
+    if (!t || !t.closest) return;
+    if (ignoreSelectClick && t.closest('#orgasmic-chat-root [data-och-msg]')) {
+      ev.preventDefault();
+      return;
+    }
+    const replyClear = t.closest('[data-och-reply-clear]');
+    if (replyClear) {
+      ev.preventDefault();
+      clearReply();
+      return;
+    }
+    const jump = t.closest('[data-och-jump]');
+    if (jump) {
+      ev.preventDefault();
+      jumpToMessage(parseInt(jump.getAttribute('data-och-jump'), 10));
+      return;
+    }
+    const menuReply = t.closest('[data-och-menu-reply]');
+    if (menuReply) {
+      ev.preventDefault();
+      const menu = document.getElementById('och-msg-menu');
+      const id = parseInt(menu && menu.dataset.msg, 10);
+      hideMsgMenu();
+      const found = state.messages.find((m) => m.id === id);
+      if (found) startReply(found);
+      return;
+    }
+    const menuSelect = t.closest('[data-och-menu-select]');
+    if (menuSelect) {
+      ev.preventDefault();
+      const menu = document.getElementById('och-msg-menu');
+      const id = parseInt(menu && menu.dataset.msg, 10);
+      hideMsgMenu();
+      if (id) toggleSelect(id);
+      return;
+    }
+    const selectCancel = t.closest('[data-och-select-cancel]');
+    if (selectCancel) {
+      ev.preventDefault();
+      exitSelect();
+      return;
+    }
+    const selectStart = t.closest('[data-och-select-start]');
+    if (selectStart) {
+      ev.preventDefault();
+      enterSelect();
+      return;
+    }
+    const selectDelete = t.closest('[data-och-select-delete]');
+    if (selectDelete) {
+      ev.preventDefault();
+      deleteSelected();
+      return;
+    }
+    const pick = t.closest('[data-och-pick]');
+    if (pick) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      toggleSelect(parseInt(pick.getAttribute('data-och-pick'), 10));
+      return;
+    }
+    const rate = t.closest('[data-och-rate]');
+    if (rate) {
+      ev.preventDefault();
+      cycleVoiceRate();
+      return;
+    }
+    const filter = ev.target.closest('[data-och-filter]');
+    if (filter) {
+      ev.preventDefault();
+      state.filter = filter.getAttribute('data-och-filter') || 'all';
+      document.querySelectorAll('#orgasmic-chat-root [data-och-filter]').forEach((el) => {
+        el.classList.toggle('is-on', el.getAttribute('data-och-filter') === state.filter);
+      });
+      refreshRooms();
+      return;
+    }
+    const play = ev.target.closest('[data-och-play]');
+    if (play) {
+      ev.preventDefault();
+      toggleVoicePlayback(play);
+      return;
+    }
+    const close = ev.target.closest('[data-och-close]');
+    if (close) {
+      ev.preventDefault();
+      closeOverlay();
+      return;
+    }
+    const back = ev.target.closest('[data-och-back]');
+    if (back) {
+      ev.preventDefault();
+      location.hash = '#orgasmic-chat';
+      return;
+    }
+    const older = ev.target.closest('[data-och-older]');
+    if (older) {
+      ev.preventDefault();
+      loadOlder();
+      return;
+    }
+    const room = ev.target.closest('[data-och-room]');
+    if (room) {
+      ev.preventDefault();
+      location.hash = '#orgasmic-chat-' + room.getAttribute('data-och-room');
+      return;
+    }
+    const emojiToggle = ev.target.closest('[data-och-emoji-toggle]');
+    if (emojiToggle) {
+      ev.preventDefault();
+      state.emojiOpen = !state.emojiOpen;
+      composerExtras();
+      const box = $('textarea[name="body"]');
+      if (box) box.focus();
+      return;
+    }
+    const emoji = ev.target.closest('[data-och-emoji]');
+    if (emoji) {
+      ev.preventDefault();
+      const box = $('textarea[name="body"]');
+      if (box) {
+        box.value += emoji.getAttribute('data-och-emoji');
+        box.focus();
+      }
+      return;
+    }
+    const imageBtn = ev.target.closest('[data-och-image]');
+    if (imageBtn) {
+      ev.preventDefault();
+      chooseImage().catch((e) => setError(e.message || 'Bild fehlgeschlagen.'));
+      return;
+    }
+    const voiceBtn = ev.target.closest('[data-och-voice]');
+    if (voiceBtn) {
+      ev.preventDefault();
+      if (state.recording) {
+        stopVoice().catch((e) => setError(e.message || 'Aufnahme fehlgeschlagen.'));
+      } else {
+        startVoice().catch((e) => setError(e.message || 'Mikrofon nicht verfügbar.'));
+      }
+      return;
+    }
+    const voiceStop = ev.target.closest('[data-och-voice-stop]');
+    if (voiceStop) {
+      ev.preventDefault();
+      stopVoice().catch((e) => setError(e.message || 'Aufnahme fehlgeschlagen.'));
+      return;
+    }
+    const voiceCancel = ev.target.closest('[data-och-voice-cancel]');
+    if (voiceCancel) {
+      ev.preventDefault();
+      cancelVoice();
+      return;
+    }
+    const clearImage = ev.target.closest('[data-och-clear-image]');
+    if (clearImage) {
+      ev.preventDefault();
+      state.pendingImage = null;
+      composerExtras();
+      return;
+    }
+    const article = ev.target.closest('[data-och-msg]');
+    if (article && article.getAttribute('data-och-can-del') && (ev.ctrlKey || ev.metaKey) && isFinePointer()) {
+      if (ev.target.closest('[data-och-play], a, button')) return;
+      ev.preventDefault();
+      toggleSelect(parseInt(article.getAttribute('data-och-msg'), 10));
+      return;
+    }
+    if (article && state.selectMode) {
+      if (ev.target.closest('[data-och-play], a')) return;
+      ev.preventDefault();
+      if (article.getAttribute('data-och-can-del')) {
+        toggleSelect(parseInt(article.getAttribute('data-och-msg'), 10));
+      }
+    }
+  });
+
+  let pressTimer = 0;
+  let swipeStart = null;
+  function clearPress() {
+    if (pressTimer) {
+      window.clearTimeout(pressTimer);
+      pressTimer = 0;
+    }
+  }
+  function hideMsgMenu() {
+    const menu = document.getElementById('och-msg-menu');
+    if (menu) menu.hidden = true;
+  }
+  function showMsgMenu(article) {
+    const id = parseInt(article.getAttribute('data-och-msg'), 10);
+    if (!id) return;
+    let menu = document.getElementById('och-msg-menu');
+    if (!menu) {
+      menu = document.createElement('div');
+      menu.id = 'och-msg-menu';
+      (document.getElementById('orgasmic-chat-root') || document.body).appendChild(menu);
+    }
+    const canDel = article.getAttribute('data-och-can-del') === '1';
+    menu.innerHTML = '<button type="button" data-och-menu-reply>Antworten</button>'
+      + (canDel ? '<button type="button" data-och-menu-select>Markieren</button>' : '');
+    menu.hidden = false;
+    menu.dataset.msg = String(id);
+    const rect = article.getBoundingClientRect();
+    const top = Math.min(window.innerHeight - 120, Math.max(12, rect.top + 8));
+    menu.style.top = top + 'px';
+    menu.style.left = '50%';
+  }
+  document.addEventListener('pointerdown', (ev) => {
+    const root = document.getElementById('orgasmic-chat-root');
+    if (!root || root.hidden) return;
+    if (ev.target.closest('#och-msg-menu')) return;
+    if (ev.target.closest('[data-och-play], a, textarea, input')) return;
+    if (ev.target.closest('button') && !ev.target.closest('[data-och-msg]')) return;
+    const article = ev.target.closest('[data-och-msg]');
+    if (!article) {
+      hideMsgMenu();
+      return;
+    }
+    swipeStart = { x: ev.clientX, y: ev.clientY, id: parseInt(article.getAttribute('data-och-msg'), 10) };
+    if (isFinePointer()) return;
+    if (state.selectMode) {
+      const id = parseInt(article.getAttribute('data-och-msg'), 10);
+      if (!article.getAttribute('data-och-can-del')) return;
+      clearPress();
+      pressTimer = window.setTimeout(() => {
+        pressTimer = 0;
+        ignoreSelectClick = true;
+        enterSelect(id);
+        window.setTimeout(() => { ignoreSelectClick = false; }, 450);
+      }, 420);
+      return;
+    }
+    clearPress();
+    pressTimer = window.setTimeout(() => {
+      pressTimer = 0;
+      ignoreSelectClick = true;
+      showMsgMenu(article);
+      window.setTimeout(() => { ignoreSelectClick = false; }, 450);
+    }, 420);
+  }, true);
+  document.addEventListener('pointermove', (ev) => {
+    if (swipeStart && Math.abs(ev.clientX - swipeStart.x) + Math.abs(ev.clientY - swipeStart.y) > 10) {
+      clearPress();
+    }
+  }, true);
+  document.addEventListener('pointerup', (ev) => {
+    const start = swipeStart;
+    swipeStart = null;
+    clearPress();
+    if (!start || state.selectMode) return;
+    const dx = ev.clientX - start.x;
+    const dy = ev.clientY - start.y;
+    if (dx > 56 && Math.abs(dy) < 40) {
+      const found = state.messages.find((m) => m.id === start.id);
+      if (found) startReply(found);
+    }
+  }, true);
+  document.addEventListener('pointercancel', clearPress, true);
+  document.addEventListener('contextmenu', (ev) => {
+    const msg = ev.target.closest && ev.target.closest('#orgasmic-chat-root [data-och-msg]');
+    if (!msg) return;
+    ev.preventDefault();
+    if (state.selectMode) {
+      if (msg.getAttribute('data-och-can-del')) {
+        toggleSelect(parseInt(msg.getAttribute('data-och-msg'), 10));
+      }
+      return;
+    }
+    showMsgMenu(msg);
+  }, true);
+
+  document.addEventListener('scroll', (ev) => {
+    if (!ev.target || ev.target.id !== 'och-scroll') return;
+    if (ev.target.scrollTop > 80) return;
+    loadOlder();
+  }, true);
+
+  document.addEventListener('input', (ev) => {
+    if (ev.target.matches('[data-och-search]')) {
+      state.query = ev.target.value;
+      refreshRooms();
+      return;
+    }
+    if (ev.target.matches('#orgasmic-chat-root textarea[name="body"]')) {
+      ev.target.style.height = 'auto';
+      ev.target.style.height = Math.min(140, ev.target.scrollHeight) + 'px';
+    }
+  });
+
+  document.addEventListener('change', (ev) => {
+    if (!ev.target.matches('[data-och-file]')) return;
+    const file = ev.target.files && ev.target.files[0];
+    ev.target.value = '';
+    if (!file) return;
+    uploadFile(file).catch((e) => setError(e.message || 'Upload fehlgeschlagen.'));
+  });
+
+  document.addEventListener('submit', (ev) => {
+    const form = ev.target.closest('[data-och-send]');
+    if (!form) return;
+    ev.preventDefault();
+    const box = form.querySelector('textarea[name="body"]');
+    sendMessage(box ? box.value : '');
+  });
+
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && hashRoute()) {
+      closeOverlay();
+      return;
+    }
+    const room = ev.target.closest && ev.target.closest('[data-och-room]');
+    if (room && (ev.key === 'Enter' || ev.key === ' ')) {
+      ev.preventDefault();
+      location.hash = '#orgasmic-chat-' + room.getAttribute('data-och-room');
+      return;
+    }
+    const box = ev.target.closest && ev.target.closest('#orgasmic-chat-root textarea[name="body"]');
+    if (box && ev.key === 'Enter' && !ev.shiftKey) {
+      ev.preventDefault();
+      sendMessage(box.value);
+    }
+  });
+
+  window.addEventListener('hashchange', bootFromHash);
+
+  document.addEventListener('click', (ev) => {
+    const a = ev.target.closest && ev.target.closest('a');
+    if (!a || a.closest('#orgasmic-chat-root')) return;
+    const href = a.getAttribute('href') || '';
+    if (/#orgasmic-chat/.test(href) || a.closest('[data-orgasmic-chat], .orgasmic-chat-nav')) return;
+    if (isFluentBottomNav(a)) closeOverlay();
+  }, true);
+
+  function pollUnread() {
+    const base = Math.max(3000, (cfg.pollSeconds || 6) * 1000);
+    unreadTimer = setInterval(async () => {
+      if (document.hidden) return;
+      try {
+        const data = await api('unread');
+        updateNavBadge(data.total || 0);
+        if (data.rooms && state.rooms.length) {
+          Object.keys(data.rooms).forEach((id) => {
+            const room = roomById(parseInt(id, 10));
+            if (room) room.unread = parseInt(data.rooms[id], 10) || 0;
+          });
+          const root = document.getElementById('orgasmic-chat-root');
+          if (root && !root.hidden) refreshRooms();
+        }
+      } catch (e) {}
+    }, base);
+  }
+
+  updateNavBadge(cfg.unread || 0);
+  watchNavIcons();
+  applyMobileBarInset();
+  window.addEventListener('resize', () => {
+    const root = document.getElementById('orgasmic-chat-root');
+    const el = document.activeElement;
+    if (!root || root.hidden || !(el && root.contains(el) && isTextField(el))) {
+      closedLayoutH = window.innerHeight;
+    }
+    applyMobileBarInset();
+    pinOverlayToViewport();
+  });
+  window.addEventListener('orientationchange', () => {
+    window.setTimeout(() => {
+      const root = document.getElementById('orgasmic-chat-root');
+      const el = document.activeElement;
+      if (!root || root.hidden || !(el && root.contains(el) && isTextField(el))) {
+        closedLayoutH = window.innerHeight;
+      }
+      applyMobileBarInset();
+      pinOverlayToViewport();
+    }, 200);
+  });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', pinOverlayToViewport);
+    window.visualViewport.addEventListener('scroll', pinOverlayToViewport);
+  }
+  document.addEventListener('focusin', () => {
+    pinOverlayToViewport();
+  }, true);
+  document.addEventListener('focusout', () => {
+    window.setTimeout(pinOverlayToViewport, 50);
+    window.setTimeout(pinOverlayToViewport, 320);
+  }, true);
+  pollUnread();
+  if (hashRoute()) bootFromHash();
+})();

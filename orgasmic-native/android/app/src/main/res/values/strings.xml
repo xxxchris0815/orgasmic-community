@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">LO Community</string>
+    <string name="title_activity_main">LO Community</string>
+    <string name="package_name">live.lo.community</string>
+    <string name="custom_url_scheme">live.lo.community</string>
+</resources>
