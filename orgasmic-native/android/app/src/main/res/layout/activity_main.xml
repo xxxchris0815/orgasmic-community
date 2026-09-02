@@ -25,7 +25,7 @@
         android:paddingTop="4dp"
         android:paddingBottom="4dp"
         app:elevation="0dp"
-        app:itemActiveIndicatorEnabled="false"
+        app:itemActiveIndicatorStyle="@null"
         app:itemIconSize="22dp"
         app:itemIconTint="@color/nav_color"
         app:itemRippleColor="@android:color/transparent"
