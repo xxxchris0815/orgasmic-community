@@ -1,4 +1,13 @@
 (function () {
+  const ua = navigator.userAgent || '';
+  if (/LOCommunityHybrid/i.test(ua)) {
+    const html = document.documentElement;
+    html.classList.add('orgasmic-hybrid-shell');
+    if (/OAShell\/feed/i.test(ua)) html.classList.add('orgasmic-hybrid-feed');
+    if (/OAShell\/chat/i.test(ua)) html.classList.add('orgasmic-hybrid-chat');
+    if (/OAShell\/cal/i.test(ua)) html.classList.add('orgasmic-hybrid-cal');
+  }
+
   const cfg = window.OrgasmicFcApp || {};
   if (!cfg.root) return;
 

@@ -424,15 +424,21 @@ class Orgasmic_Fc_App_Rest
     public function ajax_boot(): void
     {
         $uid = get_current_user_id();
+        $user = $uid > 0 ? get_userdata($uid) : null;
         wp_send_json([
             'ok' => true,
             'loggedIn' => $uid > 0,
             'userId' => $uid,
+            'displayName' => $user ? (string) $user->display_name : '',
             'nonce' => wp_create_nonce('wp_rest'),
             'prefs' => $uid > 0
                 ? Orgasmic_Fc_App_Install::prefs_for($uid)
                 : Orgasmic_Fc_App_Install::default_prefs(),
             'canAnnounce' => $uid > 0 && $this->access->can_announce($uid),
+            'privacyUrl' => (string) get_privacy_policy_url(),
+            'safetyUrl' => home_url('/kinderschutz'),
+            'restRoot' => esc_url_raw(rest_url()),
+            'ajax' => esc_url_raw(admin_url('admin-ajax.php')),
         ]);
     }
 

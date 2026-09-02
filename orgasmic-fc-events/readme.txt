@@ -1,12 +1,15 @@
 === ORGASMIC Community Kalender ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.0.11
+Stable tag: 1.0.13
 License: GPLv2 or later
 
 Event calendar for FluentCommunity with space visibility, RSVP, Zoom S2S, feed sharing, reminders, and REST API.
 
 == Changelog ==
+
+= 1.0.13 =
+* Hybrid Android shell keeps the full calendar overlay (month grid, cards, RSVP) instead of closing to the feed
 
 = 1.0.11 =
 * Close the calendar with the same X as chat

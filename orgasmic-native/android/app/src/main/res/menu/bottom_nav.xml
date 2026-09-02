@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/nav_feed" android:icon="@drawable/ic_nav_feed" android:title="Feed" />
+    <item android:id="@+id/nav_chat" android:icon="@drawable/ic_nav_chat" android:title="Chat" />
+    <item android:id="@+id/nav_cal" android:icon="@drawable/ic_nav_cal" android:title="Kalender" />
+    <item android:id="@+id/nav_profile" android:icon="@drawable/ic_nav_profile" android:title="Profil" />
+</menu>
