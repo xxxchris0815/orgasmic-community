@@ -15,10 +15,11 @@
     "allowMixedContent": false
   },
   "ios": {
-    "contentInset": "automatic",
+    "contentInset": "never",
     "preferredContentMode": "mobile",
     "scheme": "App",
-    "limitsNavigationsToAppBoundDomains": false
+    "limitsNavigationsToAppBoundDomains": false,
+    "backgroundColor": "#ffffff"
   },
   "plugins": {
     "PushNotifications": {

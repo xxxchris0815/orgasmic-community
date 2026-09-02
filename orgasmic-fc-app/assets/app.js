@@ -62,6 +62,7 @@
     const root = prefsRoot();
     if (!root) return;
     root.hidden = false;
+    document.documentElement.classList.add('orgasmic-prefs-open');
     applyPrefs(cfg.prefs);
     getJson('prefs').then((data) => {
       cfg.prefs = data.prefs || cfg.prefs;
@@ -73,6 +74,7 @@
     const root = prefsRoot();
     if (!root) return;
     root.hidden = true;
+    document.documentElement.classList.remove('orgasmic-prefs-open');
     if ((location.hash || '') === '#orgasmic-notify') {
       history.replaceState(null, '', location.pathname + location.search);
     }
@@ -228,10 +230,7 @@
     } catch (e) {}
   });
 
-  document.addEventListener('submit', async (ev) => {
-    const form = ev.target.closest('[data-oa-prefs]');
-    if (!form) return;
-    ev.preventDefault();
+  async function persistPrefs(form, closeAfter) {
     const prefs = {};
     ['chat', 'feed', 'comment', 'event'].forEach((key) => {
       const input = form.querySelector('[name="' + key + '"]');
@@ -241,11 +240,29 @@
       const data = await postJson('prefs', { prefs: prefs });
       cfg.prefs = data.prefs || prefs;
       applyPrefs(cfg.prefs);
+      if (closeAfter) {
+        closePrefs();
+        return;
+      }
       setPrefsStatus('Gespeichert.');
       setTimeout(() => setPrefsStatus(''), 2000);
     } catch (e) {
       setPrefsStatus(e.message || 'Speichern fehlgeschlagen.', true);
     }
+  }
+
+  document.addEventListener('change', (ev) => {
+    const form = ev.target.closest && ev.target.closest('[data-oa-prefs]');
+    if (!form || !ev.target.matches || !ev.target.matches('input[type="checkbox"]')) return;
+    persistPrefs(form, false);
+  });
+
+  document.addEventListener('submit', async (ev) => {
+    const form = ev.target.closest('[data-oa-prefs]');
+    if (!form) return;
+    ev.preventDefault();
+    const ios = document.documentElement.classList.contains('orgasmic-ios');
+    await persistPrefs(form, ios);
   });
 
   document.addEventListener('click', async (ev) => {
@@ -294,25 +311,37 @@
 
   async function setupNativeChrome() {
     if (!isNativeShell()) return;
+    const platform = (window.Capacitor.getPlatform && window.Capacitor.getPlatform()) || '';
+    const ios = platform === 'ios';
     document.documentElement.classList.add('orgasmic-native');
+    document.documentElement.classList.toggle('orgasmic-ios', ios);
     const vp = document.querySelector('meta[name="viewport"]');
     if (vp) {
-      const content = vp.getAttribute('content') || '';
+      let content = vp.getAttribute('content') || '';
       if (!/viewport-fit/.test(content)) {
-        vp.setAttribute('content', content.replace(/\s+$/, '') + ', viewport-fit=cover');
+        content = content.replace(/\s+$/, '') + ', viewport-fit=cover';
       }
+      if (!/interactive-widget/.test(content)) {
+        content += ', interactive-widget=resizes-content';
+      }
+      vp.setAttribute('content', content);
+    }
+    if (ios) {
+      document.querySelectorAll('[data-oa-prefs-close]').forEach((btn) => {
+        btn.textContent = 'Fertig';
+      });
     }
     const Cap = window.Capacitor && window.Capacitor.Plugins;
     if (Cap && Cap.StatusBar) {
       try {
         if (Cap.StatusBar.setOverlaysWebView) {
-          await Cap.StatusBar.setOverlaysWebView({ overlay: false });
-        }
-        if (Cap.StatusBar.setBackgroundColor) {
-          await Cap.StatusBar.setBackgroundColor({ color: '#ffffff' });
+          await Cap.StatusBar.setOverlaysWebView({ overlay: ios });
         }
         if (Cap.StatusBar.setStyle) {
           await Cap.StatusBar.setStyle({ style: 'LIGHT' });
+        }
+        if (!ios && Cap.StatusBar.setBackgroundColor) {
+          await Cap.StatusBar.setBackgroundColor({ color: '#ffffff' });
         }
       } catch (e) {}
     }

@@ -20,7 +20,7 @@ Android-Anleitung: [`ANLEITUNG-ANDROID.md`](ANLEITUNG-ANDROID.md). Firebase-Proj
 | `ios/App/App/GoogleService-Info.plist` | **Platzhalter** — CI überschreibt mit der echten Firebase-Datei |
 | `codemagic.yaml` | Workflows **iOS IPA** und **iOS TestFlight** |
 
-Im Portal (Plugin **ORGASMIC App ≥ 1.1.27**): **Profil → Benachrichtigungen → Konto dauerhaft löschen**. Apple 5.1.1(v) verlangt die Löschung **in der App**, nicht nur auf der Website.
+Im Portal (Plugin **ORGASMIC App ≥ 1.1.28**): **Profil → Benachrichtigungen**. Dort liegen iOS-Schalter (auto-save), **Datenschutz**, **Kinderschutz**, **Inhalt melden** und **Konto löschen**. Apple 5.1.1(v) verlangt die Löschung **in der App**, nicht nur auf der Website.
 
 ---
 
@@ -129,10 +129,11 @@ Erst IPA-Workflow einmal grün, dann TestFlight. Build-Nummer kommt von TestFlig
 - [ ] Portal lädt (nicht die WordPress-Startseite)
 - [ ] Chat: Foto aufnehmen / aus Mediathek, Sprachnachricht (Permission-Dialoge erscheinen mit den deutschen Texten aus `Info.plist`)
 - [ ] Push: WP-Admin → ORGASMIC App → Test-Push; auf dem iPhone muss **1 FCM** stehen
-- [ ] Profil → Benachrichtigungen → Speichern
+- [ ] Profil → Benachrichtigungen: Schalter speichern von selbst, Sheet von unten, **Fertig**
+- [ ] Datenschutz / Kinderschutz / Inhalt melden öffnen in der App (kein Safari)
 - [ ] Konto löschen nur an einem Testuser prüfen, nicht am Review-Account
 
-Plugin **ORGASMIC App 1.1.27** (oder neuer) auf dem Server, sonst fehlt die Löschung in der App.
+Plugin **ORGASMIC App 1.1.28** (oder neuer) auf dem Server. In WordPress **Einstellungen → Datenschutz** die öffentliche Datenschutzerklärung setzen, sonst fehlt der Datenschutz-Link. Seite `/kinderschutz` muss existieren (wie bei Play).
 
 ---
 
@@ -154,8 +155,11 @@ Password: <REVIEW_PASSWORD>
 Open the app → log in on /portal.
 
 Account deletion (Guideline 5.1.1(v)):
-Profile menu → Benachrichtigungen (Notifications) → Konto dauerhaft löschen.
+Profile menu → Benachrichtigungen → Konto löschen.
 Type DELETE to confirm. Site admins cannot delete themselves in-app.
+
+Privacy / CSAE / reporting (also in that sheet):
+Datenschutz, Kinderschutz, Inhalt oder Mitglied melden.
 
 No ads. No tracking / IDFA. Camera, mic, and photos are not accessed in the background.
 Encryption: HTTPS only; ITSAppUsesNonExemptEncryption is false.
@@ -172,8 +176,11 @@ Apple lehnt reine WebView-Hüllen ab. Die Argumentation in den Review-Notizen pl
 1. Push kommt als System-Notification, auch wenn die App zu ist.
 2. Kamera- und Mikro-Permissions sind native iOS-Dialoge.
 3. Die App bleibt in der Hülle (`community.orgasmic.live`), kein Absprung in Safari für den Kernflow.
+4. Auf iPhone: Tab-Bar und Header mit Blur, Einstellungen als Sheet mit Schaltern (kein Website-Dialog).
 
 Nicht in den Store-Texten behaupten, die App sei „nativ wie Instagram“. Sie ist eine native Hülle um FluentCommunity — das ist erlaubt, wenn die nativen Fähigkeiten oben wirklich greifen.
+
+CSS kann FluentCommunity nicht in UIKit verwandeln. Screenshots für Connect vom **iPhone** machen (nicht vom Desktop-Browser), Statusleiste sichtbar, keine Browser-URL-Leiste.
 
 ---
 
@@ -181,9 +188,11 @@ Nicht in den Store-Texten behaupten, die App sei „nativ wie Instagram“. Sie 
 
 | Grund | Was tun |
 | --- | --- |
-| 5.1.1(v) keine Kontolöschung in der App | Plugin 1.1.27+, Pfad in den Review-Notizen, selbst einmal durchklicken |
+| 5.1.1(v) keine Kontolöschung in der App | Plugin 1.1.28+, Pfad in den Review-Notizen, selbst einmal durchklicken |
+| 5.1.1 keine Datenschutzerklärung in der App | WP **Einstellungen → Datenschutz**, Link erscheint im Sheet |
+| 1.2 UGC / keine Meldung | Sheet-Link **Inhalt oder Mitglied melden** plus FluentCommunity-Postmenü |
 | 2.1 Information Needed / Login hängt | Review-Account, der wirklich Mitglied ist; 2FA aus; nicht nur Website-Login |
-| 4.2 Mini-App / Website | Push + Kamera + Voice auf dem Review-Gerät vorführen |
+| 4.2 Mini-App / Website | Push + Kamera + Voice auf dem Review-Gerät vorführen; iPhone-Screenshots |
 | Missing usage description | Steht in `Info.plist`; nicht die Keys löschen |
 | Missing Push entitlement | `App.entitlements` + App-ID Capability + Profil neu erzeugen |
 | Encryption export | Connect **No**, Plist `false` |
@@ -198,9 +207,10 @@ Nicht in den Store-Texten behaupten, die App sei „nativ wie Instagram“. Sie 
 - [ ] APNs `.p8` in Firebase iOS-App
 - [ ] App Store Connect App **LO Community**
 - [ ] Privacy, 17+, Encryption No, kein IDFA
+- [ ] WP-Datenschutzseite + `/kinderschutz` öffentlich
 - [ ] Codemagic iOS Signing + Integration `orgasmic_asc`
 - [ ] `GOOGLE_SERVICE_INFO_PLIST` in Gruppe `firebase`
-- [ ] WordPress: ORGASMIC App **1.1.27**
+- [ ] WordPress: ORGASMIC App **1.1.28**
 - [ ] Workflow **iOS IPA** grün
 - [ ] Workflow **iOS TestFlight** → internes TestFlight
 - [ ] Review-Account + Notizen

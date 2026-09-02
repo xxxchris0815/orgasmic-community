@@ -155,20 +155,70 @@ a.oa-profile-notify svg {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 16px 18px 18px;
+  padding: 16px 18px 8px;
 }
 
-.orgasmic-app-prefs-card label {
+.orgasmic-app-prefs-card .oa-group-title {
+  margin: 18px 18px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+.orgasmic-app-prefs-card form .oa-group-title {
+  margin: 0;
+}
+
+.orgasmic-app-prefs-card .oa-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.orgasmic-app-prefs-card .oa-row {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 10px;
+  min-height: 44px;
   font-size: 15px;
 }
 
+.orgasmic-app-prefs-card .oa-row input {
+  order: -1;
+}
+
+.orgasmic-app-prefs-card .oa-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.orgasmic-app-prefs-card .oa-legal {
+  padding: 0 18px 8px;
+}
+
+.orgasmic-app-prefs-card .oa-danger-rows {
+  padding: 0 18px;
+}
+
+.orgasmic-app-prefs-card .oa-sheet-grabber {
+  display: none;
+}
+
 .orgasmic-app-prefs-card .oa-help {
-  margin: 0;
+  margin: 0 18px 16px;
   font-size: 13px;
   opacity: 0.72;
+}
+
+.orgasmic-app-prefs-card form .oa-help {
+  margin: 0;
+}
+
+.orgasmic-app-prefs-card .oa-save {
+  align-self: flex-start;
 }
 
 .orgasmic-app-prefs-card .oa-prefs-status {
@@ -180,35 +230,17 @@ a.oa-profile-notify svg {
   color: #b45309;
 }
 
-.orgasmic-app-prefs-card .oa-danger {
-  margin: 0 18px 18px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(180, 35, 24, 0.28);
-}
-
-.orgasmic-app-prefs-card .oa-danger h3 {
-  margin: 0 0 8px;
-  font-size: 16px;
-  color: #b42318;
-}
-
-.orgasmic-app-prefs-card .oa-danger p {
-  margin: 0 0 12px;
-  font-size: 13px;
-  line-height: 1.45;
-  opacity: 0.82;
-}
-
 .orgasmic-app-prefs-card .oa-delete {
   appearance: none;
-  border: 1px solid #b42318;
+  border: 0;
   background: transparent;
   color: #b42318;
-  border-radius: 999px;
-  padding: 8px 16px;
+  padding: 0;
   font: inherit;
   font-weight: 600;
   cursor: pointer;
+  text-align: left;
+  width: 100%;
 }
 
 .orgasmic-app-prefs-card .oa-delete:disabled {
@@ -430,3 +462,291 @@ html.orgasmic-native body {
   color: inherit;
   border: 1px solid rgba(26, 22, 37, 0.18);
 }
+
+html.orgasmic-prefs-open,
+html.orgasmic-prefs-open body {
+  overflow: hidden;
+}
+
+html.orgasmic-ios {
+  --oa-ios-bg: #f2f2f7;
+  --oa-ios-grouped: #ffffff;
+  --oa-ios-sep: rgba(60, 60, 67, 0.29);
+  --oa-ios-blue: #007aff;
+  --oa-ios-red: #ff3b30;
+  --oa-ios-green: #34c759;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html.orgasmic-ios,
+html.orgasmic-ios body {
+  background: var(--oa-ios-grouped);
+}
+
+html.orgasmic-ios button,
+html.orgasmic-ios a,
+html.orgasmic-ios [role="button"] {
+  touch-action: manipulation;
+}
+
+html.orgasmic-ios input,
+html.orgasmic-ios textarea,
+html.orgasmic-ios select {
+  font-size: 16px;
+}
+
+html.orgasmic-ios ::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+@media (max-width: 760px) {
+  html.orgasmic-ios .fcom_header,
+  html.orgasmic-ios .fcom-header,
+  html.orgasmic-ios .fcom_top_bar,
+  html.orgasmic-ios .fcom_navbar,
+  html.orgasmic-ios .fluent_community_header,
+  html.orgasmic-ios [class*="fcom_header"],
+  html.orgasmic-ios [class*="fcom-header"] {
+    background: rgba(255, 255, 255, 0.82) !important;
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 0.5px solid var(--oa-ios-sep);
+    padding-top: max(8px, var(--orgasmic-native-top, env(safe-area-inset-top, 0px))) !important;
+  }
+
+  html.orgasmic-ios .fcom_mobile_menu,
+  html.orgasmic-ios .fcom-mobile-menu,
+  html.orgasmic-ios .fcom_mobile_nav,
+  html.orgasmic-ios .fluent_community_mobile_menu,
+  html.orgasmic-ios [class*="mobile_menu"],
+  html.orgasmic-ios [class*="mobile-menu"],
+  html.orgasmic-ios [class*="bottom-nav"],
+  html.orgasmic-ios [class*="bottom_nav"] {
+    background: rgba(249, 249, 249, 0.94) !important;
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    border-top: 0.5px solid var(--oa-ios-sep) !important;
+    min-height: calc(49px + var(--orgasmic-native-bottom, env(safe-area-inset-bottom, 0px)));
+    padding-bottom: var(--orgasmic-native-bottom, env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
+html.orgasmic-ios .orgasmic-app-prefs-overlay {
+  align-items: flex-end;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.32);
+}
+
+html.orgasmic-ios .orgasmic-app-prefs-card {
+  width: 100%;
+  max-height: min(92vh, 820px);
+  overflow: auto;
+  border-radius: 14px 14px 0 0;
+  border: 0;
+  background: var(--oa-ios-bg);
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.18);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  -webkit-overflow-scrolling: touch;
+}
+
+html.orgasmic-ios .oa-sheet-grabber {
+  display: block;
+  width: 36px;
+  height: 5px;
+  margin: 8px auto 0;
+  border-radius: 999px;
+  background: rgba(60, 60, 67, 0.3);
+}
+
+html.orgasmic-ios .orgasmic-app-prefs-card header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  align-items: center;
+  padding: 6px 8px 10px 16px;
+  background: var(--oa-ios-bg);
+  border-bottom: 0;
+}
+
+html.orgasmic-ios .orgasmic-app-prefs-card h2 {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+html.orgasmic-ios .orgasmic-app-prefs-card .oa-sub {
+  display: none;
+}
+
+html.orgasmic-ios .orgasmic-app-prefs-card .oa-ghost {
+  min-height: 44px;
+  min-width: 64px;
+  border: 0;
+  background: transparent;
+  color: var(--oa-ios-blue);
+  font-size: 17px;
+  font-weight: 600;
+  padding: 8px 12px;
+}
+
+html.orgasmic-ios .orgasmic-app-prefs-card form {
+  padding: 8px 0 0;
+  gap: 8px;
+}
+
+html.orgasmic-ios .orgasmic-app-prefs-card .oa-group-title {
+  margin: 18px 32px 6px;
+  font-size: 13px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  opacity: 0.5;
+}
+
+html.orgasmic-ios .orgasmic-app-prefs-card form .oa-group-title {
+  margin-left: 32px;
+  margin-right: 32px;
+}
+
+html.orgasmic-ios .orgasmic-app-prefs-card .oa-rows {
+  margin: 0 16px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--oa-ios-grouped);
+}
+
+html.orgasmic-ios .orgasmic-app-prefs-card .oa-legal,
+html.orgasmic-ios .orgasmic-app-prefs-card .oa-danger-rows {
+  padding: 0;
+}
+
+html.orgasmic-ios .orgasmic-app-prefs-card .oa-row {
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 16px;
+  font-size: 17px;
+  background: var(--oa-ios-grouped);
+}
+
+html.orgasmic-ios .orgasmic-app-prefs-card .oa-row + .oa-row {
+  border-top: 0.5px solid var(--oa-ios-sep);
+}
+
+html.orgasmic-ios .orgasmic-app-prefs-card .oa-row input {
+  order: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 51px;
+  height: 31px;
+  flex: 0 0 51px;
+  margin: 0;
+  border-radius: 16px;
+  background: #e9e9ea;
+  position: relative;
+  transition: background 0.2s ease;
+}
+
+html.orgasmic-ios .orgasmic-app-prefs-card .oa-row input::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+  transition: transform 0.2s ease;
+}
+
+html.orgasmic-ios .orgasmic-app-prefs-card .oa-row input:checked {
+  background: var(--oa-ios-green);
+}
+
+html.orgasmic-ios .orgasmic-app-prefs-card .oa-row input:checked::after {
+  transform: translateX(20px);
+}
+
+html.orgasmic-ios .orgasmic-app-prefs-card .oa-link {
+  color: inherit;
+}
+
+html.orgasmic-ios .orgasmic-app-prefs-card .oa-link span {
+  flex: 1;
+}
+
+html.orgasmic-ios .orgasmic-app-prefs-card .oa-link::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid rgba(60, 60, 67, 0.35);
+  border-right: 2px solid rgba(60, 60, 67, 0.35);
+  transform: rotate(45deg);
+}
+
+html.orgasmic-ios .orgasmic-app-prefs-card .oa-save {
+  display: none;
+}
+
+html.orgasmic-ios .orgasmic-app-prefs-card .oa-help {
+  margin: 6px 32px 8px;
+  font-size: 13px;
+}
+
+html.orgasmic-ios .orgasmic-app-prefs-card .oa-delete {
+  color: var(--oa-ios-red);
+  font-weight: 400;
+  font-size: 17px;
+  min-height: 44px;
+}
+
+html.orgasmic-ios .orgasmic-chat-list-top,
+html.orgasmic-ios .orgasmic-chat-thread-top {
+  min-height: 44px;
+  padding-top: max(8px, env(safe-area-inset-top, 0px));
+  background: rgba(255, 255, 255, 0.84);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 0.5px solid var(--oa-ios-sep);
+}
+
+html.orgasmic-ios .orgasmic-chat-overlay.och-theme-dark .orgasmic-chat-list-top,
+html.orgasmic-ios .orgasmic-chat-overlay.och-theme-dark .orgasmic-chat-thread-top {
+  background: rgba(22, 24, 29, 0.88);
+}
+
+html.orgasmic-ios #orgasmic-chat-root .och-icon-btn {
+  width: 44px;
+  height: 44px;
+  color: var(--oa-ios-blue);
+}
+
+html.orgasmic-ios .orgasmic-chat-search input {
+  font-size: 16px;
+  border-radius: 10px;
+  background: rgba(118, 118, 128, 0.12);
+  border: 0;
+}
+
+html.orgasmic-ios .orgasmic-cal-overlay {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+html.orgasmic-ios .orgasmic-cal-actions .oc-btn,
+html.orgasmic-ios .orgasmic-cal-month button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.orgasmic-ios * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+

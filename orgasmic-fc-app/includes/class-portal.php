@@ -25,6 +25,7 @@ class Orgasmic_Fc_App_Portal
         echo '<link rel="manifest" href="' . esc_url(home_url('/orgasmic-manifest.json')) . '" />';
         echo '<meta name="theme-color" content="' . esc_attr($theme) . '" />';
         echo '<meta name="apple-mobile-web-app-capable" content="yes" />';
+        echo '<meta name="apple-mobile-web-app-status-bar-style" content="default" />';
         echo '<meta name="apple-mobile-web-app-title" content="LO Community" />';
         echo '<link rel="apple-touch-icon" href="' . esc_url(ORGASMIC_FC_APP_URL . 'assets/icon-192.png') . '" />';
         $css = ORGASMIC_FC_APP_URL . 'assets/app.css?ver=' . rawurlencode(ORGASMIC_FC_APP_VERSION);
@@ -63,24 +64,40 @@ class Orgasmic_Fc_App_Portal
         echo '<script src="' . esc_url(ORGASMIC_FC_APP_URL . 'assets/app.js?ver=' . rawurlencode(ORGASMIC_FC_APP_VERSION)) . '" defer></script>';
         echo '<div id="orgasmic-app-prompt" hidden></div>';
         echo '<div id="orgasmic-app-prefs" hidden>';
-        echo '<div class="orgasmic-app-prefs-overlay"><div class="orgasmic-app-prefs-card" role="dialog" aria-labelledby="orgasmic-app-prefs-title">';
-        echo '<header><div><p class="oa-sub">ORGASMIC</p><h2 id="orgasmic-app-prefs-title">Benachrichtigungen</h2></div>';
+        echo '<div class="orgasmic-app-prefs-overlay"><div class="orgasmic-app-prefs-card" role="dialog" aria-modal="true" aria-labelledby="orgasmic-app-prefs-title">';
+        echo '<div class="oa-sheet-grabber" aria-hidden="true"></div>';
+        echo '<header><div><p class="oa-sub">LO Community</p><h2 id="orgasmic-app-prefs-title">Benachrichtigungen</h2></div>';
         echo '<button type="button" class="oa-ghost" data-oa-prefs-close>Schließen</button></header>';
         echo '<p class="oa-prefs-status" data-oa-prefs-status hidden></p>';
         echo '<form data-oa-prefs>';
-        echo '<label><input type="checkbox" name="chat" /> Chat</label>';
-        echo '<label><input type="checkbox" name="feed" /> Neue Beiträge</label>';
-        echo '<label><input type="checkbox" name="comment" /> Kommentare &amp; Mentions</label>';
-        echo '<label><input type="checkbox" name="event" /> Events &amp; Erinnerungen</label>';
+        echo '<p class="oa-group-title">Mitteilungen</p>';
+        echo '<div class="oa-rows">';
+        echo '<label class="oa-row"><span>Chat</span><input type="checkbox" name="chat" role="switch" /></label>';
+        echo '<label class="oa-row"><span>Neue Beiträge</span><input type="checkbox" name="feed" role="switch" /></label>';
+        echo '<label class="oa-row"><span>Kommentare &amp; Mentions</span><input type="checkbox" name="comment" role="switch" /></label>';
+        echo '<label class="oa-row"><span>Events &amp; Erinnerungen</span><input type="checkbox" name="event" role="switch" /></label>';
+        echo '</div>';
         echo '<p class="oa-help">Gilt für Push auf diesem Gerät. Ausgeschaltete Arten werden nicht zugestellt.</p>';
-        echo '<button type="submit">Speichern</button>';
+        echo '<button type="submit" class="oa-save">Speichern</button>';
         echo '</form>';
+        echo '<p class="oa-group-title">Rechtliches</p>';
+        echo '<div class="oa-rows oa-legal">';
+        $privacy = get_privacy_policy_url();
+        if (is_string($privacy) && $privacy !== '') {
+            echo '<a class="oa-row oa-link" href="' . esc_url($privacy) . '"><span>Datenschutz</span></a>';
+        }
+        echo '<a class="oa-row oa-link" href="' . esc_url(home_url('/kinderschutz')) . '"><span>Kinderschutz</span></a>';
+        $report = sanitize_email((string) get_option('admin_email'));
+        if ($report !== '') {
+            echo '<a class="oa-row oa-link" href="' . esc_url('mailto:' . $report . '?subject=' . rawurlencode('LO Community: Inhalt oder Mitglied melden')) . '"><span>Inhalt oder Mitglied melden</span></a>';
+        }
+        echo '</div>';
         if ($logged) {
-            echo '<div class="oa-danger">';
-            echo '<h3>Konto löschen</h3>';
-            echo '<p>Dein Konto, deine Mitgliedschaften und Push-Geräte werden unwiderruflich gelöscht. Beiträge in Spaces können anonymisiert bleiben.</p>';
-            echo '<button type="button" class="oa-delete" data-oa-delete-account>Konto dauerhaft löschen</button>';
+            echo '<p class="oa-group-title">Konto</p>';
+            echo '<div class="oa-rows oa-danger-rows">';
+            echo '<button type="button" class="oa-row oa-delete" data-oa-delete-account>Konto löschen</button>';
             echo '</div>';
+            echo '<p class="oa-help">Mitgliedschaften und Push-Geräte werden gelöscht. Beiträge in Spaces können anonymisiert bleiben.</p>';
         }
         echo '</div></div></div>';
     }

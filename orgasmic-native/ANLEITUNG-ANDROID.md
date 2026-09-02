@@ -537,7 +537,7 @@ Die iOS-Hülle und der TestFlight-Build sind beschrieben in [`ANLEITUNG-IOS.md`]
 - Apple Developer 99 $/Jahr, Bundle-ID `live.lo.community`
 - Dieselbe Firebase-Projekt → **iOS-App** + APNs-Key (`.p8`)
 - Codemagic-Variable `GOOGLE_SERVICE_INFO_PLIST` (nicht die Stub-Datei aus Git)
-- Plugin **ORGASMIC App ≥ 1.1.27** für Kontolöschung in der App (Apple 5.1.1)
+- Plugin **ORGASMIC App ≥ 1.1.28** für Kontolöschung, Datenschutz-Links und iOS-Sheet in der App (Apple 5.1.1)
 
 ---
 
