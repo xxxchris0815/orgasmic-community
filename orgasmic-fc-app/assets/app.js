@@ -2,6 +2,10 @@
   const cfg = window.OrgasmicFcApp || {};
   if (!cfg.root) return;
 
+  if (/LOCommunityHybrid/i.test(navigator.userAgent || '')) {
+    document.documentElement.classList.add('orgasmic-hybrid-feed');
+  }
+
   function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
     const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');

@@ -12,7 +12,7 @@ Moved from `evolution-api` (`Extras/orgasmic-community`).
 | `orgasmic-fc-events/` | **1.0.12** | Kalender im Portal (RSVP, Zoom, Markieren/Duplizieren/Löschen mobil+Desktop) |
 | `orgasmic-fc-embeds/` | **1.2.21** | Video-Player im Feed, optional Bunny-Vorschaubild ohne Player |
 | `orgasmic-fc-chat/` | **1.1.18** | Space-Chat (Antworten mit WhatsApp-Zitat, Zeile markieren, letzte 40 Nachrichten) |
-| `orgasmic-fc-app/` | **1.1.28** | PWA, Web Push, iOS-HIG-Sheet, Konto löschen, Mitglieder-Rollen, Pull-to-Refresh |
+| `orgasmic-fc-app/` | **1.1.29** | PWA, Hybrid-Android-Session, iOS-HIG-Sheet, Konto löschen, Push |
 
 ## ORGASMIC Community Kalender
 
@@ -128,7 +128,7 @@ Admins sehen im Beitrags-Composer zwei Häkchen: **Per Push an alle Mitglieder s
 
 WP-Admin: **ORGASMIC App**. Unter **Geräte-Logs** landen automatische Berichte aus der Native App (Version, Capacitor, JS-Fehler, Skeleton). Unter **Push prüfen** ein Mitglied suchen (z. B. Alexandra): Token, erlaubte Arten, letzte Queue-Zeilen inkl. Firebase-Fehler, Test-Push auf ihr Gerät. PHP 8.2+ für Web-Push (`openssl_pkey_derive`). Firebase-JSON nur für Store-Apps. Unter **Geräte mit App-Push** steht, wessen Handy ein FCM-Token gespeichert hat.
 
-ZIP: [`orgasmic-fc-app-1.1.28.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/migrate-community-plugins-d4ba/orgasmic-fc-app-1.1.28.zip)
+ZIP: [`orgasmic-fc-app-1.1.29.zip`](https://github.com/xxxchris0815/orgasmic-community/raw/cursor/android-hybrid-shell-d4ba/orgasmic-fc-app-1.1.29.zip)
 
 ### Capacitor / Play Store (Android zuerst)
 
@@ -138,6 +138,7 @@ Schritt für Schritt:
 
 - Android (Firebase, Play Console, Codemagic): [`orgasmic-native/ANLEITUNG-ANDROID.md`](orgasmic-native/ANLEITUNG-ANDROID.md)
 - iOS (App Store, TestFlight, Review): [`orgasmic-native/ANLEITUNG-IOS.md`](orgasmic-native/ANLEITUNG-IOS.md)
+- Hybrid-Android (native Tabs, Test-Branch): [`orgasmic-native/HYBRID-ANDROID.md`](orgasmic-native/HYBRID-ANDROID.md)
 
 ```bash
 cd orgasmic-native

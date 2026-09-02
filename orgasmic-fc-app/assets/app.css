@@ -750,3 +750,18 @@ html.orgasmic-ios .orgasmic-cal-month button {
   }
 }
 
+html.orgasmic-hybrid-feed .fcom_mobile_menu,
+html.orgasmic-hybrid-feed .fcom-mobile-menu,
+html.orgasmic-hybrid-feed .fcom_mobile_nav,
+html.orgasmic-hybrid-feed .fluent_community_mobile_menu,
+html.orgasmic-hybrid-feed [class*="mobile_menu"],
+html.orgasmic-hybrid-feed [class*="mobile-menu"],
+html.orgasmic-hybrid-feed [class*="bottom-nav"],
+html.orgasmic-hybrid-feed [class*="bottom_nav"],
+html.orgasmic-hybrid-feed .orgasmic-chat-nav,
+html.orgasmic-hybrid-feed a[data-orgasmic-chat],
+html.orgasmic-hybrid-feed .orgasmic-cal-nav,
+html.orgasmic-hybrid-feed a[data-orgasmic-calendar] {
+  display: none !important;
+}
+

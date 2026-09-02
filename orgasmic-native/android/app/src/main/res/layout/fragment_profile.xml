@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F7F5F1">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingBottom="32dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:gravity="center_vertical"
+            android:paddingStart="20dp"
+            android:text="Profil"
+            android:textColor="#121c30"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:background="#FFFFFF" />
+
+        <TextView
+            android:id="@+id/profile_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingTop="16dp"
+            android:textColor="#121c30"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/profile_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="16dp"
+            android:textColor="#7A746A" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="20dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:text="Mitteilungen"
+            android:textAllCaps="true"
+            android:textColor="#7A746A"
+            android:textSize="12sp" />
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/pref_chat"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:text="Chat"
+            android:background="#FFFFFF" />
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/pref_feed"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:text="Neue Beiträge"
+            android:background="#FFFFFF" />
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/pref_comment"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:text="Kommentare"
+            android:background="#FFFFFF" />
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/pref_event"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:text="Events"
+            android:background="#FFFFFF" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="20dp"
+            android:paddingTop="20dp"
+            android:paddingBottom="8dp"
+            android:text="Rechtliches"
+            android:textAllCaps="true"
+            android:textColor="#7A746A"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/link_privacy"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="start|center_vertical"
+            android:paddingStart="20dp"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:text="Datenschutz" />
+
+        <Button
+            android:id="@+id/link_safety"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="start|center_vertical"
+            android:paddingStart="20dp"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:text="Kinderschutz" />
+
+        <Button
+            android:id="@+id/btn_delete"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Konto löschen"
+            android:textColor="#B42318"
+            style="@style/Widget.MaterialComponents.Button.TextButton" />
+    </LinearLayout>
+</ScrollView>

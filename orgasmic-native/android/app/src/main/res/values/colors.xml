@@ -4,4 +4,6 @@
     <color name="colorPrimaryDark">#121c30</color>
     <color name="colorAccent">#c4a35a</color>
     <color name="splash_background">#121c30</color>
+    <color name="bubble_mine">#EFE4C8</color>
+    <color name="bubble_theirs">#FFFFFF</color>
 </resources>
