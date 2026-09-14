@@ -282,7 +282,7 @@ class Orgasmic_Fc_App_Admin
         $this->checkbox('Chat', Orgasmic_Fc_App_Install::OPTION_CHAT, 'Neue Nachrichten im Space-Chat');
         $this->checkbox('Beiträge', Orgasmic_Fc_App_Install::OPTION_FEED, 'Neue Posts im Space');
         $this->checkbox('Kommentare', Orgasmic_Fc_App_Install::OPTION_COMMENT, 'Antworten und Mentions (nicht der ganze Space)');
-        $this->checkbox('Events', Orgasmic_Fc_App_Install::OPTION_EVENT, 'Neue Events und Erinnerungen an RSVP „dabei“');
+        $this->checkbox('Events', Orgasmic_Fc_App_Install::OPTION_EVENT, 'Neue Events, Erinnerungen an RSVP „dabei“, Zusagen an die Gastgeberin');
         $this->checkbox('Text mitsenden', Orgasmic_Fc_App_Install::OPTION_INCLUDE_BODY, 'Autor plus Nachrichtentext / Beitragstext. Aus: nur Autor und Art (Chat, Beitrag, Kommentar).');
         echo '</table>';
         echo '<p class="description">Admins sehen im Beitrags-Composer zwei Häkchen: <strong>Push</strong> und <strong>E-Mail an alle Mitglieder</strong>. Empfänger sind nur Leute, die den Beitrag sehen dürfen (Raum bzw. Community — keine geheimen Kreise nach außen). E-Mails gehen über <code>wp_mail</code> in der Minute-Queue.</p>';

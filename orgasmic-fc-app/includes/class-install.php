@@ -194,7 +194,8 @@ class Orgasmic_Fc_App_Install
             last_error TEXT NULL,
             PRIMARY KEY  (id),
             KEY pending (sent_at, available_at),
-            KEY user_id (user_id)
+            KEY user_id (user_id),
+            KEY user_tag_pending (user_id, tag, sent_at)
         ) {$charset};");
 
         $mail = self::mail_table();

@@ -141,15 +141,47 @@ class Orgasmic_Fc_App_Store
         $table = Orgasmic_Fc_App_Install::queue_table();
         $now = gmdate('Y-m-d H:i:s');
         $payload = wp_json_encode($extra, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $tag = $this->clip($tag, 64);
+        $title = $this->clip($title, 190);
+        $body = $this->clip($body, 255);
         $count = 0;
         foreach ($user_ids as $user_id) {
+            $existing_id = 0;
+            if ($tag !== '') {
+                $existing_id = (int) $wpdb->get_var($wpdb->prepare(
+                    "SELECT id FROM {$table} WHERE user_id = %d AND tag = %s AND sent_at IS NULL ORDER BY id DESC LIMIT 1",
+                    $user_id,
+                    $tag
+                ));
+            }
+            if ($existing_id > 0) {
+                $ok = $wpdb->update(
+                    $table,
+                    [
+                        'kind' => $kind,
+                        'title' => $title,
+                        'body' => $body,
+                        'url' => $url,
+                        'payload' => $payload,
+                        'available_at' => $now,
+                        'last_error' => null,
+                    ],
+                    ['id' => $existing_id],
+                    ['%s', '%s', '%s', '%s', '%s', '%s', '%s'],
+                    ['%d']
+                );
+                if ($ok !== false) {
+                    $count++;
+                }
+                continue;
+            }
             $ok = $wpdb->insert($table, [
                 'user_id' => $user_id,
                 'kind' => $kind,
-                'title' => $this->clip($title, 190),
-                'body' => $this->clip($body, 255),
+                'title' => $title,
+                'body' => $body,
                 'url' => $url,
-                'tag' => $this->clip($tag, 64),
+                'tag' => $tag,
                 'payload' => $payload,
                 'attempts' => 0,
                 'available_at' => $now,
