@@ -32,27 +32,59 @@ class Orgasmic_Fc_App_Fcm
             $access = $this->access_token();
             $project = (string) ($this->credentials()['project_id'] ?? '');
             $url = 'https://fcm.googleapis.com/v1/projects/' . rawurlencode($project) . '/messages:send';
+            $tag = $this->collapse_id((string) ($payload['tag'] ?? ''));
+            $count = max(0, (int) ($payload['count'] ?? 0));
+            $data = [
+                'url' => (string) ($payload['url'] ?? '/'),
+                'tag' => $tag,
+                'kind' => (string) ($payload['kind'] ?? ''),
+            ];
+            if ($count > 0) {
+                $data['count'] = (string) $count;
+            }
+            $title = (string) ($payload['title'] ?? 'LO Community');
+            $text = (string) ($payload['body'] ?? '');
+            $androidNotification = [
+                'title' => $title,
+                'body' => $text,
+                'channel_id' => 'lo_community',
+                'icon' => 'ic_stat_notify',
+                'color' => '#c4a35a',
+            ];
+            $android = [
+                'priority' => 'HIGH',
+                'notification' => $androidNotification,
+            ];
+            $apns = [
+                'payload' => [
+                    'aps' => [
+                        'sound' => 'default',
+                        'badge' => 1,
+                    ],
+                ],
+            ];
+            if ($tag !== '') {
+                $android['collapse_key'] = $tag;
+                $android['notification']['tag'] = $tag;
+                if ($count > 1) {
+                    $android['notification']['notification_count'] = $count;
+                }
+                $apns['headers'] = [
+                    'apns-collapse-id' => $tag,
+                    'apns-priority' => '10',
+                ];
+                $apns['payload']['aps']['thread-id'] = $tag;
+            }
             $body = [
                 'message' => [
                     'token' => $token,
                     'notification' => [
-                        'title' => (string) ($payload['title'] ?? 'LO Community'),
-                        'body' => (string) ($payload['body'] ?? ''),
+                        'title' => $title,
+                        'body' => $text,
                     ],
-                    'data' => [
-                        'url' => (string) ($payload['url'] ?? '/'),
-                        'tag' => (string) ($payload['tag'] ?? ''),
-                        'kind' => (string) ($payload['kind'] ?? ''),
-                    ],
-                    'android' => ['priority' => 'HIGH'],
-                    'apns' => [
-                        'payload' => [
-                            'aps' => [
-                                'sound' => 'default',
-                                'badge' => 1,
-                            ],
-                        ],
-                    ],
+                    'data' => $data,
+                    'android' => $android,
+                    'apns' => $apns,
                 ],
             ];
             $response = wp_remote_post($url, [
@@ -84,6 +116,17 @@ class Orgasmic_Fc_App_Fcm
             'status' => $status,
             'error' => $error,
         ];
+    }
+
+    private function collapse_id(string $tag): string
+    {
+        $tag = strtolower((string) (preg_replace('/[^a-zA-Z0-9_-]+/', '-', $tag) ?? $tag));
+        $tag = trim($tag, '-_');
+        if ($tag === '') {
+            return '';
+        }
+
+        return strlen($tag) > 64 ? substr($tag, 0, 64) : $tag;
     }
 
     private function credentials(): ?array

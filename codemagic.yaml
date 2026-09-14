@@ -105,7 +105,7 @@ workflows:
           BUILD_NO="${BUILD_NUMBER:-1}"
           ./gradlew bundleRelease assembleRelease \
             -PversionCode="$BUILD_NO" \
-            -PversionName="1.0.$BUILD_NO"
+            -PversionName="1.1.$BUILD_NO"
     artifacts:
       - orgasmic-native/android/app/build/outputs/bundle/release/*.aab
       - orgasmic-native/android/app/build/outputs/apk/release/*.apk
@@ -154,7 +154,7 @@ workflows:
           fi
           ./gradlew bundleRelease \
             -PversionCode="$BUILD_NO" \
-            -PversionName="1.0.$BUILD_NO"
+            -PversionName="1.1.$BUILD_NO"
     artifacts:
       - orgasmic-native/android/app/build/outputs/bundle/release/*.aab
     publishing:
@@ -201,7 +201,7 @@ workflows:
           BUILD_NO="${BUILD_NUMBER:-1}"
           cd "$CM_BUILD_DIR/orgasmic-native/ios/App"
           agvtool new-version -all "$BUILD_NO"
-          agvtool new-marketing-version "1.0.$BUILD_NO"
+          agvtool new-marketing-version "1.1.$BUILD_NO"
       - name: Build IPA
         script: |
           xcode-project use-profiles
@@ -257,7 +257,7 @@ workflows:
           fi
           cd "$CM_BUILD_DIR/orgasmic-native/ios/App"
           agvtool new-version -all "$BUILD_NO"
-          agvtool new-marketing-version "1.0.$BUILD_NO"
+          agvtool new-marketing-version "1.1.$BUILD_NO"
       - name: Build IPA
         script: |
           xcode-project use-profiles

@@ -80,10 +80,21 @@ def splash(size: tuple[int, int], logo: Image.Image) -> Image.Image:
     return canvas.convert("RGB")
 
 
+def white_silhouette(im: Image.Image) -> Image.Image:
+    out = im.convert("RGBA")
+    pixels = out.load()
+    width, height = out.size
+    for y in range(height):
+        for x in range(width):
+            _r, _g, _b, alpha = pixels[x, y]
+            pixels[x, y] = (255, 255, 255, alpha)
+    return out
+
+
 def save_png(im: Image.Image, path: Path, mode: str | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    out = im.convert(mode) if mode else im
-    out.save(path, "PNG", optimize=True)
+    converted = im.convert(mode) if mode else im
+    converted.save(path, "PNG", optimize=True)
 
 
 def main() -> None:
@@ -113,6 +124,9 @@ def main() -> None:
 
     splash_icon = compose(576, (0, 0, 0, 0), logo, 0.72)
     save_png(splash_icon, android / "drawable-nodpi/splash_icon.png")
+    notify = white_silhouette(splash_icon)
+    for dens, size in {"mdpi": 24, "hdpi": 36, "xhdpi": 48, "xxhdpi": 72, "xxxhdpi": 96}.items():
+        save_png(notify.resize((size, size), Image.Resampling.LANCZOS), android / f"drawable-{dens}/ic_stat_notify.png")
 
     ios_icon = ROOT / "ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png"
     save_png(icon.convert("RGB"), ios_icon, "RGB")

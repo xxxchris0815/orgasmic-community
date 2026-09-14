@@ -341,7 +341,7 @@
           await Cap.StatusBar.setStyle({ style: 'LIGHT' });
         }
         if (!ios && Cap.StatusBar.setBackgroundColor) {
-          await Cap.StatusBar.setBackgroundColor({ color: '#ffffff' });
+          await Cap.StatusBar.setBackgroundColor({ color: '#121c30' });
         }
       } catch (e) {}
     }

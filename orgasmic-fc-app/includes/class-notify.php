@@ -28,6 +28,7 @@ class Orgasmic_Fc_App_Notify
         add_action('fluent_community/comment_added', [$this, 'on_comment'], 30, 3);
         add_action('orgasmic_fc/event/reminder', [$this, 'on_event_reminder'], 20, 3);
         add_action('orgasmic_fc/event/created', [$this, 'on_event_created'], 20, 2);
+        add_action('orgasmic_fc/event/rsvp', [$this, 'on_event_rsvp'], 20, 4);
     }
 
     public function on_chat($message, $space_id, $actor_id): void
@@ -153,17 +154,35 @@ class Orgasmic_Fc_App_Notify
             $recipients = array_values(array_intersect($recipients, $allowed));
         }
         $recipients = $this->filter_prefs($recipients, 'comment');
+        if ($recipients === []) {
+            return;
+        }
 
         $excerpt = wp_strip_all_tags((string) ($this->access->prop($comment, 'message') ?: $this->access->prop($comment, 'content') ?: ''));
-        $this->store->enqueue(
-            $recipients,
-            'comment',
-            $this->heading($space_id > 0 ? $this->access->space_title($space_id) : '', 'Kommentar'),
-            $this->line($this->actor_name($actor), $excerpt, 'Neuer Kommentar'),
-            $this->url($feed_id ? '?orgasmic_feed=' . $feed_id : ''),
-            'comment-' . $feed_id,
-            ['feed_id' => $feed_id, 'space_id' => $space_id]
-        );
+        $title = $this->heading($space_id > 0 ? $this->access->space_title($space_id) : '', 'Kommentar');
+        $url = $this->url($feed_id ? '?orgasmic_feed=' . $feed_id : '');
+        $fallback = $this->line($this->actor_name($actor), $excerpt, 'Neuer Kommentar');
+        $post_label = $this->post_label($feed);
+        foreach ($recipients as $uid) {
+            $commenters = $this->commenter_ids($feed_id, $uid);
+            if ($commenters === []) {
+                $commenters = $actor > 0 ? [$actor] : [];
+            }
+            $this->store->enqueue(
+                [$uid],
+                'comment',
+                $title,
+                $this->stack_members_line(
+                    $commenters,
+                    $fallback,
+                    'haben „' . $post_label . '“ kommentiert',
+                    'haben „' . $post_label . '“ kommentiert'
+                ),
+                $url,
+                'comment-' . $feed_id,
+                ['feed_id' => $feed_id, 'space_id' => $space_id, 'count' => count($commenters)]
+            );
+        }
         $this->kick();
     }
 
@@ -227,6 +246,51 @@ class Orgasmic_Fc_App_Notify
         $this->kick();
     }
 
+    public function on_event_rsvp($event, $user_id = 0, $status = '', $previous = null): void
+    {
+        if (!$this->enabled(Orgasmic_Fc_App_Install::OPTION_EVENT)) {
+            return;
+        }
+        if ((string) $status !== 'going' || (string) $previous === 'going') {
+            return;
+        }
+
+        $event = is_array($event) ? $event : [];
+        $id = (int) ($event['id'] ?? 0);
+        $host = (int) ($event['created_by'] ?? 0);
+        $actor = (int) $user_id;
+        if ($id < 1 || $host < 1 || $host === $actor) {
+            return;
+        }
+
+        $recipients = $this->filter_prefs([$host], 'event');
+        if ($recipients === []) {
+            return;
+        }
+
+        $going = array_values(array_diff($this->event_going_ids($id), [$host]));
+        if ($going === []) {
+            $going = $actor > 0 ? [$actor] : [];
+        }
+        $label = $this->event_title_label($event);
+        $fallback = $this->clip($this->actor_name($actor) . ' kommt zu „' . $label . '“', 160);
+        $this->store->enqueue(
+            $recipients,
+            'event',
+            $this->heading($this->event_space_title($event), 'Event'),
+            $this->stack_members_line(
+                $going,
+                $fallback,
+                'kommen zu „' . $label . '“',
+                'kommen zu „' . $label . '“'
+            ),
+            $this->url('#orgasmic-event-' . $id),
+            'event-rsvp-' . $id,
+            ['event_id' => $id, 'count' => count($going)]
+        );
+        $this->kick();
+    }
+
     public function flush(): void
     {
         $rows = $this->store->pending(40);
@@ -260,12 +324,15 @@ class Orgasmic_Fc_App_Notify
             return;
         }
 
+        $extra = json_decode((string) ($row['payload'] ?? ''), true);
+        $count = is_array($extra) ? (int) ($extra['count'] ?? 0) : 0;
         $payload = [
             'title' => (string) $row['title'],
             'body' => (string) $row['body'],
             'url' => (string) $row['url'],
             'tag' => (string) $row['tag'],
             'kind' => (string) $row['kind'],
+            'count' => $count,
         ];
 
         $ok_any = false;
@@ -479,6 +546,115 @@ class Orgasmic_Fc_App_Notify
         $title = $this->access->space_title($ids[0]);
 
         return ($title !== '' && strcasecmp($title, 'Kreis') !== 0) ? $title : '';
+    }
+
+    private function event_title_label(array $event): string
+    {
+        $title = trim(wp_strip_all_tags((string) ($event['title'] ?? '')));
+
+        return $title !== '' ? $this->clip($title, 60) : 'dieses Event';
+    }
+
+    private function post_label($feed): string
+    {
+        $title = trim(wp_strip_all_tags((string) ($this->access->prop($feed, 'title') ?: '')));
+        if ($title !== '') {
+            return $this->clip($title, 60);
+        }
+        $message = trim(wp_strip_all_tags((string) ($this->access->prop($feed, 'message') ?: '')));
+        if ($message !== '') {
+            return $this->clip($message, 40);
+        }
+
+        return 'diesen Beitrag';
+    }
+
+    /**
+     * @param int[] $actor_ids
+     */
+    private function stack_members_line(array $actor_ids, string $one_fallback, string $few_suffix, string $many_suffix): string
+    {
+        $actor_ids = array_values(array_unique(array_filter(array_map('intval', $actor_ids))));
+        $count = count($actor_ids);
+        if ($count <= 1) {
+            return $one_fallback;
+        }
+        if ($count <= 3) {
+            $names = [];
+            foreach ($actor_ids as $id) {
+                $names[] = $this->actor_name($id);
+            }
+
+            return $this->clip($this->join_names($names) . ' ' . $few_suffix, 160);
+        }
+
+        return $this->clip($count . ' Mitglieder ' . $many_suffix, 160);
+    }
+
+    /**
+     * @param string[] $names
+     */
+    private function join_names(array $names): string
+    {
+        $names = array_values(array_filter(array_map('trim', $names)));
+        if ($names === []) {
+            return 'Mitglieder';
+        }
+        if (count($names) === 1) {
+            return $names[0];
+        }
+        $last = array_pop($names);
+
+        return implode(', ', $names) . ' und ' . $last;
+    }
+
+    /**
+     * @return int[]
+     */
+    private function commenter_ids(int $feed_id, int $exclude_user_id): array
+    {
+        if ($feed_id < 1) {
+            return [];
+        }
+        global $wpdb;
+        $table = $wpdb->prefix . 'fcom_post_comments';
+        $found = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table));
+        if ($found !== $table) {
+            return [];
+        }
+        $ids = $wpdb->get_col($wpdb->prepare(
+            "SELECT user_id FROM {$table}
+             WHERE post_id = %d AND user_id != %d
+               AND (status IS NULL OR status = '' OR status IN ('published','approved'))
+             GROUP BY user_id
+             ORDER BY MAX(created_at) DESC",
+            $feed_id,
+            $exclude_user_id
+        ));
+
+        return array_values(array_unique(array_filter(array_map('intval', $ids ?: []))));
+    }
+
+    /**
+     * @return int[]
+     */
+    private function event_going_ids(int $event_id): array
+    {
+        if ($event_id < 1) {
+            return [];
+        }
+        global $wpdb;
+        $table = $wpdb->prefix . 'orgasmic_fc_cal_rsvps';
+        $found = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table));
+        if ($found !== $table) {
+            return [];
+        }
+        $ids = $wpdb->get_col($wpdb->prepare(
+            "SELECT user_id FROM {$table} WHERE event_id = %d AND status = 'going' ORDER BY updated_at DESC",
+            $event_id
+        ));
+
+        return array_values(array_unique(array_filter(array_map('intval', $ids ?: []))));
     }
 
     private function clip(string $text, int $max): string

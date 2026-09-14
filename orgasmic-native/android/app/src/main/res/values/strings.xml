@@ -4,4 +4,6 @@
     <string name="title_activity_main">LO Community</string>
     <string name="package_name">live.lo.community</string>
     <string name="custom_url_scheme">live.lo.community</string>
+    <string name="push_channel_name">Community</string>
+    <string name="push_channel_description">Chat, Beiträge, Kommentare und Events</string>
 </resources>
