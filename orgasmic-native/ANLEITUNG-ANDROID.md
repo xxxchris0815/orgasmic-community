@@ -22,6 +22,21 @@ Reihenfolge einhalten. Android zuerst. iOS: [`ANLEITUNG-IOS.md`](ANLEITUNG-IOS.m
 
 **Start-URL:** `https://community.orgasmic.live/portal` (FluentCommunity, nicht die WordPress-Startseite). Nach einer URL-Änderung muss die APK neu gebaut und installiert werden.
 
+## Play-Test Build 1.1 (Codemagic)
+
+Für geschlossenen/internen Test braucht Play eine **neue AAB mit höherem Version Code**. Native-Stand ist `1.1.x` (Codemagic: `versionName` = `1.1.$BUILD_NUMBER`).
+
+Was sich nativ geändert hat (ohne neuen Build unsichtbar):
+
+- SplashScreen wird vor `onCreate` installiert (kein Weiß-Blitz / Android-12-Crash)
+- Status- und Navigationsleiste navy `#121c30` statt Weiß
+- Push-Kanal **Community**, LO-Icon in der Statusleiste
+- 16-KB-Page-Size für Play (targetSdk 36)
+- Kein Cloud-Backup der WebView-Session
+- Links auf `community.orgasmic.live/portal` können die App öffnen
+
+Codemagic: diesen Branch → **Android Release (AAB + APK)** oder **Android zu Play (Internal)**. Zusätzlich WordPress-Plugin **ORGASMIC App 1.1.30** einspielen (Kommentar-Stack + FCM-Kanal). Das Plugin allein ersetzt **keine** AAB.
+
 ## 0. Was schon im Repo liegt
 
 | Datei | Zweck |

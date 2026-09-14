@@ -42,7 +42,19 @@ class Orgasmic_Fc_App_Fcm
             if ($count > 0) {
                 $data['count'] = (string) $count;
             }
-            $android = ['priority' => 'HIGH'];
+            $title = (string) ($payload['title'] ?? 'LO Community');
+            $text = (string) ($payload['body'] ?? '');
+            $androidNotification = [
+                'title' => $title,
+                'body' => $text,
+                'channel_id' => 'lo_community',
+                'icon' => 'ic_stat_notify',
+                'color' => '#c4a35a',
+            ];
+            $android = [
+                'priority' => 'HIGH',
+                'notification' => $androidNotification,
+            ];
             $apns = [
                 'payload' => [
                     'aps' => [
@@ -53,11 +65,7 @@ class Orgasmic_Fc_App_Fcm
             ];
             if ($tag !== '') {
                 $android['collapse_key'] = $tag;
-                $android['notification'] = [
-                    'title' => (string) ($payload['title'] ?? 'LO Community'),
-                    'body' => (string) ($payload['body'] ?? ''),
-                    'tag' => $tag,
-                ];
+                $android['notification']['tag'] = $tag;
                 if ($count > 1) {
                     $android['notification']['notification_count'] = $count;
                 }
@@ -71,8 +79,8 @@ class Orgasmic_Fc_App_Fcm
                 'message' => [
                     'token' => $token,
                     'notification' => [
-                        'title' => (string) ($payload['title'] ?? 'LO Community'),
-                        'body' => (string) ($payload['body'] ?? ''),
+                        'title' => $title,
+                        'body' => $text,
                     ],
                     'data' => $data,
                     'android' => $android,

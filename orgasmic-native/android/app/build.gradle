@@ -5,7 +5,7 @@ def getMyVersionCode = { ->
 }
 
 def getMyVersionName = { ->
-    return project.hasProperty('versionName') ? versionName : "1.0.0"
+    return project.hasProperty('versionName') ? versionName : "1.1.0"
 }
 
 android {
@@ -46,6 +46,11 @@ android {
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_21
         targetCompatibility JavaVersion.VERSION_21
+    }
+    packaging {
+        jniLibs {
+            useLegacyPackaging false
+        }
     }
     buildFeatures {
         buildConfig true

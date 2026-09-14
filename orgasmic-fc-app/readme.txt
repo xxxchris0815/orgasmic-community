@@ -1,12 +1,15 @@
 === ORGASMIC App ===
 Requires at least: 6.4
 Requires PHP: 8.1
-Stable tag: 1.1.29
+Stable tag: 1.1.30
 License: GPLv2 or later
 
 PWA, offline cache, and Web Push for chat, posts, comments, and calendar events.
 
 == Changelog ==
+
+= 1.1.30 =
+* Android StatusBar matches the navy portal; FCM uses channel `lo_community` and the LO notification icon
 
 = 1.1.29 =
 * Comments on the same post collapse into one push: two or three names, or “4 Mitglieder haben … kommentiert”
